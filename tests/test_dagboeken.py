@@ -85,3 +85,91 @@ def test_find_by_code_not_found(mocked_responses, client):
     )
     result = client.administratie(1).dagboeken.find_by_code("KAS")
     assert result is None
+
+
+def test_dagboek_scope_by_id(client):
+    """Positional and keyword ID still work without an HTTP call (AdministratieScope)."""
+    scope = client.administratie(1).dagboek(20)
+    assert scope._dagboek_id == 20
+
+    scope = client.administratie(1).dagboek(dagboek_id=20)
+    assert scope._dagboek_id == 20
+
+
+def test_dagboek_scope_by_name(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    scope = client.administratie(1).dagboek(name="Bankboek")
+    assert scope._dagboek_id == 20
+
+
+def test_dagboek_scope_by_code(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    scope = client.administratie(1).dagboek(code="bank")  # case-insensitive
+    assert scope._dagboek_id == 20
+
+
+def test_dagboek_scope_by_name_not_found(mocked_responses, client):
+    from mboek._exceptions import NotFoundError
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    try:
+        client.administratie(1).dagboek(name="Onbekend")
+        assert False
+    except NotFoundError as e:
+        assert "Onbekend" in str(e)
+
+
+def test_dagboek_scope_by_code_not_found(mocked_responses, client):
+    from mboek._exceptions import NotFoundError
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    try:
+        client.administratie(1).dagboek(code="KAS")
+        assert False
+    except NotFoundError as e:
+        assert "KAS" in str(e)
+
+
+def test_dagboek_scope_missing_args(client):
+    try:
+        client.administratie(1).dagboek()
+        assert False
+    except ValueError:
+        pass
+
+
+def test_boekjaar_dagboek_scope_by_name(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    scope = client.administratie(1).boekjaar(10).dagboek(name="Bankboek")
+    assert scope._dagboek_id == 20
+
+
+def test_boekjaar_dagboek_scope_by_code(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    scope = client.administratie(1).boekjaar(10).dagboek(code="BANK")
+    assert scope._dagboek_id == 20
+
+
+def test_boekjaar_dagboek_scope_by_name_not_found(mocked_responses, client):
+    from mboek._exceptions import NotFoundError
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    try:
+        client.administratie(1).boekjaar(10).dagboek(name="Onbekend")
+        assert False
+    except NotFoundError:
+        pass

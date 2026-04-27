@@ -198,19 +198,38 @@ class MboekClient:
 
     # ── Scoped access ─────────────────────────────────────────────────────────
 
-    def administratie(self, admin_id: int):
-        """Return an :py:class:`~mboek.resources._admin_scope.AdministratieScope` for ``admin_id``.
+    def administratie(self, admin_id: int | None = None, *, name: str | None = None):
+        """Return an :py:class:`~mboek.resources._admin_scope.AdministratieScope`.
 
-        No HTTP call is made — the scope is a lightweight binding that gives
-        access to all child resources without repeating the ``admin_id``::
+        Pass either the numeric ``admin_id`` (no HTTP call) or a ``name`` to
+        look up the administratie by exact name (one HTTP call)::
 
             admin = client.administratie(1)
+            admin = client.administratie(name="Demo BV")
+
             boekjaren = admin.boekjaren.list()
             dagboek = admin.dagboek(20)
 
         Args:
-            admin_id: Administratie ID.
+            admin_id: Administratie ID. No HTTP call is made.
+            name: Exact administratie name (case-sensitive). Performs a
+                :py:meth:`~mboek.resources.administraties.AdministratiesResource.list`
+                lookup request.
+
+        Raises:
+            :py:class:`~mboek._exceptions.NotFoundError`: ``name`` given but no
+                matching administratie found.
+            :py:exc:`ValueError`: Neither or both of ``admin_id`` and ``name``
+                provided.
         """
+        provided = sum(x is not None for x in [admin_id, name])
+        if provided != 1:
+            raise ValueError("Provide exactly one of: admin_id, name")
+        if name is not None:
+            found = self.administraties.find_by_naam(name)
+            if found is None:
+                raise NotFoundError(f"Administratie '{name}' not found")
+            admin_id = found.id
         from mboek.resources._admin_scope import AdministratieScope
 
         return AdministratieScope(self, admin_id)

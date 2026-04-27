@@ -101,3 +101,49 @@ def test_find_by_naam_not_found(mocked_responses, client):
     )
     result = client.administratie(1).boekjaren.find_by_naam("2099")
     assert result is None
+
+
+def test_boekjaar_scope_by_id(client):
+    """Positional and keyword ID still work without an HTTP call."""
+    scope = client.administratie(1).boekjaar(10)
+    assert scope.boekjaar_id == 10
+
+    scope = client.administratie(1).boekjaar(boekjaar_id=10)
+    assert scope.boekjaar_id == 10
+
+
+def test_boekjaar_scope_by_name(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren", json=[BOEKJAAR]
+    )
+    scope = client.administratie(1).boekjaar(name="2024")
+    assert scope.boekjaar_id == 10
+
+
+def test_boekjaar_scope_by_name_not_found(mocked_responses, client):
+    from mboek._exceptions import NotFoundError
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren", json=[BOEKJAAR]
+    )
+    try:
+        client.administratie(1).boekjaar(name="2099")
+        assert False
+    except NotFoundError as e:
+        assert "2099" in str(e)
+
+
+def test_boekjaar_scope_missing_args(client):
+    try:
+        client.administratie(1).boekjaar()
+        assert False
+    except ValueError:
+        pass
+
+
+def test_boekjaar_scope_ambiguous_args(client):
+    try:
+        client.administratie(1).boekjaar(10, name="2024")
+        assert False
+    except ValueError:
+        pass

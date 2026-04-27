@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from mboek._exceptions import NotFoundError
+
 if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.resources._boekjaar_scope import BoekjaarScope
@@ -103,31 +105,86 @@ class AdministratieScope:
 
     # ── Boekjaar scope ────────────────────────────────────────────────────────
 
-    def boekjaar(self, boekjaar_id: int) -> "BoekjaarScope":
-        """Return a :py:class:`~mboek.resources._boekjaar_scope.BoekjaarScope` for ``boekjaar_id``.
+    def boekjaar(self, boekjaar_id: int | None = None, *, name: str | None = None) -> "BoekjaarScope":
+        """Return a :py:class:`~mboek.resources._boekjaar_scope.BoekjaarScope`.
 
-        Provides access to reports, BTW-aangifte, and boekingen for the given
-        fiscal year. No HTTP call is made.
+        Pass either the numeric ``boekjaar_id`` (no HTTP call) or a ``name``
+        to look up the boekjaar by exact name (one HTTP call)::
+
+            bj = admin.boekjaar(10)
+            bj = admin.boekjaar(name="2024")
 
         Args:
-            boekjaar_id: Boekjaar ID.
+            boekjaar_id: Boekjaar ID. No HTTP call is made.
+            name: Exact boekjaar name, e.g. ``"2024"`` (case-sensitive).
+                Performs a
+                :py:meth:`~mboek.resources.boekjaren.BoekjarenResource.list`
+                lookup request.
+
+        Raises:
+            :py:class:`~mboek._exceptions.NotFoundError`: ``name`` given but
+                no matching boekjaar found.
+            :py:exc:`ValueError`: Neither or both of ``boekjaar_id`` and
+                ``name`` provided.
         """
+        provided = sum(x is not None for x in [boekjaar_id, name])
+        if provided != 1:
+            raise ValueError("Provide exactly one of: boekjaar_id, name")
+        if name is not None:
+            found = self.boekjaren.find_by_naam(name)
+            if found is None:
+                raise NotFoundError(f"Boekjaar '{name}' not found")
+            boekjaar_id = found.id
         from mboek.resources._boekjaar_scope import BoekjaarScope
 
         return BoekjaarScope(self._client, self.admin_id, boekjaar_id)
 
     # ── Dagboek scope (year-agnostic operations) ──────────────────────────────
 
-    def dagboek(self, dagboek_id: int) -> "DagboekScope":
-        """Return a :py:class:`~mboek.resources._dagboek_scope.DagboekScope` for ``dagboek_id``.
+    def dagboek(
+        self,
+        dagboek_id: int | None = None,
+        *,
+        name: str | None = None,
+        code: str | None = None,
+    ) -> "DagboekScope":
+        """Return a :py:class:`~mboek.resources._dagboek_scope.DagboekScope`.
 
-        Provides access to year-agnostic dagboek operations: re-running booking
-        rules, getting match suggestions, and importing boekingen.
-        No HTTP call is made.
+        Pass the numeric ``dagboek_id`` (no HTTP call), a ``name``, or a
+        ``code`` to look up by exact name or short code (one HTTP call each)::
+
+            dagboek = admin.dagboek(20)
+            dagboek = admin.dagboek(name="Bankboek")
+            dagboek = admin.dagboek(code="BANK")
 
         Args:
-            dagboek_id: Dagboek ID.
+            dagboek_id: Dagboek ID. No HTTP call is made.
+            name: Exact dagboek name (case-sensitive). Performs a
+                :py:meth:`~mboek.resources.dagboeken.DagboekenResource.list`
+                lookup request.
+            code: Dagboek short code (case-insensitive). Performs a
+                :py:meth:`~mboek.resources.dagboeken.DagboekenResource.list`
+                lookup request.
+
+        Raises:
+            :py:class:`~mboek._exceptions.NotFoundError`: ``name`` or ``code``
+                given but no matching dagboek found.
+            :py:exc:`ValueError`: None or more than one of the arguments
+                provided.
         """
+        provided = sum(x is not None for x in [dagboek_id, name, code])
+        if provided != 1:
+            raise ValueError("Provide exactly one of: dagboek_id, name, code")
+        if name is not None:
+            found = self.dagboeken.find_by_naam(name)
+            if found is None:
+                raise NotFoundError(f"Dagboek '{name}' not found")
+            dagboek_id = found.id
+        elif code is not None:
+            found = self.dagboeken.find_by_code(code)
+            if found is None:
+                raise NotFoundError(f"Dagboek with code '{code}' not found")
+            dagboek_id = found.id
         from mboek.resources._dagboek_scope import DagboekScope
 
         return DagboekScope(self._client, self.admin_id, dagboek_id)

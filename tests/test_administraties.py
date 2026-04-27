@@ -93,3 +93,49 @@ def test_find_by_naam_not_found(mocked_responses, client):
     )
     result = client.administraties.find_by_naam("Nonexistent")
     assert result is None
+
+
+def test_administratie_scope_by_id(client):
+    """Positional and keyword ID still work without an HTTP call."""
+    scope = client.administratie(1)
+    assert scope.admin_id == 1
+
+    scope = client.administratie(admin_id=1)
+    assert scope.admin_id == 1
+
+
+def test_administratie_scope_by_name(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties", json=[ADMINISTRATIE]
+    )
+    scope = client.administratie(name="Test BV")
+    assert scope.admin_id == 1
+
+
+def test_administratie_scope_by_name_not_found(mocked_responses, client):
+    from mboek._exceptions import NotFoundError
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties", json=[ADMINISTRATIE]
+    )
+    try:
+        client.administratie(name="Nonexistent BV")
+        assert False
+    except NotFoundError as e:
+        assert "Nonexistent BV" in str(e)
+
+
+def test_administratie_scope_missing_args(client):
+    try:
+        client.administratie()
+        assert False
+    except ValueError:
+        pass
+
+
+def test_administratie_scope_ambiguous_args(client):
+    try:
+        client.administratie(1, name="Test BV")
+        assert False
+    except ValueError:
+        pass

@@ -24,6 +24,7 @@ with MboekClient("http://localhost:3000", "admin", "geheim") as client:
 
     # Scope all further calls to one administration
     a = client.administratie(admin.id)
+    # or by name:  a = client.administratie(name=admin.naam)
 
     # List fiscal years
     years = a.boekjaren.list()
@@ -32,6 +33,7 @@ with MboekClient("http://localhost:3000", "admin", "geheim") as client:
 
     # Scope to a specific boekjaar
     bj = a.boekjaar(boekjaar.id)
+    # or by name:  bj = a.boekjaar(name=boekjaar.naam)
 
     # List journals
     dagboeken = a.dagboeken.list()
@@ -57,7 +59,7 @@ MboekClient
 ├── boekingen                 ← get / update / delete by ID
 ├── export_import             ← import_administratie
 ├── maintenance               ← database vacuum
-└── administratie(id)  →  AdministratieScope
+└── administratie(id|name=)  →  AdministratieScope
     ├── boekjaren             ← fiscal years (CRUD + open/close)
     ├── dagboeken             ← journals (CRUD + werkstatus)
     ├── grootboekrekeningen   ← chart of accounts (CRUD + balances + ledger)
@@ -65,14 +67,14 @@ MboekClient
     ├── auto_booking_rules    ← automatic booking rules (CRUD)
     ├── import_               ← bank statement upload
     ├── export_import         ← full export / boekjaar export / import
-    ├── dagboek(id)  →  DagboekScope   (year-agnostic ops)
+    ├── dagboek(id|name=|code=)  →  DagboekScope   (year-agnostic ops)
     │   ├── rerun_regels()
     │   ├── suggest(boeking_id)
     │   └── import_boekingen(boekingen)
-    └── boekjaar(id)  →  BoekjaarScope
+    └── boekjaar(id|name=)  →  BoekjaarScope
         ├── reports           ← balance sheet and P&L
         ├── btw_aangifte      ← quarterly VAT returns
-        └── dagboek(id)  →  BoekjaarDagboekScope
+        └── dagboek(id|name=|code=)  →  BoekjaarDagboekScope
             └── boekingen     ← list / create
 ```
 
@@ -130,6 +132,26 @@ rekening = a.grootboekrekeningen.find_by_code("1220")
 
 # Find a VAT code by its short code (case-insensitive)
 btw = a.btw_codes.find_by_code("v21")    # matches "V21"
+```
+
+The scope factory methods also accept a `name` (or `code`) keyword as a
+shorthand. A lookup request is performed and `NotFoundError` is raised when
+nothing is found:
+
+```python
+# Scope by name instead of ID — performs one list lookup per call
+admin = client.administratie(name="Demo BV")
+bj    = admin.boekjaar(name="2024")
+scope = bj.dagboek(name="Bankboek")
+scope = bj.dagboek(code="BANK")  # case-insensitive
+
+# Chained form (each name= triggers one HTTP call)
+entries = (
+    client.administratie(name="Demo BV")
+          .boekjaar(name="2024")
+          .dagboek(code="BANK")
+          .boekingen.list()
+)
 ```
 
 ## Creating a journal entry

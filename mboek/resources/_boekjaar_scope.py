@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from mboek._exceptions import NotFoundError
+
 if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.models.boekingen import BoekingMetRegelsResponse, CreateBoekingInput
@@ -146,14 +148,53 @@ class BoekjaarScope:
             )
         return self._btw_aangifte
 
-    def dagboek(self, dagboek_id: int) -> BoekjaarDagboekScope:
-        """Return a :py:class:`BoekjaarDagboekScope` for ``dagboek_id``.
+    def dagboek(
+        self,
+        dagboek_id: int | None = None,
+        *,
+        name: str | None = None,
+        code: str | None = None,
+    ) -> BoekjaarDagboekScope:
+        """Return a :py:class:`BoekjaarDagboekScope`.
 
-        No HTTP call is made.
+        Pass the numeric ``dagboek_id`` (no HTTP call), a ``name``, or a
+        ``code`` to look up by exact name or short code (one HTTP call each)::
+
+            scope = bj.dagboek(20)
+            scope = bj.dagboek(name="Bankboek")
+            scope = bj.dagboek(code="BANK")
 
         Args:
-            dagboek_id: Dagboek ID.
+            dagboek_id: Dagboek ID. No HTTP call is made.
+            name: Exact dagboek name (case-sensitive). Performs a
+                :py:meth:`~mboek.resources.dagboeken.DagboekenResource.list`
+                lookup request.
+            code: Dagboek short code (case-insensitive). Performs a
+                :py:meth:`~mboek.resources.dagboeken.DagboekenResource.list`
+                lookup request.
+
+        Raises:
+            :py:class:`~mboek._exceptions.NotFoundError`: ``name`` or ``code``
+                given but no matching dagboek found.
+            :py:exc:`ValueError`: None or more than one of the arguments
+                provided.
         """
+        provided = sum(x is not None for x in [dagboek_id, name, code])
+        if provided != 1:
+            raise ValueError("Provide exactly one of: dagboek_id, name, code")
+        if name is not None or code is not None:
+            from mboek.resources.dagboeken import DagboekenResource
+
+            dagboeken = DagboekenResource(self._client, self._admin_id)
+            if name is not None:
+                found = dagboeken.find_by_naam(name)
+                label = f"'{name}'"
+            else:
+                found = dagboeken.find_by_code(code)
+                label = f"with code '{code}'"
+            if found is None:
+                raise NotFoundError(f"Dagboek {label} not found")
+            dagboek_id = found.id
         return BoekjaarDagboekScope(
             self._client, self._admin_id, self.boekjaar_id, dagboek_id
         )
