@@ -12,9 +12,9 @@ from mboek.models._enums import (
     BoekjaarStatus,
     BtwSoort,
     DagboekType,
+    Regeltype,
     RekeningCategorie,
     RekeningType,
-    Regeltype,
 )
 from mboek.models.administraties import AdministratieResponse
 from mboek.models.auth import LoginResponse

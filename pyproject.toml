@@ -9,14 +9,37 @@ description = "High-level Python client for the mBoek bookkeeping API"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "GPL-3.0-or-later"
+authors = [
+    { name = "Martin van der Werff", email = "info@newinnovations.nl" },
+]
+keywords = ["bookkeeping", "accounting", "mboek", "api", "client", "dutch", "boekhouding"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Office/Business :: Financial :: Accounting",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
 dependencies = [
     "requests>=2.31",
 ]
+
+[project.urls]
+Homepage = "https://github.com/newinnovations/mboek-python-client"
+Repository = "https://github.com/newinnovations/mboek-python-client"
+"Bug Tracker" = "https://github.com/newinnovations/mboek-python-client/issues"
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "responses>=0.25",
+    "ruff>=0.4",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -24,3 +47,10 @@ packages = ["mboek"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]  # long sphinx cross-references in docstrings

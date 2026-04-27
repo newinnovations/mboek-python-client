@@ -8,9 +8,9 @@ from mboek.models._enums import (
     BtwSoort,
     DagboekType,
     ImportFormaat,
+    Regeltype,
     RekeningCategorie,
     RekeningType,
-    Regeltype,
 )
 from mboek.models.administraties import (
     AdministratieResponse,
