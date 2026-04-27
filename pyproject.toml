@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mboek"
+version = "0.1.0"
+description = "High-level Python client for the mBoek bookkeeping API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+dependencies = [
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "responses>=0.25",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["mboek"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
