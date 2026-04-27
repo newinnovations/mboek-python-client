@@ -141,8 +141,9 @@ def parse_grootboekrekening(d: dict) -> GrootboekrekeningResponse:
 
 
 def parse_grootboekrekening_met_saldo(d: dict) -> GrootboekrekeningMetSaldoResponse:
+    rekening_data = d.get("rekening", d)
     return GrootboekrekeningMetSaldoResponse(
-        rekening=parse_grootboekrekening(d["rekening"]),
+        rekening=parse_grootboekrekening(rekening_data),
         aantal_transacties=d["aantal_transacties"],
         saldo=_cents(d["saldo"]),
     )

@@ -72,8 +72,10 @@ MboekClient
     │   ├── suggest(boeking_id)
     │   └── import_boekingen(boekingen)
     └── boekjaar(id|name=)  →  BoekjaarScope
-        ├── reports           ← balance sheet and P&L
-        ├── btw_aangifte      ← quarterly VAT returns
+        ├── reports                   ← balance sheet and P&L
+        ├── btw_aangifte              ← quarterly VAT returns
+        ├── grootboekrekeningen()     ← all accounts with balance for this year
+        ├── grootboekrekening(code=)  ← single account with balance, by code
         └── dagboek(id|name=|code=)  →  BoekjaarDagboekScope
             └── boekingen     ← list / create
 ```
@@ -152,6 +154,24 @@ entries = (
           .dagboek(code="BANK")
           .boekingen.list()
 )
+```
+
+## Grootboekrekeningen per boekjaar
+
+Use `BoekjaarScope.grootboekrekeningen()` to list all accounts enriched with the
+transaction count and net balance for a specific fiscal year.
+Each item exposes `.code`, `.naam`, `.transacties`, and `.saldo` as flat attributes.
+
+```python
+bj = client.administratie(name="Demo BV").boekjaar(name="2026")
+
+# Iterate all accounts with their year-to-date balance
+for rekening in bj.grootboekrekeningen():
+    print(rekening.code, rekening.naam, rekening.transacties, rekening.saldo)
+
+# Look up a single account by code — raises NotFoundError when not found
+rekening = bj.grootboekrekening(code="4000")
+print("Saldo 4000:", rekening.saldo)
 ```
 
 ## Creating a journal entry

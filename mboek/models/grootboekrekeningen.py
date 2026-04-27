@@ -56,6 +56,21 @@ class GrootboekrekeningMetSaldoResponse:
     aantal_transacties: int
     saldo: Decimal
 
+    @property
+    def code(self) -> str:
+        """Account code (delegates to ``rekening.code``)."""
+        return self.rekening.code
+
+    @property
+    def naam(self) -> str:
+        """Account name (delegates to ``rekening.naam``)."""
+        return self.rekening.naam
+
+    @property
+    def transacties(self) -> int:
+        """Number of transactions (alias for ``aantal_transacties``)."""
+        return self.aantal_transacties
+
 
 @dataclass
 class GrootboekMutatie:

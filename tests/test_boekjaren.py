@@ -5,9 +5,9 @@ from __future__ import annotations
 import responses
 
 from mboek import CreateBoekjaarInput
-from mboek._exceptions import ConflictError
+from mboek._exceptions import ConflictError, NotFoundError
 from mboek.models._enums import BoekjaarStatus
-from tests.conftest import BASE_URL, BOEKJAAR
+from tests.conftest import BASE_URL, BOEKJAAR, GROOTBOEKREKENING
 
 from datetime import date
 
@@ -147,3 +147,47 @@ def test_boekjaar_scope_ambiguous_args(client):
         assert False
     except ValueError:
         pass
+
+
+MET_SALDO = [{"rekening": GROOTBOEKREKENING, "aantal_transacties": 3, "saldo": 400000}]
+
+
+def test_boekjaar_scope_grootboekrekeningen(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=MET_SALDO,
+    )
+    items = client.administratie(1).boekjaar(10).grootboekrekeningen()
+    assert len(items) == 1
+    item = items[0]
+    assert item.code == "1220"
+    assert item.naam == "Bank"
+    assert item.transacties == 3
+    from decimal import Decimal
+    assert item.saldo == Decimal("4000.00")
+
+
+def test_boekjaar_scope_grootboekrekening_found(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=MET_SALDO,
+    )
+    item = client.administratie(1).boekjaar(10).grootboekrekening(code="1220")
+    assert item.naam == "Bank"
+    from decimal import Decimal
+    assert item.saldo == Decimal("4000.00")
+
+
+def test_boekjaar_scope_grootboekrekening_not_found(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=MET_SALDO,
+    )
+    try:
+        client.administratie(1).boekjaar(10).grootboekrekening(code="9999")
+        assert False
+    except NotFoundError as e:
+        assert "9999" in str(e)

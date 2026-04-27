@@ -9,6 +9,7 @@ from mboek._exceptions import NotFoundError
 if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.models.boekingen import BoekingMetRegelsResponse, CreateBoekingInput
+    from mboek.models.grootboekrekeningen import GrootboekrekeningMetSaldoResponse
 
 
 class BoekjaarScopedBoekingenResource:
@@ -147,6 +148,40 @@ class BoekjaarScope:
                 self._client, self._admin_id, self.boekjaar_id
             )
         return self._btw_aangifte
+
+    def grootboekrekeningen(self) -> list["GrootboekrekeningMetSaldoResponse"]:
+        """Return all grootboekrekeningen for this boekjaar, enriched with balance.
+
+        Each item exposes ``.code``, ``.naam``, ``.transacties``, and ``.saldo``
+        as flat attributes in addition to the full ``.rekening`` object.
+
+        Returns:
+            List of :py:class:`~mboek.models.grootboekrekeningen.GrootboekrekeningMetSaldoResponse`,
+            sorted by code ascending.
+        """
+        from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
+
+        return GrootboekrekeningenResource(self._client, self._admin_id).met_saldo(
+            self.boekjaar_id
+        )
+
+    def grootboekrekening(self, *, code: str) -> "GrootboekrekeningMetSaldoResponse":
+        """Return a single grootboekrekening for this boekjaar, looked up by account code.
+
+        Args:
+            code: Account code to search for (e.g. ``"4000"``).
+
+        Returns:
+            The matching :py:class:`~mboek.models.grootboekrekeningen.GrootboekrekeningMetSaldoResponse`.
+
+        Raises:
+            :py:class:`~mboek._exceptions.NotFoundError`: No account with the
+                given code exists in this boekjaar.
+        """
+        found = next((r for r in self.grootboekrekeningen() if r.code == code), None)
+        if found is None:
+            raise NotFoundError(f"Grootboekrekening with code '{code}' not found")
+        return found
 
     def dagboek(
         self,
