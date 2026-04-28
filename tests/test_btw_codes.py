@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import responses
 
-from mboek import CreateBtwCodeInput
 from mboek.models._enums import BtwSoort
 from decimal import Decimal
 from tests.conftest import BASE_URL, BTW_CODE
@@ -36,13 +35,12 @@ def test_create(mocked_responses, client):
         json=BTW_CODE,
         status=201,
     )
-    inp = CreateBtwCodeInput(
+    item = client.administratie(1).btw_codes.create(
         code="V21",
         omschrijving="Verkoop (21%)",
         percentage=Decimal("21"),
         soort=BtwSoort.VERKOPEN_NL_HOOG,
     )
-    item = client.administratie(1).btw_codes.create(inp)
     assert item.id == 50
 
 

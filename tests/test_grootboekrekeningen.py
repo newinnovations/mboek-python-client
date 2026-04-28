@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import responses
 
-from mboek import CreateGrootboekrekeningInput, NewGrootboekrekening
 from mboek.models._enums import RekeningCategorie, RekeningType
 from tests.conftest import BASE_URL, GROOTBOEKREKENING
 
@@ -38,13 +37,12 @@ def test_create(mocked_responses, client):
         json=GROOTBOEKREKENING,
         status=201,
     )
-    inp = CreateGrootboekrekeningInput(
+    item = client.administratie(1).grootboekrekeningen.create(
         code="1220",
         naam="Bank",
         rekening_type=RekeningType.ACTIVA,
         categorie=RekeningCategorie.BALANS,
     )
-    item = client.administratie(1).grootboekrekeningen.create(inp)
     assert item.id == 30
 
 
@@ -133,13 +131,7 @@ def test_find_by_code_not_found(mocked_responses, client):
     assert result is None
 
 
-# ── Rename & cache tests ──────────────────────────────────────────────────────
-
-
-def test_new_naam_is_canonical():
-    """NewGrootboekrekening is importable and is the canonical class."""
-    assert NewGrootboekrekening is not None
-    assert CreateGrootboekrekeningInput is NewGrootboekrekening
+# ── Cache tests ───────────────────────────────────────────────────────────────
 
 
 def test_list_cached(mocked_responses, client):

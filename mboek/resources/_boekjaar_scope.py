@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from mboek.resources._base import BaseResource
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.models.boekingen import BoekingMetRegelsResponse, NewBoeking
+    from mboek.models.boekingen import BoekingMetRegelsResponse, NewBoekingsregel
 
 
 class BoekjaarScopedBoekingenResource(BaseResource):
@@ -51,21 +53,36 @@ class BoekjaarScopedBoekingenResource(BaseResource):
             )
         ]
 
-    def create(self, input: "NewBoeking") -> "BoekingMetRegelsResponse":
+    def create(
+        self,
+        regels: "list[NewBoekingsregel]",
+        datum: date,
+        omschrijving: str,
+        *,
+        stuknummer: str | None = None,
+        tegenpartij_naam: str | None = None,
+        tegenpartij_iban: str | None = None,
+        referentie_import: str | None = None,
+        auto_geboekt: bool | None = None,
+    ) -> "BoekingMetRegelsResponse":
         """Create a new boeking with its boekingsregels in a single transaction.
 
-        The scope's ``boekjaar_id`` is always injected into the request,
-        overriding any value set on ``input``. All regels must balance
-        (``sum(bedrag) == 0``).
+        The scope's ``boekjaar_id`` is always injected into the request.
+        All regels must balance (``sum(bedrag) == 0``).
 
         Regels may reference a grootboekrekening via ``grootboekrekening_naam``
         or ``grootboekrekening_code`` instead of ``grootboekrekening_id``; the
         ID is resolved automatically (using the client-level cache).
 
         Args:
-            input: :py:class:`~mboek.models.boekingen.NewBoeking` — boeking
-                header and lines. The ``boekjaar_id`` field may be omitted; the
-                scope provides it automatically.
+            regels: At least two balanced lines (``sum(bedrag) == 0``).
+            datum: Booking date.
+            omschrijving: Description.
+            stuknummer: Optional document/invoice reference.
+            tegenpartij_naam: Optional counterparty name.
+            tegenpartij_iban: Optional counterparty IBAN.
+            referentie_import: Optional external reference string.
+            auto_geboekt: Set ``True`` to flag as system-generated.
 
         Returns:
             The newly created boeking with all its regels.
@@ -78,7 +95,7 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         """
         from mboek._parsers import parse_boeking_met_regels
 
-        for regel in input.regels:
+        for regel in regels:
             if regel.grootboekrekening_id is None:
                 regel.grootboekrekening_id = self._resolve_rekening_id(
                     self._admin_id,
@@ -86,8 +103,22 @@ class BoekjaarScopedBoekingenResource(BaseResource):
                     code=regel.grootboekrekening_code,
                 )
 
-        data = input.to_dict()
-        data["boekjaar_id"] = self._boekjaar_id
+        data: dict = {
+            "datum": datum.isoformat(),
+            "omschrijving": omschrijving,
+            "regels": [r.to_dict() for r in regels],
+            "boekjaar_id": self._boekjaar_id,
+        }
+        if stuknummer is not None:
+            data["stuknummer"] = stuknummer
+        if tegenpartij_naam is not None:
+            data["tegenpartij_naam"] = tegenpartij_naam
+        if tegenpartij_iban is not None:
+            data["tegenpartij_iban"] = tegenpartij_iban
+        if referentie_import is not None:
+            data["referentie_import"] = referentie_import
+        if auto_geboekt is not None:
+            data["auto_geboekt"] = auto_geboekt
 
         return parse_boeking_met_regels(
             self._client._request(

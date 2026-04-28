@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
@@ -130,82 +130,4 @@ class NewAutoBookingRuleLine:
             d["omschrijving"] = self.omschrijving
         if self.bedrag is not None:
             d["bedrag"] = str(self.bedrag)
-        return d
-
-
-@dataclass
-class NewAutoBookingRule:
-    """Input for creating a new automatic booking rule.
-
-    Attributes:
-        naam: Human-readable name.
-        actie_type: Action type.
-        lines: One or more action lines.
-        prioriteit: Sort priority (default 100).
-        actief: Enable the rule (default ``True``).
-        eigen_iban_patroon: Regex for own IBAN matching.
-        tegenpartij_iban_patroon: Regex for counterparty IBAN matching.
-        omschrijving_patroon: Regex for transaction description matching.
-    """
-
-    naam: str
-    actie_type: AutoBookingActieType
-    lines: list["NewAutoBookingRuleLine"]
-    prioriteit: int = 100
-    eigen_iban_patroon: str | None = None
-    tegenpartij_iban_patroon: str | None = None
-    omschrijving_patroon: str | None = None
-
-    def to_dict(self) -> dict:
-        d: dict = {
-            "naam": self.naam,
-            "actie_type": self.actie_type.value,
-            "lines": [ln.to_dict() for ln in self.lines],
-            "prioriteit": self.prioriteit,
-            "actief": self.actief,
-        }
-        if self.eigen_iban_patroon is not None:
-            d["eigen_iban_patroon"] = self.eigen_iban_patroon
-        if self.tegenpartij_iban_patroon is not None:
-            d["tegenpartij_iban_patroon"] = self.tegenpartij_iban_patroon
-        if self.omschrijving_patroon is not None:
-            d["omschrijving_patroon"] = self.omschrijving_patroon
-        return d
-
-
-@dataclass
-class UpdateAutoBookingRule:
-    """Input for partially updating an automatic booking rule.
-
-    All fields optional. If ``lines`` is provided the existing lines are
-    replaced atomically.
-    """
-
-    naam: str | None = None
-    prioriteit: int | None = None
-    actief: bool | None = None
-    actie_type: AutoBookingActieType | None = None
-    eigen_iban_patroon: str | None = None
-    tegenpartij_iban_patroon: str | None = None
-    omschrijving_patroon: str | None = None
-    lines: list["NewAutoBookingRuleLine"] | None = field(default=None)
-
-    def to_dict(self) -> dict:
-        d: dict = {}
-        if self.naam is not None:
-            d["naam"] = self.naam
-        if self.prioriteit is not None:
-            d["prioriteit"] = self.prioriteit
-        if self.actief is not None:
-            d["actief"] = self.actief
-        if self.actie_type is not None:
-            d["actie_type"] = self.actie_type.value
-        if self.eigen_iban_patroon is not None:
-            d["eigen_iban_patroon"] = self.eigen_iban_patroon
-        if self.tegenpartij_iban_patroon is not None:
-            d["tegenpartij_iban_patroon"] = self.tegenpartij_iban_patroon
-        if self.omschrijving_patroon is not None:
-            d["omschrijving_patroon"] = self.omschrijving_patroon
-        if self.lines is not None:
-            d["lines"] = [ln.to_dict() for ln in self.lines]
         return d

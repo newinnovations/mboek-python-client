@@ -55,25 +55,19 @@ def test_get_forbidden(mocked_responses, client):
 
 
 def test_create(mocked_responses, client):
-    from mboek import CreateAdministratieInput
-
     mocked_responses.add(
         responses.POST, f"{BASE_URL}/api/administraties", json=ADMINISTRATIE, status=201
     )
-    inp = CreateAdministratieInput(naam="Test BV")
-    item = client.administraties.create(inp)
+    item = client.administraties.create(naam="Test BV")
     assert item.id == 1
 
 
 def test_update(mocked_responses, client):
-    from mboek import UpdateAdministratieInput
-
     updated = {**ADMINISTRATIE, "naam": "Gewijzigd BV"}
     mocked_responses.add(
         responses.PATCH, f"{BASE_URL}/api/administraties/1", json=updated
     )
-    inp = UpdateAdministratieInput(naam="Gewijzigd BV")
-    item = client.administraties.update(1, inp)
+    item = client.administraties.update(1, naam="Gewijzigd BV")
     assert item.naam == "Gewijzigd BV"
 
 

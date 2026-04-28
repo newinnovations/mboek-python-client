@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from mboek._parsers import parse_auto_booking_rule, parse_boeking_met_regels
-from mboek.models.auto_booking_rules import (
-    AutoBookingRuleResponse,
-    NewAutoBookingRule,
-    UpdateAutoBookingRule,
-)
+from mboek.models._enums import AutoBookingActieType
+from mboek.models.auto_booking_rules import AutoBookingRuleResponse
 from mboek.models.boekingen import BoekingMetRegelsResponse
 from mboek.resources._base import BaseResource
+
+if TYPE_CHECKING:
+    from mboek.models.auto_booking_rules import NewAutoBookingRuleLine
 
 
 class AutoBookingRulesResource(BaseResource):
@@ -45,7 +47,18 @@ class AutoBookingRulesResource(BaseResource):
             for d in self._get(f"/api/administraties/{self._admin_id}/regels")
         ]
 
-    def create(self, input: NewAutoBookingRule) -> AutoBookingRuleResponse:
+    def create(
+        self,
+        naam: str,
+        actie_type: AutoBookingActieType,
+        lines: "list[NewAutoBookingRuleLine]",
+        *,
+        prioriteit: int = 100,
+        actief: bool = True,
+        eigen_iban_patroon: str | None = None,
+        tegenpartij_iban_patroon: str | None = None,
+        omschrijving_patroon: str | None = None,
+    ) -> AutoBookingRuleResponse:
         """Create a new automatic booking rule.
 
         Rule lines may reference a grootboekrekening via ``grootboekrekening_naam``
@@ -53,17 +66,45 @@ class AutoBookingRulesResource(BaseResource):
         IDs are resolved automatically.
 
         Args:
-            input: Rule definition.
+            naam: Human-readable name.
+            actie_type: Action type (``enkel`` or ``splits``).
+            lines: One or more action lines.
+            prioriteit: Sort priority (lower = evaluated first, default 100).
+            actief: Enable the rule (default ``True``).
+            eigen_iban_patroon: Regex for own IBAN matching.
+            tegenpartij_iban_patroon: Regex for counterparty IBAN matching.
+            omschrijving_patroon: Regex for transaction description matching.
         """
-        self._resolve_lines(input.lines)
+        self._resolve_lines(lines)
+        data: dict = {
+            "naam": naam,
+            "actie_type": actie_type.value,
+            "lines": [ln.to_dict() for ln in lines],
+            "prioriteit": prioriteit,
+            "actief": actief,
+        }
+        if eigen_iban_patroon is not None:
+            data["eigen_iban_patroon"] = eigen_iban_patroon
+        if tegenpartij_iban_patroon is not None:
+            data["tegenpartij_iban_patroon"] = tegenpartij_iban_patroon
+        if omschrijving_patroon is not None:
+            data["omschrijving_patroon"] = omschrijving_patroon
         return parse_auto_booking_rule(
-            self._post(
-                f"/api/administraties/{self._admin_id}/regels", json=input.to_dict()
-            )
+            self._post(f"/api/administraties/{self._admin_id}/regels", json=data)
         )
 
     def update(
-        self, rule_id: int, input: UpdateAutoBookingRule
+        self,
+        rule_id: int,
+        *,
+        naam: str | None = None,
+        prioriteit: int | None = None,
+        actief: bool | None = None,
+        actie_type: AutoBookingActieType | None = None,
+        eigen_iban_patroon: str | None = None,
+        tegenpartij_iban_patroon: str | None = None,
+        omschrijving_patroon: str | None = None,
+        lines: "list[NewAutoBookingRuleLine] | None" = None,
     ) -> AutoBookingRuleResponse:
         """Partially update a rule.
 
@@ -73,21 +114,42 @@ class AutoBookingRulesResource(BaseResource):
 
         Args:
             rule_id: Rule ID.
-            input: Fields to update.
+            naam: New name.
+            prioriteit: New sort priority.
+            actief: Enable or disable the rule.
+            actie_type: New action type.
+            eigen_iban_patroon: New regex for own IBAN matching.
+            tegenpartij_iban_patroon: New regex for counterparty IBAN matching.
+            omschrijving_patroon: New regex for description matching.
+            lines: Full replacement set of action lines.
         """
-        if input.lines is not None:
-            self._resolve_lines(input.lines)
+        if lines is not None:
+            self._resolve_lines(lines)
+        data: dict = {}
+        if naam is not None:
+            data["naam"] = naam
+        if prioriteit is not None:
+            data["prioriteit"] = prioriteit
+        if actief is not None:
+            data["actief"] = actief
+        if actie_type is not None:
+            data["actie_type"] = actie_type.value
+        if eigen_iban_patroon is not None:
+            data["eigen_iban_patroon"] = eigen_iban_patroon
+        if tegenpartij_iban_patroon is not None:
+            data["tegenpartij_iban_patroon"] = tegenpartij_iban_patroon
+        if omschrijving_patroon is not None:
+            data["omschrijving_patroon"] = omschrijving_patroon
+        if lines is not None:
+            data["lines"] = [ln.to_dict() for ln in lines]
         return parse_auto_booking_rule(
             self._patch(
-                f"/api/administraties/{self._admin_id}/regels/{rule_id}",
-                json=input.to_dict(),
+                f"/api/administraties/{self._admin_id}/regels/{rule_id}", json=data
             )
         )
 
     def _resolve_lines(self, lines: list) -> None:
         """Resolve grootboekrekening naam/code → id for each line in-place."""
-        from mboek.models.auto_booking_rules import NewAutoBookingRuleLine
-
         for line in lines:
             if line.grootboekrekening_id is None:
                 line.grootboekrekening_id = self._resolve_rekening_id(

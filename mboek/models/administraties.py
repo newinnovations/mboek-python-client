@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 
@@ -35,75 +35,3 @@ class AdministratieResponse:
     bankimport_rekening_id: int | None
     created_at: datetime
     updated_at: datetime
-
-
-@dataclass
-class NewAdministratie:
-    """Input for creating a new administratie.
-
-    Attributes:
-        naam: Name of the administration (required).
-        beschrijving: Optional description.
-        kvk_nummer: Optional KvK registration number.
-        btw_nummer: Optional VAT registration number.
-        adres: Optional postal address.
-    """
-
-    naam: str
-    beschrijving: str | None = None
-    kvk_nummer: str | None = None
-    btw_nummer: str | None = None
-    adres: str | None = None
-
-    def to_dict(self) -> dict:
-        return {
-            k: v
-            for k, v in {
-                "naam": self.naam,
-                "beschrijving": self.beschrijving,
-                "kvk_nummer": self.kvk_nummer,
-                "btw_nummer": self.btw_nummer,
-                "adres": self.adres,
-            }.items()
-            if v is not None
-        }
-
-
-@dataclass
-class UpdateAdministratie:
-    """Input for partially updating an administratie.
-
-    All fields are optional — omit any field you do not want to change.
-    Pass ``None`` explicitly to clear a nullable field.
-
-    Attributes:
-        naam: New name.
-        beschrijving: New description (``None`` clears the field).
-        kvk_nummer: New KvK number (``None`` clears the field).
-        btw_nummer: New BTW number (``None`` clears the field).
-        adres: New address (``None`` clears the field).
-        active: Set active/inactive.
-        huidig_boekjaar_id: Set the default boekjaar.
-    """
-
-    naam: str | None = field(default=None)
-    beschrijving: str | None = field(default=None)
-    kvk_nummer: str | None = field(default=None)
-    btw_nummer: str | None = field(default=None)
-    adres: str | None = field(default=None)
-    active: bool | None = field(default=None)
-    huidig_boekjaar_id: int | None = field(default=None)
-
-    def to_dict(self) -> dict:
-        d: dict = {}
-        if self.naam is not None:
-            d["naam"] = self.naam
-        if self.active is not None:
-            d["active"] = self.active
-        if self.huidig_boekjaar_id is not None:
-            d["huidig_boekjaar_id"] = self.huidig_boekjaar_id
-        for key in ("beschrijving", "kvk_nummer", "btw_nummer", "adres"):
-            val = getattr(self, key)
-            if val is not None:
-                d[key] = val
-        return d

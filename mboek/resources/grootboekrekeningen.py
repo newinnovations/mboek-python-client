@@ -7,11 +7,10 @@ from mboek._parsers import (
     parse_grootboekrekening,
     parse_grootboekrekening_met_saldo,
 )
+from mboek.models._enums import RekeningCategorie, RekeningType
 from mboek.models.grootboekrekeningen import (
     GrootboekMutatie,
     Grootboekrekening,
-    NewGrootboekrekening,
-    UpdateGrootboekrekening,
 )
 from mboek.resources._base import BaseResource
 
@@ -70,31 +69,94 @@ class GrootboekrekeningenResource(BaseResource):
             client=self._client,
         )
 
-    def create(self, input: NewGrootboekrekening) -> Grootboekrekening:
+    def create(
+        self,
+        code: str,
+        naam: str,
+        rekening_type: RekeningType,
+        categorie: RekeningCategorie,
+        *,
+        rgs_code: str | None = None,
+        parent_id: int | None = None,
+        default_btw_id: int | None = None,
+    ) -> Grootboekrekening:
         """Create a new grootboekrekening.
 
         Args:
-            input: Account parameters.
+            code: Account code (must be unique within the administratie).
+            naam: Account name.
+            rekening_type: Account type.
+            categorie: Statement category.
+            rgs_code: Optional RGS code.
+            parent_id: Optional parent account ID.
+            default_btw_id: Optional default BTW code.
         """
+        data: dict = {
+            "code": code,
+            "naam": naam,
+            "rekening_type": rekening_type.value,
+            "categorie": categorie.value,
+        }
+        if rgs_code is not None:
+            data["rgs_code"] = rgs_code
+        if parent_id is not None:
+            data["parent_id"] = parent_id
+        if default_btw_id is not None:
+            data["default_btw_id"] = default_btw_id
         return parse_grootboekrekening(
             self._post(
-                f"/api/administraties/{self._admin_id}/grootboekrekeningen",
-                json=input.to_dict(),
+                f"/api/administraties/{self._admin_id}/grootboekrekeningen", json=data
             ),
             client=self._client,
         )
 
-    def update(self, id: int, input: UpdateGrootboekrekening) -> Grootboekrekening:
+    def update(
+        self,
+        id: int,
+        *,
+        code: str | None = None,
+        naam: str | None = None,
+        rekening_type: RekeningType | None = None,
+        categorie: RekeningCategorie | None = None,
+        rgs_code: str | None = None,
+        parent_id: int | None = None,
+        default_btw_id: int | None = None,
+        actief: bool | None = None,
+    ) -> Grootboekrekening:
         """Partially update a grootboekrekening.
 
         Args:
             id: Grootboekrekening ID.
-            input: Fields to update.
+            code: New account code.
+            naam: New account name.
+            rekening_type: New account type.
+            categorie: New statement category.
+            rgs_code: New RGS code.
+            parent_id: New parent account ID.
+            default_btw_id: New default BTW code.
+            actief: Enable or disable the account.
         """
+        data: dict = {}
+        if code is not None:
+            data["code"] = code
+        if naam is not None:
+            data["naam"] = naam
+        if rekening_type is not None:
+            data["rekening_type"] = rekening_type.value
+        if categorie is not None:
+            data["categorie"] = categorie.value
+        if rgs_code is not None:
+            data["rgs_code"] = rgs_code
+        if parent_id is not None:
+            data["parent_id"] = parent_id
+        if default_btw_id is not None:
+            data["default_btw_id"] = default_btw_id
+        if actief is not None:
+            data["actief"] = actief
         return parse_grootboekrekening(
             self._patch(
                 f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}",
-                json=input.to_dict(),
+                json=data,
             ),
             client=self._client,
         )

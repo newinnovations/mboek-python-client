@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from mboek._parsers import parse_boekjaar
-from mboek.models.boekjaren import Boekjaar, NewBoekjaar, UpdateBoekjaar
+from mboek.models.boekjaren import Boekjaar
 from mboek.resources._base import BaseResource
 
 
@@ -39,34 +41,54 @@ class BoekjarenResource(BaseResource):
             client=self._client,
         )
 
-    def create(self, input: NewBoekjaar) -> Boekjaar:
+    def create(self, naam: str, start_datum: date, eind_datum: date) -> Boekjaar:
         """Create a new boekjaar.
 
         New boekjaren start with status ``open``.
 
         Args:
-            input: Name and date range.
+            naam: Display name (e.g. ``"2024"``).
+            start_datum: First day of the fiscal year.
+            eind_datum: Last day of the fiscal year.
         """
+        data = {
+            "naam": naam,
+            "start_datum": start_datum.isoformat(),
+            "eind_datum": eind_datum.isoformat(),
+        }
         return parse_boekjaar(
-            self._post(
-                f"/api/administraties/{self._admin_id}/boekjaren", json=input.to_dict()
-            ),
+            self._post(f"/api/administraties/{self._admin_id}/boekjaren", json=data),
             client=self._client,
         )
 
-    def update(self, id: int, input: UpdateBoekjaar) -> Boekjaar:
+    def update(
+        self,
+        id: int,
+        *,
+        naam: str | None = None,
+        start_datum: date | None = None,
+        eind_datum: date | None = None,
+    ) -> Boekjaar:
         """Partially update a boekjaar's name or dates.
 
         To change status use :py:meth:`afsluiten` or :py:meth:`heropenen`.
 
         Args:
             id: Boekjaar ID.
-            input: Fields to update.
+            naam: New display name.
+            start_datum: New start date.
+            eind_datum: New end date.
         """
+        data: dict = {}
+        if naam is not None:
+            data["naam"] = naam
+        if start_datum is not None:
+            data["start_datum"] = start_datum.isoformat()
+        if eind_datum is not None:
+            data["eind_datum"] = eind_datum.isoformat()
         return parse_boekjaar(
             self._patch(
-                f"/api/administraties/{self._admin_id}/boekjaren/{id}",
-                json=input.to_dict(),
+                f"/api/administraties/{self._admin_id}/boekjaren/{id}", json=data
             ),
             client=self._client,
         )

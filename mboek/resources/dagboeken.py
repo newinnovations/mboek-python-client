@@ -6,9 +6,8 @@ from mboek._parsers import parse_dagboek, parse_werkstatus
 from mboek.models.dagboeken import (
     Dagboek,
     DagboekWerkStatus,
-    NewDagboek,
-    UpdateDagboek,
 )
+from mboek.models._enums import DagboekType
 from mboek.resources._base import BaseResource
 
 
@@ -52,54 +51,128 @@ class DagboekenResource(BaseResource):
             client=self._client,
         )
 
-    def create(self, input: NewDagboek) -> Dagboek:
+    def create(
+        self,
+        code: str,
+        naam: str,
+        dagboek_type: DagboekType,
+        *,
+        grootboekrekening_id: int | None = None,
+        grootboekrekening_naam: str | None = None,
+        grootboekrekening_code: str | None = None,
+        iban: str | None = None,
+    ) -> Dagboek:
         """Create a new dagboek.
 
-        A grootboekrekening may be specified via ``grootboekrekening_naam`` or
-        ``grootboekrekening_code`` in addition to the numeric
-        ``grootboekrekening_id``; the ID is resolved automatically.
+        At most one of ``grootboekrekening_id``, ``grootboekrekening_naam``, or
+        ``grootboekrekening_code`` may be provided.  When a name or code is supplied
+        the ID is resolved automatically.
 
         Args:
-            input: Dagboek parameters.
+            code: Short code (e.g. ``"BANK"``).
+            naam: Display name.
+            dagboek_type: Journal type.
+            grootboekrekening_id: Optional linked balance account (numeric ID).
+            grootboekrekening_naam: Account name — alternative to ``grootboekrekening_id``.
+            grootboekrekening_code: Account code — alternative to ``grootboekrekening_id``.
+            iban: Optional IBAN for bank-statement auto-matching.
         """
-        if input.grootboekrekening_id is None and (
-            input.grootboekrekening_naam or input.grootboekrekening_code
-        ):
-            input.grootboekrekening_id = self._resolve_rekening_id(
-                self._admin_id,
-                naam=input.grootboekrekening_naam,
-                code=input.grootboekrekening_code,
+        provided = sum(
+            x is not None
+            for x in [
+                grootboekrekening_id,
+                grootboekrekening_naam,
+                grootboekrekening_code,
+            ]
+        )
+        if provided > 1:
+            raise ValueError(
+                "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
             )
+        if grootboekrekening_id is None and (
+            grootboekrekening_naam or grootboekrekening_code
+        ):
+            grootboekrekening_id = self._resolve_rekening_id(
+                self._admin_id,
+                naam=grootboekrekening_naam,
+                code=grootboekrekening_code,
+            )
+        data: dict = {
+            "code": code,
+            "naam": naam,
+            "dagboek_type": dagboek_type.value,
+        }
+        if grootboekrekening_id is not None:
+            data["grootboekrekening_id"] = grootboekrekening_id
+        if iban is not None:
+            data["iban"] = iban
         return parse_dagboek(
-            self._post(
-                f"/api/administraties/{self._admin_id}/dagboeken", json=input.to_dict()
-            ),
+            self._post(f"/api/administraties/{self._admin_id}/dagboeken", json=data),
             client=self._client,
         )
 
-    def update(self, id: int, input: UpdateDagboek) -> Dagboek:
+    def update(
+        self,
+        id: int,
+        *,
+        code: str | None = None,
+        naam: str | None = None,
+        dagboek_type: DagboekType | None = None,
+        grootboekrekening_id: int | None = None,
+        grootboekrekening_naam: str | None = None,
+        grootboekrekening_code: str | None = None,
+        iban: str | None = None,
+    ) -> Dagboek:
         """Partially update a dagboek.
 
-        A grootboekrekening may be specified via ``grootboekrekening_naam`` or
-        ``grootboekrekening_code`` in addition to the numeric
-        ``grootboekrekening_id``; the ID is resolved automatically.
+        At most one of ``grootboekrekening_id``, ``grootboekrekening_naam``, or
+        ``grootboekrekening_code`` may be provided.  When a name or code is supplied
+        the ID is resolved automatically.
 
         Args:
             id: Dagboek ID.
-            input: Fields to update.
+            code: New short code.
+            naam: New display name.
+            dagboek_type: New journal type.
+            grootboekrekening_id: New linked balance account (numeric ID).
+            grootboekrekening_naam: Account name — alternative to ``grootboekrekening_id``.
+            grootboekrekening_code: Account code — alternative to ``grootboekrekening_id``.
+            iban: New IBAN.
         """
-        if input.grootboekrekening_id is None and (
-            input.grootboekrekening_naam or input.grootboekrekening_code
-        ):
-            input.grootboekrekening_id = self._resolve_rekening_id(
-                self._admin_id,
-                naam=input.grootboekrekening_naam,
-                code=input.grootboekrekening_code,
+        provided = sum(
+            x is not None
+            for x in [
+                grootboekrekening_id,
+                grootboekrekening_naam,
+                grootboekrekening_code,
+            ]
+        )
+        if provided > 1:
+            raise ValueError(
+                "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
             )
+        if grootboekrekening_id is None and (
+            grootboekrekening_naam or grootboekrekening_code
+        ):
+            grootboekrekening_id = self._resolve_rekening_id(
+                self._admin_id,
+                naam=grootboekrekening_naam,
+                code=grootboekrekening_code,
+            )
+        data: dict = {}
+        if code is not None:
+            data["code"] = code
+        if naam is not None:
+            data["naam"] = naam
+        if dagboek_type is not None:
+            data["dagboek_type"] = dagboek_type.value
+        if grootboekrekening_id is not None:
+            data["grootboekrekening_id"] = grootboekrekening_id
+        if iban is not None:
+            data["iban"] = iban
         return parse_dagboek(
             self._patch(
-                f"/api/administraties/{self._admin_id}/dagboeken/{id}",
-                json=input.to_dict(),
+                f"/api/administraties/{self._admin_id}/dagboeken/{id}", json=data
             ),
             client=self._client,
         )

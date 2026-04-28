@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 import responses
 
-from mboek import CreateDagboekInput, NewDagboek
 from mboek.models._enums import DagboekType
 from tests.conftest import BASE_URL, DAGBOEK, GROOTBOEKREKENING
 
@@ -35,10 +34,9 @@ def test_create(mocked_responses, client):
         json=DAGBOEK,
         status=201,
     )
-    inp = CreateDagboekInput(
+    item = client.administratie(1).dagboeken.create(
         code="BANK", naam="Bankboek", dagboek_type=DagboekType.BANK
     )
-    item = client.administratie(1).dagboeken.create(inp)
     assert item.id == 20
 
 
@@ -207,14 +205,10 @@ def test_boekjaar_dagboek_scope_by_name_not_found(mocked_responses, client):
 # ── New names & naam/code resolution ─────────────────────────────────────────
 
 
-def test_new_dagboek_name_is_canonical():
-    """NewDagboek is importable and is the canonical class."""
-    assert NewDagboek is not None
-    assert CreateDagboekInput is NewDagboek
-
-
 def test_create_dagboek_with_rekening_naam(mocked_responses, client):
     """Creating a dagboek using grootboekrekening_naam resolves the ID automatically."""
+    import json as _json
+
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
@@ -227,19 +221,22 @@ def test_create_dagboek_with_rekening_naam(mocked_responses, client):
         json=dagboek_with_rekening,
         status=201,
     )
-    inp = NewDagboek(
+    item = client.administratie(1).dagboeken.create(
         code="BANK",
         naam="Bankboek",
         dagboek_type=DagboekType.BANK,
         grootboekrekening_naam="Bank",
     )
-    item = client.administratie(1).dagboeken.create(inp)
     assert item.id == 20
-    assert inp.grootboekrekening_id == 30
+    # Verify the resolved ID was sent in the request body
+    body = _json.loads(mocked_responses.calls[-1].request.body)
+    assert body["grootboekrekening_id"] == 30
 
 
 def test_create_dagboek_with_rekening_code(mocked_responses, client):
     """Creating a dagboek using grootboekrekening_code resolves the ID automatically."""
+    import json as _json
+
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
@@ -252,21 +249,21 @@ def test_create_dagboek_with_rekening_code(mocked_responses, client):
         json=dagboek_with_rekening,
         status=201,
     )
-    inp = NewDagboek(
+    item = client.administratie(1).dagboeken.create(
         code="BANK",
         naam="Bankboek",
         dagboek_type=DagboekType.BANK,
         grootboekrekening_code="1220",
     )
-    item = client.administratie(1).dagboeken.create(inp)
     assert item.id == 20
-    assert inp.grootboekrekening_id == 30
+    body = _json.loads(mocked_responses.calls[-1].request.body)
+    assert body["grootboekrekening_id"] == 30
 
 
-def test_new_dagboek_validation_multiple_rekening():
-    """NewDagboek raises if more than one rekening identifier is provided."""
+def test_create_dagboek_validation_multiple_rekening(client):
+    """create() raises if more than one rekening identifier is provided."""
     with pytest.raises(ValueError, match="Provide only one"):
-        NewDagboek(
+        client.administratie(1).dagboeken.create(
             code="BANK",
             naam="Bankboek",
             dagboek_type=DagboekType.BANK,

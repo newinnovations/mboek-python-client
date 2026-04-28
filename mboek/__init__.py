@@ -26,25 +26,10 @@ from mboek.models import (
     BtwBerekening,
     BtwCodeResponse,
     BtwSoort,
-    # new canonical names
     Dagboek,
     Grootboekrekening,
-    NewAdministratie,
-    NewAutoBookingRule,
     NewAutoBookingRuleLine,
-    NewBoeking,
     NewBoekingsregel,
-    NewBoekjaar,
-    NewBtwCode,
-    NewDagboek,
-    NewGrootboekrekening,
-    UpdateAdministratie,
-    UpdateAutoBookingRule,
-    UpdateBoeking,
-    UpdateBoekjaar,
-    UpdateBtwCode,
-    UpdateDagboek,
-    UpdateGrootboekrekening,
     DagboekResponse,
     DagboekType,
     DagboekWerkStatus,
@@ -63,26 +48,6 @@ from mboek.models import (
     WinstVerliesReport,
 )
 
-# ---------------------------------------------------------------------------
-# Backward-compatible aliases (old names → new names)
-# ---------------------------------------------------------------------------
-CreateAdministratieInput = NewAdministratie
-UpdateAdministratieInput = UpdateAdministratie
-CreateAutoBookingRuleInput = NewAutoBookingRule
-CreateAutoBookingRuleLineInput = NewAutoBookingRuleLine
-UpdateAutoBookingRuleInput = UpdateAutoBookingRule
-CreateBoekingInput = NewBoeking
-CreateBoekingsregelInput = NewBoekingsregel
-UpdateBoekingInput = UpdateBoeking
-CreateBoekjaarInput = NewBoekjaar
-UpdateBoekjaarInput = UpdateBoekjaar
-CreateBtwCodeInput = NewBtwCode
-UpdateBtwCodeInput = UpdateBtwCode
-CreateDagboekInput = NewDagboek
-UpdateDagboekInput = UpdateDagboek
-CreateGrootboekrekeningInput = NewGrootboekrekening
-UpdateGrootboekrekeningInput = UpdateGrootboekrekening
-
 __all__ = [
     "MboekClient",
     # exceptions
@@ -94,7 +59,7 @@ __all__ = [
     "ConflictError",
     "RateLimitError",
     "ScopeError",
-    # models — new canonical names
+    # models
     "AdministratieResponse",
     "AutoBookingRuleLineResponse",
     "AutoBookingRuleResponse",
@@ -121,43 +86,12 @@ __all__ = [
     "ImportResult",
     "LoginResponse",
     "MatchSuggestion",
-    "NewAdministratie",
-    "NewAutoBookingRule",
     "NewAutoBookingRuleLine",
-    "NewBoeking",
     "NewBoekingsregel",
-    "NewBoekjaar",
-    "NewBtwCode",
-    "NewDagboek",
-    "NewGrootboekrekening",
-    "UpdateAdministratie",
-    "UpdateAutoBookingRule",
-    "UpdateBoeking",
-    "UpdateBoekjaar",
-    "UpdateBtwCode",
-    "UpdateDagboek",
-    "UpdateGrootboekrekening",
     "RekeningCategorie",
     "RekeningType",
     "Regeltype",
     "RubriekBedragen",
     "WinstVerliesRegel",
     "WinstVerliesReport",
-    # backward-compatible aliases
-    "CreateAdministratieInput",
-    "UpdateAdministratieInput",
-    "CreateAutoBookingRuleInput",
-    "CreateAutoBookingRuleLineInput",
-    "UpdateAutoBookingRuleInput",
-    "CreateBoekingInput",
-    "CreateBoekingsregelInput",
-    "UpdateBoekingInput",
-    "CreateBoekjaarInput",
-    "UpdateBoekjaarInput",
-    "CreateBtwCodeInput",
-    "UpdateBtwCodeInput",
-    "CreateDagboekInput",
-    "UpdateDagboekInput",
-    "CreateGrootboekrekeningInput",
-    "UpdateGrootboekrekeningInput",
 ]

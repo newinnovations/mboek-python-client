@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 from mboek._parsers import parse_administratie
-from mboek.models.administraties import (
-    AdministratieResponse,
-    NewAdministratie,
-    UpdateAdministratie,
-)
+from mboek.models.administraties import AdministratieResponse
 from mboek.resources._base import BaseResource
 
 
@@ -39,32 +35,81 @@ class AdministratiesResource(BaseResource):
         """
         return parse_administratie(self._get(f"/api/administraties/{id}"))
 
-    def create(self, input: NewAdministratie) -> AdministratieResponse:
+    def create(
+        self,
+        naam: str,
+        *,
+        beschrijving: str | None = None,
+        kvk_nummer: str | None = None,
+        btw_nummer: str | None = None,
+        adres: str | None = None,
+    ) -> AdministratieResponse:
         """Create a new administratie.
 
         Args:
-            input: Creation parameters.
+            naam: Name of the administration (required).
+            beschrijving: Optional description.
+            kvk_nummer: Optional KvK registration number.
+            btw_nummer: Optional VAT registration number.
+            adres: Optional postal address.
 
         Returns:
             The newly created administratie.
         """
-        return parse_administratie(
-            self._post("/api/administraties", json=input.to_dict())
-        )
+        data: dict = {"naam": naam}
+        if beschrijving is not None:
+            data["beschrijving"] = beschrijving
+        if kvk_nummer is not None:
+            data["kvk_nummer"] = kvk_nummer
+        if btw_nummer is not None:
+            data["btw_nummer"] = btw_nummer
+        if adres is not None:
+            data["adres"] = adres
+        return parse_administratie(self._post("/api/administraties", json=data))
 
-    def update(self, id: int, input: UpdateAdministratie) -> AdministratieResponse:
+    def update(
+        self,
+        id: int,
+        *,
+        naam: str | None = None,
+        beschrijving: str | None = None,
+        kvk_nummer: str | None = None,
+        btw_nummer: str | None = None,
+        adres: str | None = None,
+        active: bool | None = None,
+        huidig_boekjaar_id: int | None = None,
+    ) -> AdministratieResponse:
         """Partially update an administratie.
 
         Args:
             id: Administratie ID.
-            input: Fields to update (omit fields you want to leave unchanged).
+            naam: New name.
+            beschrijving: New description.
+            kvk_nummer: New KvK number.
+            btw_nummer: New BTW number.
+            adres: New address.
+            active: Set active/inactive.
+            huidig_boekjaar_id: Set the default boekjaar.
 
         Returns:
             The updated administratie.
         """
-        return parse_administratie(
-            self._patch(f"/api/administraties/{id}", json=input.to_dict())
-        )
+        data: dict = {}
+        if naam is not None:
+            data["naam"] = naam
+        if beschrijving is not None:
+            data["beschrijving"] = beschrijving
+        if kvk_nummer is not None:
+            data["kvk_nummer"] = kvk_nummer
+        if btw_nummer is not None:
+            data["btw_nummer"] = btw_nummer
+        if adres is not None:
+            data["adres"] = adres
+        if active is not None:
+            data["active"] = active
+        if huidig_boekjaar_id is not None:
+            data["huidig_boekjaar_id"] = huidig_boekjaar_id
+        return parse_administratie(self._patch(f"/api/administraties/{id}", json=data))
 
     def delete(self, id: int) -> None:
         """Permanently delete an administratie and all its associated data.

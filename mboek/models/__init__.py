@@ -12,41 +12,29 @@ from mboek.models._enums import (
     RekeningCategorie,
     RekeningType,
 )
-from mboek.models.administraties import (
-    AdministratieResponse,
-    NewAdministratie,
-    UpdateAdministratie,
-)
+from mboek.models.administraties import AdministratieResponse
 from mboek.models.auth import LoginResponse
 from mboek.models.auto_booking_rules import (
     AutoBookingRuleLineResponse,
     AutoBookingRuleResponse,
-    NewAutoBookingRule,
     NewAutoBookingRuleLine,
-    UpdateAutoBookingRule,
 )
 from mboek.models.boekingen import (
     BoekingMetRegelsResponse,
     BoekingResponse,
     BoekingsregelResponse,
-    NewBoeking,
     NewBoekingsregel,
-    UpdateBoeking,
 )
 from mboek.models.boekjaren import (
     Boekjaar,
     BoekjaarResponse,
-    NewBoekjaar,
-    UpdateBoekjaar,
 )
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
-from mboek.models.btw_codes import BtwCodeResponse, NewBtwCode, UpdateBtwCode
+from mboek.models.btw_codes import BtwCodeResponse
 from mboek.models.dagboeken import (
     Dagboek,
     DagboekResponse,
     DagboekWerkStatus,
-    NewDagboek,
-    UpdateDagboek,
 )
 from mboek.models.export_import import ImportResult, MatchSuggestion
 from mboek.models.grootboekrekeningen import (
@@ -54,8 +42,6 @@ from mboek.models.grootboekrekeningen import (
     Grootboekrekening,
     GrootboekrekeningMetSaldoResponse,
     GrootboekrekeningResponse,
-    NewGrootboekrekening,
-    UpdateGrootboekrekening,
 )
 from mboek.models.reports import (
     BalansRegel,
@@ -63,26 +49,6 @@ from mboek.models.reports import (
     WinstVerliesRegel,
     WinstVerliesReport,
 )
-
-# ---------------------------------------------------------------------------
-# Backward-compatible aliases (old names → new names)
-# ---------------------------------------------------------------------------
-CreateAdministratieInput = NewAdministratie
-UpdateAdministratieInput = UpdateAdministratie
-CreateAutoBookingRuleInput = NewAutoBookingRule
-CreateAutoBookingRuleLineInput = NewAutoBookingRuleLine
-UpdateAutoBookingRuleInput = UpdateAutoBookingRule
-CreateBoekingInput = NewBoeking
-CreateBoekingsregelInput = NewBoekingsregel
-UpdateBoekingInput = UpdateBoeking
-CreateBoekjaarInput = NewBoekjaar
-UpdateBoekjaarInput = UpdateBoekjaar
-CreateBtwCodeInput = NewBtwCode
-UpdateBtwCodeInput = UpdateBtwCode
-CreateDagboekInput = NewDagboek
-UpdateDagboekInput = UpdateDagboek
-CreateGrootboekrekeningInput = NewGrootboekrekening
-UpdateGrootboekrekeningInput = UpdateGrootboekrekening
 
 __all__ = [
     # enums
@@ -100,50 +66,25 @@ __all__ = [
     "LoginResponse",
     # administraties
     "AdministratieResponse",
-    "NewAdministratie",
-    "UpdateAdministratie",
-    "CreateAdministratieInput",  # alias
-    "UpdateAdministratieInput",  # alias
     # boekjaren
     "Boekjaar",
     "BoekjaarResponse",
-    "NewBoekjaar",
-    "UpdateBoekjaar",
-    "CreateBoekjaarInput",  # alias
-    "UpdateBoekjaarInput",  # alias
     # dagboeken
     "Dagboek",
     "DagboekResponse",
     "DagboekWerkStatus",
-    "NewDagboek",
-    "UpdateDagboek",
-    "CreateDagboekInput",  # alias
-    "UpdateDagboekInput",  # alias
     # grootboekrekeningen
     "GrootboekMutatie",
     "Grootboekrekening",
     "GrootboekrekeningMetSaldoResponse",
     "GrootboekrekeningResponse",
-    "NewGrootboekrekening",
-    "UpdateGrootboekrekening",
-    "CreateGrootboekrekeningInput",  # alias
-    "UpdateGrootboekrekeningInput",  # alias
     # boekingen
     "BoekingMetRegelsResponse",
     "BoekingResponse",
     "BoekingsregelResponse",
-    "NewBoeking",
     "NewBoekingsregel",
-    "UpdateBoeking",
-    "CreateBoekingInput",  # alias
-    "CreateBoekingsregelInput",  # alias
-    "UpdateBoekingInput",  # alias
     # btw codes
     "BtwCodeResponse",
-    "NewBtwCode",
-    "UpdateBtwCode",
-    "CreateBtwCodeInput",  # alias
-    "UpdateBtwCodeInput",  # alias
     # btw aangifte
     "BtwAangifte",
     "BtwBerekening",
@@ -151,12 +92,7 @@ __all__ = [
     # auto booking rules
     "AutoBookingRuleLineResponse",
     "AutoBookingRuleResponse",
-    "NewAutoBookingRule",
     "NewAutoBookingRuleLine",
-    "UpdateAutoBookingRule",
-    "CreateAutoBookingRuleInput",  # alias
-    "CreateAutoBookingRuleLineInput",  # alias
-    "UpdateAutoBookingRuleInput",  # alias
     # reports
     "BalansRegel",
     "BalansReport",

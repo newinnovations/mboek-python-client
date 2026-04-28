@@ -8,12 +8,7 @@ from decimal import Decimal
 import pytest
 import responses
 
-from mboek import (
-    CreateBoekingInput,
-    CreateBoekingsregelInput,
-    NewBoeking,
-    NewBoekingsregel,
-)
+from mboek import NewBoekingsregel
 from mboek.models._enums import Regeltype
 from tests.conftest import (
     BASE_URL,
@@ -72,29 +67,33 @@ def test_create(mocked_responses, client):
         status=201,
     )
     regels = [
-        CreateBoekingsregelInput(
+        NewBoekingsregel(
             grootboekrekening_id=30,
             omschrijving="Bank",
             bedrag=Decimal("-100.00"),
         ),
-        CreateBoekingsregelInput(
+        NewBoekingsregel(
             grootboekrekening_id=31,
             omschrijving="Kosten",
             bedrag=Decimal("100.00"),
         ),
     ]
-    inp = CreateBoekingInput(
-        datum=date(2024, 1, 15),
-        omschrijving="Test",
-        regels=regels,
+    item = (
+        client.administratie(1)
+        .boekjaar(10)
+        .dagboek(20)
+        .boekingen.create(
+            regels=regels,
+            datum=date(2024, 1, 15),
+            omschrijving="Test",
+        )
     )
-    item = client.administratie(1).boekjaar(10).dagboek(20).boekingen.create(inp)
     assert item.boeking.id == 100
 
 
 def test_create_serialises_cents():
     """Verify bedrag is converted from euros to cents in to_dict()."""
-    regel = CreateBoekingsregelInput(
+    regel = NewBoekingsregel(
         grootboekrekening_id=1,
         omschrijving="x",
         bedrag=Decimal("12.34"),
@@ -118,21 +117,6 @@ def test_boeking_bedrag_parsed_from_cents(mocked_responses, client):
     assert item.regels[0].bedrag == Decimal("-100.00")
     # BOEKING_REGEL2 has bedrag = 10000 cents → €100.00
     assert item.regels[1].bedrag == Decimal("100.00")
-
-
-# ── New name tests ────────────────────────────────────────────────────────────
-
-
-def test_new_names_are_canonical():
-    """New class names are importable from mboek directly."""
-    assert NewBoeking is not None
-    assert NewBoekingsregel is not None
-
-
-def test_old_names_are_aliases():
-    """Old Create...Input names still work as aliases for backward compat."""
-    assert CreateBoekingInput is NewBoeking
-    assert CreateBoekingsregelInput is NewBoekingsregel
 
 
 # ── NewBoekingsregel validation ───────────────────────────────────────────────
@@ -192,8 +176,16 @@ def test_regel_with_naam(mocked_responses, client):
             bedrag=Decimal("100.00"),
         ),
     ]
-    inp = NewBoeking(datum=date(2024, 1, 15), omschrijving="Test", regels=regels)
-    item = client.administratie(1).boekjaar(10).dagboek(20).boekingen.create(inp)
+    item = (
+        client.administratie(1)
+        .boekjaar(10)
+        .dagboek(20)
+        .boekingen.create(
+            regels=regels,
+            datum=date(2024, 1, 15),
+            omschrijving="Test",
+        )
+    )
     assert item.boeking.id == 100
     # Both regels should have been resolved
     assert regels[0].grootboekrekening_id == 30

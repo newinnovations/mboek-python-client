@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import responses
 
-from mboek import CreateBoekjaarInput
 from mboek._exceptions import ConflictError, NotFoundError
 from mboek.models._enums import BoekjaarStatus
 from tests.conftest import BASE_URL, BOEKJAAR, GROOTBOEKREKENING
@@ -38,10 +37,9 @@ def test_create(mocked_responses, client):
         json=BOEKJAAR,
         status=201,
     )
-    inp = CreateBoekjaarInput(
+    item = client.administratie(1).boekjaren.create(
         naam="2024", start_datum=date(2024, 1, 1), eind_datum=date(2024, 12, 31)
     )
-    item = client.administratie(1).boekjaren.create(inp)
     assert item.naam == "2024"
 
 

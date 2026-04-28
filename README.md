@@ -241,7 +241,7 @@ Amounts are in **euros** — the library converts to/from cents automatically.
 ```python
 from decimal import Decimal
 from datetime import date
-from mboek import NewBoeking, NewBoekingsregel, Regeltype
+from mboek import NewBoekingsregel, Regeltype
 
 regels = [
     NewBoekingsregel(
@@ -267,12 +267,10 @@ regels = [
 
 bj_dagboek = client.administratie(admin_id).boekjaar(boekjaar_id).dagboek(bank_dagboek_id)
 entry = bj_dagboek.boekingen.create(
-    NewBoeking(
-        datum=date(2024, 3, 15),
-        omschrijving="Hosting invoice March",
-        regels=regels,
-        # boekjaar_id is injected automatically from the scope
-    )
+    regels=regels,
+    datum=date(2024, 3, 15),
+    omschrijving="Hosting invoice March",
+    # boekjaar_id is injected automatically from the scope
 )
 print(f"Created boeking {entry.boeking.id}")
 ```
@@ -291,12 +289,9 @@ regels = [
 
 ```python
 from datetime import date
-from mboek import NewAdministratie, NewBoekjaar
 
 # 1. Create the administration
-admin = client.administraties.create(
-    NewAdministratie(naam="My Company BV", btw_nummer="NL123456789B01")
-)
+admin = client.administraties.create(naam="My Company BV", btw_nummer="NL123456789B01")
 a = client.administratie(admin.id)
 
 # 2. Seed the standard Dutch chart of accounts
@@ -307,11 +302,9 @@ a.btw_codes.seed_defaults()
 
 # 4. Create a fiscal year
 boekjaar = a.boekjaren.create(
-    NewBoekjaar(
-        naam="2024",
-        start_datum=date(2024, 1, 1),
-        eind_datum=date(2024, 12, 31),
-    )
+    naam="2024",
+    start_datum=date(2024, 1, 1),
+    eind_datum=date(2024, 12, 31),
 )
 
 # 5. Set it as the current/active year
@@ -367,17 +360,15 @@ client.export_import.import_administratie(payload)
 ## Automatic booking rules
 
 ```python
-from mboek import NewAutoBookingRule
+from mboek.models._enums import ActieType
 
 a = client.administratie(admin_id)
 
 rule = a.auto_booking_rules.create(
-    NewAutoBookingRule(
-        naam="Hosting Duitsland",
-        actie_type="enkel",
-        tegenpartij_iban_patroon="DE75512308000000060004",
-        lines=[...],
-    )
+    naam="Hosting Duitsland",
+    actie_type=ActieType.ENKEL,
+    tegenpartij_iban_patroon="DE75512308000000060004",
+    lines=[...],
 )
 
 # Re-apply all rules to unprocessed entries in a dagboek (year-agnostic)
