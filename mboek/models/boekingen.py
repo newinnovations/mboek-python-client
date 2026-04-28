@@ -5,8 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING, Any
 
 from mboek.models._enums import BoekingStatus, Regeltype
+
+if TYPE_CHECKING:
+    from mboek._client import MboekClient
+    from mboek.models.boekingen import NewBoekingsregel
 
 
 @dataclass
@@ -36,9 +41,18 @@ class Boekingsregel:
     created_at: datetime
 
 
-@dataclass
 class Boeking:
     """A journal entry (boeking) with all its boekingsregels.
+
+    This is a *rich domain object*: it always carries all data attributes and
+    optionally holds a client reference (``_client``) that unlocks instance-level
+    operations such as :py:meth:`delete` and :py:meth:`update`.
+
+    Obtain a scoped instance via any resource call::
+
+        boeking = client.boekingen.get(100)
+        boeking.update(omschrijving="Corrected description")
+        boeking.delete()
 
     Attributes:
         id: Unique database identifier.
@@ -59,22 +73,138 @@ class Boeking:
         updated_at: Last-update timestamp (UTC).
     """
 
-    id: int
-    dagboek_id: int
-    boekjaar_id: int
-    datum: date
-    omschrijving: str
-    stuknummer: str | None
-    status: BoekingStatus
-    tegenpartij_naam: str | None
-    tegenpartij_iban: str | None
-    referentie_import: str | None
-    import_hash: str | None
-    auto_geboekt: bool
-    gecontroleerd: bool
-    created_at: datetime
-    regels: list[Boekingsregel]
-    updated_at: datetime
+    def __init__(
+        self,
+        id: int,
+        dagboek_id: int,
+        boekjaar_id: int,
+        datum: date,
+        omschrijving: str,
+        stuknummer: str | None,
+        status: BoekingStatus,
+        tegenpartij_naam: str | None,
+        tegenpartij_iban: str | None,
+        referentie_import: str | None,
+        import_hash: str | None,
+        auto_geboekt: bool,
+        gecontroleerd: bool,
+        created_at: datetime,
+        regels: list[Boekingsregel],
+        updated_at: datetime,
+        *,
+        client: "MboekClient | None" = None,
+    ) -> None:
+        self.id = id
+        self.dagboek_id = dagboek_id
+        self.boekjaar_id = boekjaar_id
+        self.datum = datum
+        self.omschrijving = omschrijving
+        self.stuknummer = stuknummer
+        self.status = status
+        self.tegenpartij_naam = tegenpartij_naam
+        self.tegenpartij_iban = tegenpartij_iban
+        self.referentie_import = referentie_import
+        self.import_hash = import_hash
+        self.auto_geboekt = auto_geboekt
+        self.gecontroleerd = gecontroleerd
+        self.created_at = created_at
+        self.regels = regels
+        self.updated_at = updated_at
+        self._client = client
+
+    # ── Internal scope guard ─────────────────────────────────────────────────
+
+    def _require_client(self, operation: str) -> "MboekClient":
+        from mboek._exceptions import ScopeError
+
+        if self._client is None:
+            raise ScopeError(
+                f"{operation} requires a client reference. "
+                "Obtain the boeking via a resource call (e.g. client.boekingen.get(...))."
+            )
+        return self._client
+
+    # ── Instance-level operations ─────────────────────────────────────────────
+
+    def delete(self) -> None:
+        """Permanently delete this boeking and all its boekingsregels.
+
+        Raises:
+            :py:class:`~mboek._exceptions.ScopeError`: No client reference.
+            :py:class:`~mboek._exceptions.NotFoundError`: Boeking not found.
+            :py:class:`~mboek._exceptions.ForbiddenError`: Not the owner.
+        """
+        client = self._require_client("delete()")
+        from mboek.resources.boekingen import BoekingenResource
+
+        BoekingenResource(client).delete(self.id)
+
+    def update(
+        self,
+        *,
+        datum: date | None = None,
+        omschrijving: str | None = None,
+        stuknummer: str | None = None,
+        status: BoekingStatus | None = None,
+        tegenpartij_naam: str | None = None,
+        tegenpartij_iban: str | None = None,
+        gecontroleerd: bool | None = None,
+        auto_geboekt: bool | None = None,
+        regels: "list[NewBoekingsregel] | None" = None,
+    ) -> "Boeking":
+        """Update this boeking's header fields and optionally replace all regels.
+
+        If ``regels`` is provided the existing regels are deleted and the new
+        set is inserted atomically. Manually editing regels automatically
+        clears the ``auto_geboekt`` and ``gecontroleerd`` flags.
+
+        Args:
+            datum: New booking date.
+            omschrijving: New description.
+            stuknummer: New document reference.
+            status: New status.
+            tegenpartij_naam: New counterparty name.
+            tegenpartij_iban: New counterparty IBAN.
+            gecontroleerd: Mark as manually reviewed.
+            auto_geboekt: Mark as auto-booked.
+            regels: Full replacement set of lines (must balance).
+
+        Returns:
+            The updated boeking (a fresh instance).
+
+        Raises:
+            :py:class:`~mboek._exceptions.ScopeError`: No client reference.
+            :py:class:`~mboek._exceptions.NotFoundError`: Boeking not found.
+            :py:class:`~mboek._exceptions.ForbiddenError`: Not the owner.
+        """
+        client = self._require_client("update()")
+        from mboek.resources.boekingen import BoekingenResource
+
+        return BoekingenResource(client).update(
+            self.id,
+            datum=datum,
+            omschrijving=omschrijving,
+            stuknummer=stuknummer,
+            status=status,
+            tegenpartij_naam=tegenpartij_naam,
+            tegenpartij_iban=tegenpartij_iban,
+            gecontroleerd=gecontroleerd,
+            auto_geboekt=auto_geboekt,
+            regels=regels,
+        )
+
+    # ── Dunder helpers ────────────────────────────────────────────────────────
+
+    def __repr__(self) -> str:
+        return (
+            f"Boeking(id={self.id!r}, datum={self.datum!r},"
+            f" omschrijving={self.omschrijving!r}, status={self.status!r})"
+        )
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Boeking):
+            return NotImplemented
+        return self.id == other.id
 
 
 @dataclass

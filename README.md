@@ -285,6 +285,46 @@ regels = [
 ]
 ```
 
+## Updating and deleting a journal entry
+
+Every `Boeking` returned from the API carries a client reference, so you can
+call `update()` and `delete()` directly on the object — no need to go through
+`client.boekingen` again.
+
+```python
+# Retrieve a single entry by ID
+boeking = client.boekingen.get(100)
+
+# Update header fields (pass only the fields you want to change)
+updated = boeking.update(
+    omschrijving="Corrected description",
+    gecontroleerd=True,
+)
+print(updated.omschrijving)   # "Corrected description"
+
+# Entries returned from list() are also scoped
+entries = (
+    client.administratie(admin_id)
+          .boekjaar(boekjaar_id)
+          .dagboek(dagboek_id)
+          .boekingen.list()
+)
+for entry in entries:
+    if entry.omschrijving == "WRONG":
+        entry.delete()
+```
+
+`update()` accepts the same keyword arguments as `BoekingenResource.update()`
+(all optional): `datum`, `omschrijving`, `stuknummer`, `status`,
+`tegenpartij_naam`, `tegenpartij_iban`, `gecontroleerd`, `auto_geboekt`, and
+`regels` (full replacement set of boekingsregels).  It returns a fresh
+`Boeking` with the updated data.
+
+`delete()` permanently removes the boeking and all its boekingsregels.
+
+Both methods raise `ScopeError` when called on a `Boeking` that was not
+obtained via a live client (e.g. built manually or deserialised from a backup).
+
 ## Setting up a new administration
 
 ```python

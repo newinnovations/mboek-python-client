@@ -208,7 +208,7 @@ def parse_boekingsregel(d: dict) -> Boekingsregel:
     )
 
 
-def parse_boeking_met_regels(d: dict) -> Boeking:
+def parse_boeking_met_regels(d: dict, *, client=None) -> Boeking:
     return Boeking(
         id=d["id"],
         dagboek_id=d["dagboek_id"],
@@ -226,6 +226,7 @@ def parse_boeking_met_regels(d: dict) -> Boeking:
         regels=[parse_boekingsregel(r) for r in d.get("regels", [])],
         created_at=_dt(d["created_at"]),
         updated_at=_dt(d["updated_at"]),
+        client=client,
     )
 
 

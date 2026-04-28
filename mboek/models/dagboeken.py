@@ -194,7 +194,7 @@ class Dagboek:
             f"/api/administraties/{self.administratie_id}/dagboeken/{self.id}/rerun-regels",
         )
         if isinstance(data, list):
-            return [parse_boeking_met_regels(d) for d in data]
+            return [parse_boeking_met_regels(d, client=self._client) for d in data]
         return []
 
     def suggest(self, boeking_id: int) -> "list[MatchSuggestion]":
@@ -242,7 +242,7 @@ class Dagboek:
             json=boekingen,
         )
         if isinstance(data, list):
-            return [parse_boeking_met_regels(d) for d in data]
+            return [parse_boeking_met_regels(d, client=self._client) for d in data]
         return []
 
     # ── Dunder helpers ────────────────────────────────────────────────────────

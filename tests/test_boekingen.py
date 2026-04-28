@@ -213,3 +213,74 @@ def test_boekingen_via_with_boekjaar(mocked_responses, client):
     scoped = dagboek.with_boekjaar(boekjaar_id=10)
     items = scoped.boekingen.list()
     assert len(items) == 1
+
+
+# ── Scoped Boeking instance methods ──────────────────────────────────────────
+
+
+def test_list_items_are_scoped(mocked_responses, client):
+    """Boekingen returned from list() carry a client reference."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20",
+        json=DAGBOEK,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/dagboeken/20/boekingen",
+        json=[BOEKING],
+    )
+    items = client.administratie(1).boekjaar(10).dagboek(20).boekingen.list()
+    assert items[0]._client is client
+
+
+def test_get_is_scoped(mocked_responses, client):
+    """Boeking returned from get() carries a client reference."""
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
+    boeking = client.boekingen.get(100)
+    assert boeking._client is client
+
+
+def test_boeking_delete_via_instance(mocked_responses, client):
+    """boeking.delete() calls DELETE /api/boekingen/{id}."""
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
+    mocked_responses.add(responses.DELETE, f"{BASE_URL}/api/boekingen/100", status=204)
+    boeking = client.boekingen.get(100)
+    boeking.delete()
+
+
+def test_boeking_update_via_instance(mocked_responses, client):
+    """boeking.update() calls PATCH /api/boekingen/{id} and returns updated Boeking."""
+    updated = {**BOEKING, "omschrijving": "Updated"}
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
+    mocked_responses.add(responses.PATCH, f"{BASE_URL}/api/boekingen/100", json=updated)
+    boeking = client.boekingen.get(100)
+    result = boeking.update(omschrijving="Updated")
+    assert result.omschrijving == "Updated"
+    assert result._client is client
+
+
+def test_boeking_delete_without_client_raises(client):
+    """Boeking.delete() raises ScopeError when no client reference is set."""
+    from mboek import ScopeError
+    from mboek._parsers import parse_boeking_met_regels
+
+    boeking = parse_boeking_met_regels(BOEKING)  # no client
+    with pytest.raises(ScopeError):
+        boeking.delete()
+
+
+def test_boeking_update_without_client_raises(client):
+    """Boeking.update() raises ScopeError when no client reference is set."""
+    from mboek import ScopeError
+    from mboek._parsers import parse_boeking_met_regels
+
+    boeking = parse_boeking_met_regels(BOEKING)  # no client
+    with pytest.raises(ScopeError):
+        boeking.update(omschrijving="x")
+

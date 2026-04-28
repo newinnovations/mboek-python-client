@@ -45,7 +45,7 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         from mboek._parsers import parse_boeking_met_regels
 
         return [
-            parse_boeking_met_regels(d)
+            parse_boeking_met_regels(d, client=self._client)
             for d in self._client._request(
                 "GET",
                 f"/api/dagboeken/{self._dagboek_id}/boekingen",
@@ -125,5 +125,6 @@ class BoekjaarScopedBoekingenResource(BaseResource):
                 "POST",
                 f"/api/dagboeken/{self._dagboek_id}/boekingen",
                 json=data,
-            )
+            ),
+            client=self._client,
         )
