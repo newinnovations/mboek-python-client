@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from mboek._parsers import parse_btw_code
 from mboek.models._enums import BtwSoort
-from mboek.models.btw_codes import BtwCodeResponse
+from mboek.models.btw_codes import BtwCode
 from mboek.resources._base import BaseResource
 
 
@@ -35,7 +35,7 @@ class BtwCodesResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> list[BtwCodeResponse]:
+    def list(self) -> list[BtwCode]:
         """Return all BTW codes for the administratie.
 
         Returns:
@@ -46,7 +46,7 @@ class BtwCodesResource(BaseResource):
             for d in self._get(f"/api/administraties/{self._admin_id}/btw-codes")
         ]
 
-    def get(self, id: int) -> BtwCodeResponse:
+    def get(self, id: int) -> BtwCode:
         """Return a single BTW code.
 
         Args:
@@ -66,7 +66,7 @@ class BtwCodesResource(BaseResource):
         output_rekening_id: int | None = None,
         input_rekening_id: int | None = None,
         pct_aftrek: Decimal | None = None,
-    ) -> BtwCodeResponse:
+    ) -> BtwCode:
         """Create a new BTW code.
 
         Args:
@@ -106,7 +106,7 @@ class BtwCodesResource(BaseResource):
         input_rekening_id: int | None = None,
         pct_aftrek: Decimal | None = None,
         actief: bool | None = None,
-    ) -> BtwCodeResponse:
+    ) -> BtwCode:
         """Partially update a BTW code.
 
         Args:
@@ -164,7 +164,7 @@ class BtwCodesResource(BaseResource):
         """
         self._post(f"/api/administraties/{self._admin_id}/btw-codes/seed-defaults")
 
-    def find_by_code(self, code: str) -> BtwCodeResponse | None:
+    def find_by_code(self, code: str) -> BtwCode | None:
         """Find a BTW code by its short code string.
 
         Calls :py:meth:`list` and returns the first match, or ``None``.
@@ -174,7 +174,7 @@ class BtwCodesResource(BaseResource):
                 The comparison is case-insensitive.
 
         Returns:
-            The matching :py:class:`~mboek.models.btw_codes.BtwCodeResponse`,
+            The matching :py:class:`~mboek.models.btw_codes.BtwCode`,
             or ``None`` if not found.
         """
         code_upper = code.upper()

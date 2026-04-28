@@ -11,10 +11,7 @@ from mboek.models._enums import BoekjaarStatus
 if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.models.dagboeken import Dagboek
-    from mboek.models.grootboekrekeningen import (
-        Grootboekrekening,
-        GrootboekrekeningMetSaldoResponse,
-    )
+    from mboek.models.grootboekrekeningen import Grootboekrekening
 
 
 class Boekjaar:
@@ -123,7 +120,7 @@ class Boekjaar:
 
     # ── Scoped methods ────────────────────────────────────────────────────────
 
-    def grootboekrekeningen(self) -> "list[GrootboekrekeningMetSaldoResponse]":
+    def grootboekrekeningen(self) -> "list[Grootboekrekening]":
         """Return all grootboekrekeningen for this boekjaar, enriched with balance.
 
         Raises:
@@ -210,7 +207,3 @@ class Boekjaar:
         if not isinstance(other, Boekjaar):
             return NotImplemented
         return self.id == other.id and self.administratie_id == other.administratie_id
-
-
-# Keep a type alias consistent with response naming used in other modules.
-BoekjaarResponse = Boekjaar

@@ -268,11 +268,6 @@ class Grootboekrekening:
         return self.id == other.id and self.administratie_id == other.administratie_id
 
 
-# Backward-compatible aliases.
-GrootboekrekeningResponse = Grootboekrekening
-GrootboekrekeningMetSaldoResponse = Grootboekrekening
-
-
 @dataclass
 class GrootboekMutatie:
     """A single mutation (boekingsregel) in the account ledger.

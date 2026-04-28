@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mboek._parsers import parse_administratie
-from mboek.models.administraties import AdministratieResponse
+from mboek.models.administraties import Administratie
 from mboek.resources._base import BaseResource
 
 
@@ -15,7 +15,7 @@ class AdministratiesResource(BaseResource):
     Each user sees only the administrations they own.
     """
 
-    def list(self) -> list[AdministratieResponse]:
+    def list(self) -> list[Administratie]:
         """Return all administraties owned by the authenticated user.
 
         Returns:
@@ -23,7 +23,7 @@ class AdministratiesResource(BaseResource):
         """
         return [parse_administratie(d) for d in self._get("/api/administraties")]
 
-    def get(self, id: int) -> AdministratieResponse:
+    def get(self, id: int) -> Administratie:
         """Return a single administratie by ID.
 
         Args:
@@ -43,7 +43,7 @@ class AdministratiesResource(BaseResource):
         kvk_nummer: str | None = None,
         btw_nummer: str | None = None,
         adres: str | None = None,
-    ) -> AdministratieResponse:
+    ) -> Administratie:
         """Create a new administratie.
 
         Args:
@@ -78,7 +78,7 @@ class AdministratiesResource(BaseResource):
         adres: str | None = None,
         active: bool | None = None,
         huidig_boekjaar_id: int | None = None,
-    ) -> AdministratieResponse:
+    ) -> Administratie:
         """Partially update an administratie.
 
         Args:
@@ -123,7 +123,7 @@ class AdministratiesResource(BaseResource):
         """
         self._delete(f"/api/administraties/{id}")
 
-    def find_by_naam(self, naam: str) -> AdministratieResponse | None:
+    def find_by_naam(self, naam: str) -> Administratie | None:
         """Find an administratie by exact name.
 
         Calls :py:meth:`list` and returns the first match, or ``None``.
@@ -132,7 +132,7 @@ class AdministratiesResource(BaseResource):
             naam: Exact name to search for (case-sensitive).
 
         Returns:
-            The matching :py:class:`~mboek.models.administraties.AdministratieResponse`,
+            The matching :py:class:`~mboek.models.administraties.Administratie`,
             or ``None`` if not found.
         """
         return next((a for a in self.list() if a.naam == naam), None)

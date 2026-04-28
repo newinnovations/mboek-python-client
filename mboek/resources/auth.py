@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mboek._parsers import parse_login
-from mboek.models.auth import LoginResponse
+from mboek.models.auth import AuthToken
 from mboek.resources._base import BaseResource
 
 
@@ -14,7 +14,7 @@ class AuthResource(BaseResource):
     handles login/logout for you. They are exposed for advanced usage.
     """
 
-    def login(self, username: str, password: str) -> LoginResponse:
+    def login(self, username: str, password: str) -> AuthToken:
         """Authenticate and obtain a JWT bearer token.
 
         Args:
@@ -22,7 +22,7 @@ class AuthResource(BaseResource):
             password: mBoek password (``wachtwoord``).
 
         Returns:
-            :py:class:`~mboek.models.auth.LoginResponse` containing the token
+            :py:class:`~mboek.models.auth.AuthToken` containing the token
             and its expiry time.
 
         Raises:

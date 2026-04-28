@@ -10,7 +10,7 @@ from mboek.models._enums import BoekingStatus, Regeltype
 
 
 @dataclass
-class BoekingsregelResponse:
+class Boekingsregel:
     """A single line of a journal entry.
 
     Attributes:
@@ -37,7 +37,7 @@ class BoekingsregelResponse:
 
 
 @dataclass
-class BoekingResponse:
+class Boeking:
     """A journal entry (boeking) with all its boekingsregels.
 
     Attributes:
@@ -73,7 +73,7 @@ class BoekingResponse:
     auto_geboekt: bool
     gecontroleerd: bool
     created_at: datetime
-    regels: list[BoekingsregelResponse]
+    regels: list[Boekingsregel]
     updated_at: datetime
 
 

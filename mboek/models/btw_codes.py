@@ -10,7 +10,7 @@ from mboek.models._enums import BtwSoort
 
 
 @dataclass
-class BtwCodeResponse:
+class BtwCode:
     """A BTW (VAT) code configuration.
 
     Attributes:

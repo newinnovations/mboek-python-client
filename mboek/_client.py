@@ -16,7 +16,7 @@ from mboek._exceptions import (
     RateLimitError,
     ValidationError,
 )
-from mboek.models.auth import LoginResponse
+from mboek.models.auth import AuthToken
 
 
 class MboekClient:
@@ -80,7 +80,7 @@ class MboekClient:
         self._timeout = timeout
         self._session = requests.Session()
         self._token: str | None = None
-        self._login_response: LoginResponse | None = None
+        self._login_response: AuthToken | None = None
 
         # Lazily-initialised resource managers
         self._administraties = None
@@ -110,7 +110,7 @@ class MboekClient:
 
     # ── Authentication ────────────────────────────────────────────────────────
 
-    def login(self, username: str, password: str) -> LoginResponse:
+    def login(self, username: str, password: str) -> AuthToken:
         """Authenticate and store the bearer token for subsequent requests.
 
         Args:
@@ -118,7 +118,7 @@ class MboekClient:
             password: mBoek password (``wachtwoord``).
 
         Returns:
-            :py:class:`~mboek.models.auth.LoginResponse`.
+            :py:class:`~mboek.models.auth.AuthToken`.
 
         Raises:
             :py:class:`~mboek._exceptions.AuthError`: Invalid credentials.

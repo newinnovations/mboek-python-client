@@ -12,29 +12,20 @@ from mboek.models._enums import (
     RekeningCategorie,
     RekeningType,
 )
-from mboek.models.administraties import AdministratieResponse
-from mboek.models.auth import LoginResponse
+from mboek.models.administraties import Administratie
+from mboek.models.auth import AuthToken
 from mboek.models.auto_booking_rules import (
-    AutoBookingRuleLineResponse,
-    AutoBookingRuleResponse,
+    AutoBookingRule,
+    AutoBookingRuleLine,
     NewAutoBookingRuleLine,
 )
-from mboek.models.boekingen import (
-    BoekingResponse,
-    BoekingsregelResponse,
-    NewBoekingsregel,
-)
-from mboek.models.boekjaren import Boekjaar, BoekjaarResponse
+from mboek.models.boekingen import Boeking, Boekingsregel, NewBoekingsregel
+from mboek.models.boekjaren import Boekjaar
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
-from mboek.models.btw_codes import BtwCodeResponse
-from mboek.models.dagboeken import Dagboek, DagboekResponse, DagboekWerkStatus
+from mboek.models.btw_codes import BtwCode
+from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.models.export_import import ImportResult, MatchSuggestion
-from mboek.models.grootboekrekeningen import (
-    GrootboekMutatie,
-    Grootboekrekening,
-    GrootboekrekeningMetSaldoResponse,
-    GrootboekrekeningResponse,
-)
+from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
 from mboek.models.reports import (
     BalansRegel,
     BalansReport,
@@ -55,34 +46,30 @@ __all__ = [
     "RekeningType",
     "Regeltype",
     # auth
-    "LoginResponse",
+    "AuthToken",
     # administraties
-    "AdministratieResponse",
+    "Administratie",
     # boekjaren
     "Boekjaar",
-    "BoekjaarResponse",
     # dagboeken
     "Dagboek",
-    "DagboekResponse",
     "DagboekWerkStatus",
     # grootboekrekeningen
     "GrootboekMutatie",
     "Grootboekrekening",
-    "GrootboekrekeningMetSaldoResponse",
-    "GrootboekrekeningResponse",
     # boekingen
-    "BoekingResponse",
-    "BoekingsregelResponse",
+    "Boeking",
+    "Boekingsregel",
     "NewBoekingsregel",
     # btw codes
-    "BtwCodeResponse",
+    "BtwCode",
     # btw aangifte
     "BtwAangifte",
     "BtwBerekening",
     "RubriekBedragen",
     # auto booking rules
-    "AutoBookingRuleLineResponse",
-    "AutoBookingRuleResponse",
+    "AutoBookingRule",
+    "AutoBookingRuleLine",
     "NewAutoBookingRuleLine",
     # reports
     "BalansRegel",

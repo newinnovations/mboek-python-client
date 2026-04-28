@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 @dataclass
-class LoginResponse:
+class AuthToken:
     """Response returned by ``POST /api/auth/login``.
 
     Attributes:
@@ -20,3 +20,7 @@ class LoginResponse:
     token: str
     gebruikersnaam: str
     expires_at: datetime
+
+
+# Backward-compatible alias.
+LoginResponse = AuthToken

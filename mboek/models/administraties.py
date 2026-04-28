@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 @dataclass
-class AdministratieResponse:
+class Administratie:
     """A company administration owned by the authenticated user.
 
     Attributes:
@@ -35,3 +35,7 @@ class AdministratieResponse:
     bankimport_rekening_id: int | None
     created_at: datetime
     updated_at: datetime
+
+
+# Backward-compatible alias.
+AdministratieResponse = Administratie

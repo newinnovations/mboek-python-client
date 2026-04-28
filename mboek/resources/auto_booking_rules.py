@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 from mboek._parsers import parse_auto_booking_rule, parse_boeking_met_regels
 from mboek.models._enums import AutoBookingActieType
-from mboek.models.auto_booking_rules import AutoBookingRuleResponse
-from mboek.models.boekingen import BoekingResponse
+from mboek.models.auto_booking_rules import AutoBookingRule
+from mboek.models.boekingen import Boeking
 from mboek.resources._base import BaseResource
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ class AutoBookingRulesResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> list[AutoBookingRuleResponse]:
+    def list(self) -> list[AutoBookingRule]:
         """Return all automatic booking rules for the administratie.
 
         Returns:
@@ -58,7 +58,7 @@ class AutoBookingRulesResource(BaseResource):
         eigen_iban_patroon: str | None = None,
         tegenpartij_iban_patroon: str | None = None,
         omschrijving_patroon: str | None = None,
-    ) -> AutoBookingRuleResponse:
+    ) -> AutoBookingRule:
         """Create a new automatic booking rule.
 
         Rule lines may reference a grootboekrekening via ``grootboekrekening_naam``
@@ -105,7 +105,7 @@ class AutoBookingRulesResource(BaseResource):
         tegenpartij_iban_patroon: str | None = None,
         omschrijving_patroon: str | None = None,
         lines: "list[NewAutoBookingRuleLine] | None" = None,
-    ) -> AutoBookingRuleResponse:
+    ) -> AutoBookingRule:
         """Partially update a rule.
 
         Rule lines may reference a grootboekrekening via ``grootboekrekening_naam``
@@ -166,7 +166,7 @@ class AutoBookingRulesResource(BaseResource):
         """
         self._delete(f"/api/administraties/{self._admin_id}/regels/{rule_id}")
 
-    def apply_to_boeking(self, boeking_id: int) -> BoekingResponse | None:
+    def apply_to_boeking(self, boeking_id: int) -> Boeking | None:
         """Apply the first matching rule to a single boeking.
 
         Args:

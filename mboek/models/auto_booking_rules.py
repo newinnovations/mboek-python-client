@@ -10,7 +10,7 @@ from mboek.models._enums import AutoBookingActieType, AutoBookingBedragType
 
 
 @dataclass
-class AutoBookingRuleLineResponse:
+class AutoBookingRuleLine:
     """A single line (action) of an automatic booking rule.
 
     Attributes:
@@ -35,7 +35,7 @@ class AutoBookingRuleLineResponse:
 
 
 @dataclass
-class AutoBookingRuleResponse:
+class AutoBookingRule:
     """An automatic booking rule.
 
     Rules are evaluated in priority order (lowest number first). The first rule
@@ -65,7 +65,7 @@ class AutoBookingRuleResponse:
     eigen_iban_patroon: str | None
     tegenpartij_iban_patroon: str | None
     omschrijving_patroon: str | None
-    lines: list[AutoBookingRuleLineResponse]
+    lines: list[AutoBookingRuleLine]
     created_at: datetime
     updated_at: datetime
 

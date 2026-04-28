@@ -16,16 +16,16 @@ from mboek.models._enums import (
     RekeningCategorie,
     RekeningType,
 )
-from mboek.models.administraties import AdministratieResponse
-from mboek.models.auth import LoginResponse
+from mboek.models.administraties import Administratie
+from mboek.models.auth import AuthToken
 from mboek.models.auto_booking_rules import (
-    AutoBookingRuleLineResponse,
-    AutoBookingRuleResponse,
+    AutoBookingRuleLine,
+    AutoBookingRule,
 )
-from mboek.models.boekingen import BoekingResponse, BoekingsregelResponse
+from mboek.models.boekingen import Boeking, Boekingsregel
 from mboek.models.boekjaren import Boekjaar
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
-from mboek.models.btw_codes import BtwCodeResponse
+from mboek.models.btw_codes import BtwCode
 from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.models.export_import import ImportResult, MatchSuggestion
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
@@ -56,16 +56,16 @@ def _cents(v: int | None) -> Decimal | None:
     return Decimal(v) / 100
 
 
-def parse_login(d: dict) -> LoginResponse:
-    return LoginResponse(
+def parse_login(d: dict) -> AuthToken:
+    return AuthToken(
         token=d["token"],
         gebruikersnaam=d["gebruikersnaam"],
         expires_at=datetime.fromtimestamp(d["expires_at"]),
     )
 
 
-def parse_administratie(d: dict) -> AdministratieResponse:
-    return AdministratieResponse(
+def parse_administratie(d: dict) -> Administratie:
+    return Administratie(
         id=d["id"],
         naam=d["naam"],
         beschrijving=d.get("beschrijving"),
@@ -177,8 +177,8 @@ def parse_grootboek_mutatie(d: dict) -> GrootboekMutatie:
     )
 
 
-def parse_btw_code(d: dict) -> BtwCodeResponse:
-    return BtwCodeResponse(
+def parse_btw_code(d: dict) -> BtwCode:
+    return BtwCode(
         id=d["id"],
         administratie_id=d["administratie_id"],
         code=d["code"],
@@ -194,8 +194,8 @@ def parse_btw_code(d: dict) -> BtwCodeResponse:
     )
 
 
-def parse_boekingsregel(d: dict) -> BoekingsregelResponse:
-    return BoekingsregelResponse(
+def parse_boekingsregel(d: dict) -> Boekingsregel:
+    return Boekingsregel(
         id=d["id"],
         boeking_id=d["boeking_id"],
         grootboekrekening_id=d["grootboekrekening_id"],
@@ -208,8 +208,8 @@ def parse_boekingsregel(d: dict) -> BoekingsregelResponse:
     )
 
 
-def parse_boeking_met_regels(d: dict) -> BoekingResponse:
-    return BoekingResponse(
+def parse_boeking_met_regels(d: dict) -> Boeking:
+    return Boeking(
         id=d["id"],
         dagboek_id=d["dagboek_id"],
         boekjaar_id=d["boekjaar_id"],
@@ -269,8 +269,8 @@ def parse_btw_aangifte(d: dict) -> BtwAangifte:
     )
 
 
-def parse_auto_booking_rule_line(d: dict) -> AutoBookingRuleLineResponse:
-    return AutoBookingRuleLineResponse(
+def parse_auto_booking_rule_line(d: dict) -> AutoBookingRuleLine:
+    return AutoBookingRuleLine(
         id=d["id"],
         rule_id=d["rule_id"],
         volgorde=d["volgorde"],
@@ -282,8 +282,8 @@ def parse_auto_booking_rule_line(d: dict) -> AutoBookingRuleLineResponse:
     )
 
 
-def parse_auto_booking_rule(d: dict) -> AutoBookingRuleResponse:
-    return AutoBookingRuleResponse(
+def parse_auto_booking_rule(d: dict) -> AutoBookingRule:
+    return AutoBookingRule(
         id=d["id"],
         administratie_id=d["administratie_id"],
         naam=d["naam"],

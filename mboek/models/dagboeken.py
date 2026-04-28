@@ -10,7 +10,7 @@ from mboek.models._enums import DagboekType
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.models.boekingen import BoekingResponse
+    from mboek.models.boekingen import Boeking
     from mboek.models.export_import import MatchSuggestion
 
 
@@ -177,7 +177,7 @@ class Dagboek:
             self._client, self.administratie_id, self._boekjaar_id, self.id
         )
 
-    def rerun_regels(self) -> "list[BoekingResponse]":
+    def rerun_regels(self) -> "list[Boeking]":
         """Re-apply all active auto-booking rules to unprocessed boekingen.
 
         Raises:
@@ -221,7 +221,7 @@ class Dagboek:
             return [parse_match_suggestion(d) for d in data]
         return []
 
-    def import_boekingen(self, boekingen: list[dict]) -> "list[BoekingResponse]":
+    def import_boekingen(self, boekingen: list[dict]) -> "list[Boeking]":
         """Import a list of exported boekingen into this dagboek.
 
         Args:
@@ -255,10 +255,6 @@ class Dagboek:
         if not isinstance(other, Dagboek):
             return NotImplemented
         return self.id == other.id and self.administratie_id == other.administratie_id
-
-
-# Backward-compatible alias.
-DagboekResponse = Dagboek
 
 
 @dataclass
