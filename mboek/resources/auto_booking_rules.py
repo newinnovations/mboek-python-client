@@ -5,8 +5,8 @@ from __future__ import annotations
 from mboek._parsers import parse_auto_booking_rule, parse_boeking_met_regels
 from mboek.models.auto_booking_rules import (
     AutoBookingRuleResponse,
-    CreateAutoBookingRuleInput,
-    UpdateAutoBookingRuleInput,
+    NewAutoBookingRule,
+    UpdateAutoBookingRule,
 )
 from mboek.models.boekingen import BoekingMetRegelsResponse
 from mboek.resources._base import BaseResource
@@ -45,32 +45,56 @@ class AutoBookingRulesResource(BaseResource):
             for d in self._get(f"/api/administraties/{self._admin_id}/regels")
         ]
 
-    def create(
-        self, input: CreateAutoBookingRuleInput
-    ) -> AutoBookingRuleResponse:
+    def create(self, input: NewAutoBookingRule) -> AutoBookingRuleResponse:
         """Create a new automatic booking rule.
+
+        Rule lines may reference a grootboekrekening via ``grootboekrekening_naam``
+        or ``grootboekrekening_code`` instead of ``grootboekrekening_id``; the
+        IDs are resolved automatically.
 
         Args:
             input: Rule definition.
         """
+        self._resolve_lines(input.lines)
         return parse_auto_booking_rule(
-            self._post(f"/api/administraties/{self._admin_id}/regels", json=input.to_dict())
+            self._post(
+                f"/api/administraties/{self._admin_id}/regels", json=input.to_dict()
+            )
         )
 
     def update(
-        self, rule_id: int, input: UpdateAutoBookingRuleInput
+        self, rule_id: int, input: UpdateAutoBookingRule
     ) -> AutoBookingRuleResponse:
         """Partially update a rule.
+
+        Rule lines may reference a grootboekrekening via ``grootboekrekening_naam``
+        or ``grootboekrekening_code`` instead of ``grootboekrekening_id``; the
+        IDs are resolved automatically.
 
         Args:
             rule_id: Rule ID.
             input: Fields to update.
         """
+        if input.lines is not None:
+            self._resolve_lines(input.lines)
         return parse_auto_booking_rule(
             self._patch(
-                f"/api/administraties/{self._admin_id}/regels/{rule_id}", json=input.to_dict()
+                f"/api/administraties/{self._admin_id}/regels/{rule_id}",
+                json=input.to_dict(),
             )
         )
+
+    def _resolve_lines(self, lines: list) -> None:
+        """Resolve grootboekrekening naam/code → id for each line in-place."""
+        from mboek.models.auto_booking_rules import NewAutoBookingRuleLine
+
+        for line in lines:
+            if line.grootboekrekening_id is None:
+                line.grootboekrekening_id = self._resolve_rekening_id(
+                    self._admin_id,
+                    naam=line.grootboekrekening_naam,
+                    code=line.grootboekrekening_code,
+                )
 
     def delete(self, rule_id: int) -> None:
         """Permanently delete a rule.
@@ -80,9 +104,7 @@ class AutoBookingRulesResource(BaseResource):
         """
         self._delete(f"/api/administraties/{self._admin_id}/regels/{rule_id}")
 
-    def apply_to_boeking(
-        self, boeking_id: int
-    ) -> BoekingMetRegelsResponse | None:
+    def apply_to_boeking(self, boeking_id: int) -> BoekingMetRegelsResponse | None:
         """Apply the first matching rule to a single boeking.
 
         Args:

@@ -8,11 +8,11 @@ from mboek._parsers import (
     parse_grootboekrekening_met_saldo,
 )
 from mboek.models.grootboekrekeningen import (
-    CreateGrootboekrekeningInput,
     GrootboekMutatie,
     GrootboekrekeningMetSaldoResponse,
     GrootboekrekeningResponse,
-    UpdateGrootboekrekeningInput,
+    NewGrootboekrekening,
+    UpdateGrootboekrekening,
 )
 from mboek.resources._base import BaseResource
 
@@ -35,18 +35,30 @@ class GrootboekrekeningenResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> list[GrootboekrekeningResponse]:
+    def list(self, *, refresh: bool = False) -> list[GrootboekrekeningResponse]:
         """Return all grootboekrekeningen for the administratie.
+
+        Results are cached on the client for the lifetime of the session (keyed
+        by admin ID).  Call ``list(refresh=True)`` or :py:meth:`clear_cache` to
+        force a fresh fetch.
+
+        Args:
+            refresh: When ``True``, bypass the cache and fetch from the API.
 
         Returns:
             List sorted by code ascending.
         """
-        return [
+        cache = self._client._gbr_cache
+        if not refresh and self._admin_id in cache:
+            return cache[self._admin_id]
+        result = [
             parse_grootboekrekening(d)
             for d in self._get(
                 f"/api/administraties/{self._admin_id}/grootboekrekeningen"
             )
         ]
+        cache[self._admin_id] = result
+        return result
 
     def get(self, id: int) -> GrootboekrekeningResponse:
         """Return a single grootboekrekening.
@@ -58,9 +70,7 @@ class GrootboekrekeningenResource(BaseResource):
             self._get(f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}")
         )
 
-    def create(
-        self, input: CreateGrootboekrekeningInput
-    ) -> GrootboekrekeningResponse:
+    def create(self, input: NewGrootboekrekening) -> GrootboekrekeningResponse:
         """Create a new grootboekrekening.
 
         Args:
@@ -74,7 +84,7 @@ class GrootboekrekeningenResource(BaseResource):
         )
 
     def update(
-        self, id: int, input: UpdateGrootboekrekeningInput
+        self, id: int, input: UpdateGrootboekrekening
     ) -> GrootboekrekeningResponse:
         """Partially update a grootboekrekening.
 
@@ -109,9 +119,7 @@ class GrootboekrekeningenResource(BaseResource):
         """
         self._post(f"/api/administraties/{self._admin_id}/grootboekrekeningen/seed-rgs")
 
-    def met_saldo(
-        self, boekjaar_id: int
-    ) -> list[GrootboekrekeningMetSaldoResponse]:
+    def met_saldo(self, boekjaar_id: int) -> list[GrootboekrekeningMetSaldoResponse]:
         """Return all grootboekrekeningen enriched with transaction count and balance.
 
         Includes accounts with zero transactions in the boekjaar (with zeros).
@@ -130,9 +138,7 @@ class GrootboekrekeningenResource(BaseResource):
             )
         ]
 
-    def mutaties(
-        self, id: int, boekjaar_id: int
-    ) -> list[GrootboekMutatie]:
+    def mutaties(self, id: int, boekjaar_id: int) -> list[GrootboekMutatie]:
         """Return the full mutation ledger for a single rekening.
 
         Returns every boekingsregel with its date, dagboek, journal entry
@@ -180,3 +186,11 @@ class GrootboekrekeningenResource(BaseResource):
             or ``None`` if not found.
         """
         return next((r for r in self.list() if r.code == code), None)
+
+    def clear_cache(self) -> None:
+        """Remove the cached grootboekrekening list for this administratie.
+
+        The next call to :py:meth:`list`, :py:meth:`find_by_naam`, or
+        :py:meth:`find_by_code` will fetch fresh data from the API.
+        """
+        self._client._gbr_cache.pop(self._admin_id, None)

@@ -28,7 +28,10 @@ def test_get(mocked_responses, client):
 
 def test_get_not_found(mocked_responses, client):
     mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/administraties/999", json={"error": "Not found"}, status=404
+        responses.GET,
+        f"{BASE_URL}/api/administraties/999",
+        json={"error": "Not found"},
+        status=404,
     )
     try:
         client.administraties.get(999)
@@ -39,7 +42,10 @@ def test_get_not_found(mocked_responses, client):
 
 def test_get_forbidden(mocked_responses, client):
     mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/administraties/2", json={"error": "Forbidden"}, status=403
+        responses.GET,
+        f"{BASE_URL}/api/administraties/2",
+        json={"error": "Forbidden"},
+        status=403,
     )
     try:
         client.administraties.get(2)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mboek._parsers import parse_btw_code
-from mboek.models.btw_codes import BtwCodeResponse, CreateBtwCodeInput, UpdateBtwCodeInput
+from mboek.models.btw_codes import BtwCodeResponse, NewBtwCode, UpdateBtwCode
 from mboek.resources._base import BaseResource
 
 
@@ -49,19 +49,23 @@ class BtwCodesResource(BaseResource):
         Args:
             id: BTW code ID.
         """
-        return parse_btw_code(self._get(f"/api/administraties/{self._admin_id}/btw-codes/{id}"))
+        return parse_btw_code(
+            self._get(f"/api/administraties/{self._admin_id}/btw-codes/{id}")
+        )
 
-    def create(self, input: CreateBtwCodeInput) -> BtwCodeResponse:
+    def create(self, input: NewBtwCode) -> BtwCodeResponse:
         """Create a new BTW code.
 
         Args:
             input: BTW code parameters.
         """
         return parse_btw_code(
-            self._post(f"/api/administraties/{self._admin_id}/btw-codes", json=input.to_dict())
+            self._post(
+                f"/api/administraties/{self._admin_id}/btw-codes", json=input.to_dict()
+            )
         )
 
-    def update(self, id: int, input: UpdateBtwCodeInput) -> BtwCodeResponse:
+    def update(self, id: int, input: UpdateBtwCode) -> BtwCodeResponse:
         """Partially update a BTW code.
 
         Args:
@@ -70,7 +74,8 @@ class BtwCodesResource(BaseResource):
         """
         return parse_btw_code(
             self._patch(
-                f"/api/administraties/{self._admin_id}/btw-codes/{id}", json=input.to_dict()
+                f"/api/administraties/{self._admin_id}/btw-codes/{id}",
+                json=input.to_dict(),
             )
         )
 

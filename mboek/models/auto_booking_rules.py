@@ -71,24 +71,55 @@ class AutoBookingRuleResponse:
 
 
 @dataclass
-class CreateAutoBookingRuleLineInput:
+class NewAutoBookingRuleLine:
     """A line for a new or updated automatic booking rule.
 
+    Exactly one of ``grootboekrekening_id``, ``grootboekrekening_naam``, or
+    ``grootboekrekening_code`` must be provided.  When a name or code is
+    supplied the resource layer resolves it to an ID before sending the request.
+
     Attributes:
-        grootboekrekening_id: Contra account.
+        bedrag_type: ``vast`` or ``rest``.
+        grootboekrekening_id: Contra account (numeric ID).
+        grootboekrekening_naam: Account name — alternative to ``grootboekrekening_id``.
+        grootboekrekening_code: Account code — alternative to ``grootboekrekening_id``.
         btw_code_id: Optional BTW code.
         omschrijving: Optional description override.
-        bedrag_type: ``vast`` or ``rest``.
         bedrag: Fixed amount in euros (required when ``bedrag_type == "vast"``).
     """
 
-    grootboekrekening_id: int
     bedrag_type: AutoBookingBedragType = AutoBookingBedragType.REST
+    grootboekrekening_id: int | None = None
+    grootboekrekening_naam: str | None = None
+    grootboekrekening_code: str | None = None
     btw_code_id: int | None = None
     omschrijving: str | None = None
     bedrag: Decimal | None = None
 
+    def __post_init__(self) -> None:
+        provided = sum(
+            x is not None
+            for x in [
+                self.grootboekrekening_id,
+                self.grootboekrekening_naam,
+                self.grootboekrekening_code,
+            ]
+        )
+        if provided == 0:
+            raise ValueError(
+                "Provide exactly one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
+            )
+        if provided > 1:
+            raise ValueError(
+                "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
+            )
+
     def to_dict(self) -> dict:
+        if self.grootboekrekening_id is None:
+            raise ValueError(
+                "grootboekrekening_id is not yet resolved; the resource should have resolved "
+                "grootboekrekening_naam / grootboekrekening_code before calling to_dict()"
+            )
         d: dict = {
             "grootboekrekening_id": self.grootboekrekening_id,
             "bedrag_type": self.bedrag_type.value,
@@ -103,7 +134,7 @@ class CreateAutoBookingRuleLineInput:
 
 
 @dataclass
-class CreateAutoBookingRuleInput:
+class NewAutoBookingRule:
     """Input for creating a new automatic booking rule.
 
     Attributes:
@@ -119,9 +150,8 @@ class CreateAutoBookingRuleInput:
 
     naam: str
     actie_type: AutoBookingActieType
-    lines: list[CreateAutoBookingRuleLineInput]
+    lines: list["NewAutoBookingRuleLine"]
     prioriteit: int = 100
-    actief: bool = True
     eigen_iban_patroon: str | None = None
     tegenpartij_iban_patroon: str | None = None
     omschrijving_patroon: str | None = None
@@ -144,7 +174,7 @@ class CreateAutoBookingRuleInput:
 
 
 @dataclass
-class UpdateAutoBookingRuleInput:
+class UpdateAutoBookingRule:
     """Input for partially updating an automatic booking rule.
 
     All fields optional. If ``lines`` is provided the existing lines are
@@ -158,7 +188,7 @@ class UpdateAutoBookingRuleInput:
     eigen_iban_patroon: str | None = None
     tegenpartij_iban_patroon: str | None = None
     omschrijving_patroon: str | None = None
-    lines: list[CreateAutoBookingRuleLineInput] | None = field(default=None)
+    lines: list["NewAutoBookingRuleLine"] | None = field(default=None)
 
     def to_dict(self) -> dict:
         d: dict = {}

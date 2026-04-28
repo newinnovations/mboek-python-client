@@ -70,7 +70,9 @@ class MboekClient:
         *,
         timeout: int = 30,
     ) -> None:
-        resolved_url = base_url or os.environ.get("MBOEK_URL") or "http://localhost:3000"
+        resolved_url = (
+            base_url or os.environ.get("MBOEK_URL") or "http://localhost:3000"
+        )
         resolved_username = username or os.environ.get("MBOEK_USERNAME")
         resolved_password = password or os.environ.get("MBOEK_PASSWORD")
 
@@ -85,6 +87,10 @@ class MboekClient:
         self._boekingen = None
         self._export_import = None
         self._maintenance = None
+
+        # Per-admin grootboekrekening list cache (keyed by admin_id).
+        # Populated by GrootboekrekeningenResource.list() and cleared via clear_cache().
+        self._gbr_cache: dict[int, list] = {}
 
         if resolved_username is not None and resolved_password is not None:
             self.login(resolved_username, resolved_password)

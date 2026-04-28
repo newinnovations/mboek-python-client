@@ -74,7 +74,9 @@ class DagboekScope:
             return [parse_match_suggestion(d) for d in data]
         return []
 
-    def import_boekingen(self, boekingen: list[dict]) -> list["BoekingMetRegelsResponse"]:
+    def import_boekingen(
+        self, boekingen: list[dict]
+    ) -> list["BoekingMetRegelsResponse"]:
         """Import a list of exported boekingen into this dagboek.
 
         Useful for copying boekingen from one instance or boekjaar to another.
@@ -96,4 +98,3 @@ class DagboekScope:
         if isinstance(data, list):
             return [parse_boeking_met_regels(d) for d in data]
         return []
-

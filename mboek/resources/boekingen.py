@@ -5,7 +5,7 @@ from __future__ import annotations
 from mboek._parsers import parse_boeking_met_regels
 from mboek.models.boekingen import (
     BoekingMetRegelsResponse,
-    UpdateBoekingInput,
+    UpdateBoeking,
 )
 from mboek.resources._base import BaseResource
 
@@ -38,7 +38,7 @@ class BoekingenResource(BaseResource):
         """
         return parse_boeking_met_regels(self._get(f"/api/boekingen/{id}"))
 
-    def update(self, id: int, input: UpdateBoekingInput) -> BoekingMetRegelsResponse:
+    def update(self, id: int, input: UpdateBoeking) -> BoekingMetRegelsResponse:
         """Update a boeking's header fields and optionally replace all regels.
 
         If ``regels`` is provided the existing regels are deleted and the new

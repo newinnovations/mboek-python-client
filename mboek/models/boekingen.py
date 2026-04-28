@@ -89,29 +89,60 @@ class BoekingMetRegelsResponse:
 
 
 @dataclass
-class CreateBoekingsregelInput:
+class NewBoekingsregel:
     """A single line for a new or updated boeking.
 
     All regels together must balance: ``sum(bedrag) == 0``.
 
+    Exactly one of ``grootboekrekening_id``, ``grootboekrekening_naam``, or
+    ``grootboekrekening_code`` must be provided.  When a name or code is
+    supplied the resource layer resolves it to an ID before sending the request.
+
     Attributes:
-        grootboekrekening_id: Account to debit/credit.
         omschrijving: Line description.
         bedrag: Amount in euros (positive = debet, negative = credit).
+        grootboekrekening_id: Account to debit/credit (numeric ID).
+        grootboekrekening_naam: Account name — alternative to ``grootboekrekening_id``.
+        grootboekrekening_code: Account code — alternative to ``grootboekrekening_id``.
         btw_code_id: Optional BTW code.
         regeltype: ``netto`` (default) or ``btw``.
         netto_ref: For BTW lines, the index (0-based) of the corresponding netto
             line in the same ``regels`` list.
     """
 
-    grootboekrekening_id: int
     omschrijving: str
     bedrag: Decimal
+    grootboekrekening_id: int | None = None
+    grootboekrekening_naam: str | None = None
+    grootboekrekening_code: str | None = None
     btw_code_id: int | None = None
     regeltype: Regeltype = Regeltype.NETTO
     netto_ref: int | None = None
 
+    def __post_init__(self) -> None:
+        provided = sum(
+            x is not None
+            for x in [
+                self.grootboekrekening_id,
+                self.grootboekrekening_naam,
+                self.grootboekrekening_code,
+            ]
+        )
+        if provided == 0:
+            raise ValueError(
+                "Provide exactly one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
+            )
+        if provided > 1:
+            raise ValueError(
+                "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
+            )
+
     def to_dict(self) -> dict:
+        if self.grootboekrekening_id is None:
+            raise ValueError(
+                "grootboekrekening_id is not yet resolved; the resource should have resolved "
+                "grootboekrekening_naam / grootboekrekening_code before calling to_dict()"
+            )
         d: dict = {
             "grootboekrekening_id": self.grootboekrekening_id,
             "omschrijving": self.omschrijving,
@@ -126,7 +157,7 @@ class CreateBoekingsregelInput:
 
 
 @dataclass
-class CreateBoekingInput:
+class NewBoeking:
     """Input for creating a new boeking.
 
     Attributes:
@@ -145,7 +176,7 @@ class CreateBoekingInput:
 
     datum: date
     omschrijving: str
-    regels: list[CreateBoekingsregelInput]
+    regels: list["NewBoekingsregel"]
     boekjaar_id: int | None = None
     stuknummer: str | None = None
     tegenpartij_naam: str | None = None
@@ -175,7 +206,7 @@ class CreateBoekingInput:
 
 
 @dataclass
-class UpdateBoekingInput:
+class UpdateBoeking:
     """Input for partially updating a boeking.
 
     All fields optional. If ``regels`` is provided the existing lines are
@@ -201,7 +232,7 @@ class UpdateBoekingInput:
     tegenpartij_iban: str | None = None
     gecontroleerd: bool | None = None
     auto_geboekt: bool | None = None
-    regels: list[CreateBoekingsregelInput] | None = field(default=None)
+    regels: list["NewBoekingsregel"] | None = field(default=None)
 
     def to_dict(self) -> dict:
         d: dict = {}

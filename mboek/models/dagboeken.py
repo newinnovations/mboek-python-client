@@ -51,14 +51,20 @@ class DagboekWerkStatus:
 
 
 @dataclass
-class CreateDagboekInput:
+class NewDagboek:
     """Input for creating a new dagboek.
+
+    At most one of ``grootboekrekening_id``, ``grootboekrekening_naam``, or
+    ``grootboekrekening_code`` may be provided.  When a name or code is supplied
+    the resource layer resolves it to an ID before sending the request.
 
     Attributes:
         code: Short code (e.g. ``"BANK"``).
         naam: Display name.
         dagboek_type: Journal type.
-        grootboekrekening_id: Optional linked balance account.
+        grootboekrekening_id: Optional linked balance account (numeric ID).
+        grootboekrekening_naam: Account name — alternative to ``grootboekrekening_id``.
+        grootboekrekening_code: Account code — alternative to ``grootboekrekening_id``.
         iban: Optional IBAN for bank-statement auto-matching.
     """
 
@@ -66,7 +72,23 @@ class CreateDagboekInput:
     naam: str
     dagboek_type: DagboekType
     grootboekrekening_id: int | None = None
+    grootboekrekening_naam: str | None = None
+    grootboekrekening_code: str | None = None
     iban: str | None = None
+
+    def __post_init__(self) -> None:
+        provided = sum(
+            x is not None
+            for x in [
+                self.grootboekrekening_id,
+                self.grootboekrekening_naam,
+                self.grootboekrekening_code,
+            ]
+        )
+        if provided > 1:
+            raise ValueError(
+                "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
+            )
 
     def to_dict(self) -> dict:
         d: dict = {
@@ -82,16 +104,21 @@ class CreateDagboekInput:
 
 
 @dataclass
-class UpdateDagboekInput:
+class UpdateDagboek:
     """Input for partially updating a dagboek.
 
-    All fields optional.
+    All fields optional.  At most one of ``grootboekrekening_id``,
+    ``grootboekrekening_naam``, or ``grootboekrekening_code`` may be provided.
+    When a name or code is supplied the resource layer resolves it to an ID
+    before sending the request.
 
     Attributes:
         code: New short code.
         naam: New display name.
         dagboek_type: New journal type.
-        grootboekrekening_id: New linked balance account.
+        grootboekrekening_id: New linked balance account (numeric ID).
+        grootboekrekening_naam: Account name — alternative to ``grootboekrekening_id``.
+        grootboekrekening_code: Account code — alternative to ``grootboekrekening_id``.
         iban: New IBAN.
     """
 
@@ -99,7 +126,23 @@ class UpdateDagboekInput:
     naam: str | None = None
     dagboek_type: DagboekType | None = None
     grootboekrekening_id: int | None = None
+    grootboekrekening_naam: str | None = None
+    grootboekrekening_code: str | None = None
     iban: str | None = None
+
+    def __post_init__(self) -> None:
+        provided = sum(
+            x is not None
+            for x in [
+                self.grootboekrekening_id,
+                self.grootboekrekening_naam,
+                self.grootboekrekening_code,
+            ]
+        )
+        if provided > 1:
+            raise ValueError(
+                "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
+            )
 
     def to_dict(self) -> dict:
         d: dict = {}

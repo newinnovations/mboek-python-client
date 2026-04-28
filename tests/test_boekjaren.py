@@ -33,9 +33,14 @@ def test_get(mocked_responses, client):
 
 def test_create(mocked_responses, client):
     mocked_responses.add(
-        responses.POST, f"{BASE_URL}/api/administraties/1/boekjaren", json=BOEKJAAR, status=201
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekjaren",
+        json=BOEKJAAR,
+        status=201,
     )
-    inp = CreateBoekjaarInput(naam="2024", start_datum=date(2024, 1, 1), eind_datum=date(2024, 12, 31))
+    inp = CreateBoekjaarInput(
+        naam="2024", start_datum=date(2024, 1, 1), eind_datum=date(2024, 12, 31)
+    )
     item = client.administratie(1).boekjaren.create(inp)
     assert item.naam == "2024"
 
@@ -43,7 +48,9 @@ def test_create(mocked_responses, client):
 def test_afsluiten(mocked_responses, client):
     gesloten = {**BOEKJAAR, "status": "gesloten"}
     mocked_responses.add(
-        responses.POST, f"{BASE_URL}/api/administraties/1/boekjaren/10/afsluiten", json=gesloten
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10/afsluiten",
+        json=gesloten,
     )
     item = client.administratie(1).boekjaren.afsluiten(10)
     assert item.status == BoekjaarStatus.GESLOTEN
@@ -65,7 +72,9 @@ def test_afsluiten_already_closed(mocked_responses, client):
 
 def test_heropenen(mocked_responses, client):
     mocked_responses.add(
-        responses.POST, f"{BASE_URL}/api/administraties/1/boekjaren/10/heropenen", json=BOEKJAAR
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10/heropenen",
+        json=BOEKJAAR,
     )
     item = client.administratie(1).boekjaren.heropenen(10)
     assert item.status == BoekjaarStatus.OPEN
@@ -73,7 +82,9 @@ def test_heropenen(mocked_responses, client):
 
 def test_set_huidig(mocked_responses, client):
     mocked_responses.add(
-        responses.POST, f"{BASE_URL}/api/administraties/1/boekjaren/10/set-huidig", json=BOEKJAAR
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10/set-huidig",
+        json=BOEKJAAR,
     )
     item = client.administratie(1).boekjaren.set_huidig(10)
     assert item.id == 10
@@ -165,6 +176,7 @@ def test_boekjaar_scope_grootboekrekeningen(mocked_responses, client):
     assert item.naam == "Bank"
     assert item.transacties == 3
     from decimal import Decimal
+
     assert item.saldo == Decimal("4000.00")
 
 
@@ -177,6 +189,7 @@ def test_boekjaar_scope_grootboekrekening_found(mocked_responses, client):
     item = client.administratie(1).boekjaar(10).grootboekrekening(code="1220")
     assert item.naam == "Bank"
     from decimal import Decimal
+
     assert item.saldo == Decimal("4000.00")
 
 

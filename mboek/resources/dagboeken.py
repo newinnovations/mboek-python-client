@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from mboek._parsers import parse_dagboek, parse_werkstatus
 from mboek.models.dagboeken import (
-    CreateDagboekInput,
     DagboekResponse,
     DagboekWerkStatus,
-    UpdateDagboekInput,
+    NewDagboek,
+    UpdateDagboek,
 )
 from mboek.resources._base import BaseResource
 
@@ -51,26 +51,53 @@ class DagboekenResource(BaseResource):
             self._get(f"/api/administraties/{self._admin_id}/dagboeken/{id}")
         )
 
-    def create(self, input: CreateDagboekInput) -> DagboekResponse:
+    def create(self, input: NewDagboek) -> DagboekResponse:
         """Create a new dagboek.
+
+        A grootboekrekening may be specified via ``grootboekrekening_naam`` or
+        ``grootboekrekening_code`` in addition to the numeric
+        ``grootboekrekening_id``; the ID is resolved automatically.
 
         Args:
             input: Dagboek parameters.
         """
+        if input.grootboekrekening_id is None and (
+            input.grootboekrekening_naam or input.grootboekrekening_code
+        ):
+            input.grootboekrekening_id = self._resolve_rekening_id(
+                self._admin_id,
+                naam=input.grootboekrekening_naam,
+                code=input.grootboekrekening_code,
+            )
         return parse_dagboek(
-            self._post(f"/api/administraties/{self._admin_id}/dagboeken", json=input.to_dict())
+            self._post(
+                f"/api/administraties/{self._admin_id}/dagboeken", json=input.to_dict()
+            )
         )
 
-    def update(self, id: int, input: UpdateDagboekInput) -> DagboekResponse:
+    def update(self, id: int, input: UpdateDagboek) -> DagboekResponse:
         """Partially update a dagboek.
+
+        A grootboekrekening may be specified via ``grootboekrekening_naam`` or
+        ``grootboekrekening_code`` in addition to the numeric
+        ``grootboekrekening_id``; the ID is resolved automatically.
 
         Args:
             id: Dagboek ID.
             input: Fields to update.
         """
+        if input.grootboekrekening_id is None and (
+            input.grootboekrekening_naam or input.grootboekrekening_code
+        ):
+            input.grootboekrekening_id = self._resolve_rekening_id(
+                self._admin_id,
+                naam=input.grootboekrekening_naam,
+                code=input.grootboekrekening_code,
+            )
         return parse_dagboek(
             self._patch(
-                f"/api/administraties/{self._admin_id}/dagboeken/{id}", json=input.to_dict()
+                f"/api/administraties/{self._admin_id}/dagboeken/{id}",
+                json=input.to_dict(),
             )
         )
 
@@ -84,9 +111,7 @@ class DagboekenResource(BaseResource):
         """
         self._delete(f"/api/administraties/{self._admin_id}/dagboeken/{id}")
 
-    def werkstatus(
-        self, boekjaar_id: int | None = None
-    ) -> list[DagboekWerkStatus]:
+    def werkstatus(self, boekjaar_id: int | None = None) -> list[DagboekWerkStatus]:
         """Return per-dagboek work-status counts.
 
         Returns the number of unprocessed bank imports (``onverwerkt``) and
@@ -106,7 +131,8 @@ class DagboekenResource(BaseResource):
         return [
             parse_werkstatus(d)
             for d in self._get(
-                f"/api/administraties/{self._admin_id}/dagboeken/werkstatus", params=params
+                f"/api/administraties/{self._admin_id}/dagboeken/werkstatus",
+                params=params,
             )
         ]
 

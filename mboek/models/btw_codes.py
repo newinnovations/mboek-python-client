@@ -43,7 +43,7 @@ class BtwCodeResponse:
 
 
 @dataclass
-class CreateBtwCodeInput:
+class NewBtwCode:
     """Input for creating a new BTW code.
 
     Attributes:
@@ -81,7 +81,7 @@ class CreateBtwCodeInput:
 
 
 @dataclass
-class UpdateBtwCodeInput:
+class UpdateBtwCode:
     """Input for partially updating a BTW code.
 
     All fields optional.

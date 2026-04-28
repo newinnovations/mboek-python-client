@@ -90,4 +90,6 @@ class BtwAangifteResource(BaseResource):
         Args:
             aangifte_id: BTW-aangifte ID.
         """
-        self._delete(f"/api/administraties/{self._admin_id}/btw-aangiften/{aangifte_id}")
+        self._delete(
+            f"/api/administraties/{self._admin_id}/btw-aangiften/{aangifte_id}"
+        )

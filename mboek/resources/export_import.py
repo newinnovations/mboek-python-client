@@ -61,7 +61,9 @@ class AdminExportImportResource(BaseResource):
         Returns:
             Export payload as a Python dict.
         """
-        return self._get(f"/api/administraties/{self._admin_id}/boekjaren/{boekjaar_id}/export")
+        return self._get(
+            f"/api/administraties/{self._admin_id}/boekjaren/{boekjaar_id}/export"
+        )
 
     def export_boeking(self, boeking_id: int) -> dict:
         """Export a single boeking as a JSON-serialisable dict.
@@ -72,7 +74,9 @@ class AdminExportImportResource(BaseResource):
         Returns:
             Export payload as a Python dict.
         """
-        return self._get(f"/api/administraties/{self._admin_id}/boekingen/{boeking_id}/export")
+        return self._get(
+            f"/api/administraties/{self._admin_id}/boekingen/{boeking_id}/export"
+        )
 
     def import_boekjaar(self, payload: dict) -> dict:
         """Import a boekjaar into the administratie.
@@ -85,4 +89,6 @@ class AdminExportImportResource(BaseResource):
         Returns:
             Summary dict with the newly created boekjaar ID.
         """
-        return self._post(f"/api/administraties/{self._admin_id}/boekjaren/import", json=payload)
+        return self._post(
+            f"/api/administraties/{self._admin_id}/boekjaren/import", json=payload
+        )

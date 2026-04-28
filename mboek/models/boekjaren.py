@@ -38,7 +38,7 @@ BoekjaarResponse = Boekjaar
 
 
 @dataclass
-class CreateBoekjaarInput:
+class NewBoekjaar:
     """Input for creating a new boekjaar.
 
     Attributes:
@@ -60,7 +60,7 @@ class CreateBoekjaarInput:
 
 
 @dataclass
-class UpdateBoekjaarInput:
+class UpdateBoekjaar:
     """Input for partially updating a boekjaar.
 
     All fields optional. Do **not** use this to close/reopen a boekjaar —

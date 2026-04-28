@@ -5,22 +5,26 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from mboek._exceptions import NotFoundError
+from mboek.resources._base import BaseResource
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.models.boekingen import BoekingMetRegelsResponse, CreateBoekingInput
+    from mboek.models.boekingen import BoekingMetRegelsResponse, NewBoeking
     from mboek.models.grootboekrekeningen import GrootboekrekeningMetSaldoResponse
 
 
-class BoekjaarScopedBoekingenResource:
+class BoekjaarScopedBoekingenResource(BaseResource):
     """Boekingen operations scoped to a single dagboek within a boekjaar.
 
     Handles ``list`` and ``create``. Use :py:attr:`MboekClient.boekingen` for
     ``get``, ``update`` and ``delete`` (which operate by boeking ID only).
     """
 
-    def __init__(self, client: "MboekClient", boekjaar_id: int, dagboek_id: int) -> None:
-        self._client = client
+    def __init__(
+        self, client: "MboekClient", admin_id: int, boekjaar_id: int, dagboek_id: int
+    ) -> None:
+        super().__init__(client)
+        self._admin_id = admin_id
         self._boekjaar_id = boekjaar_id
         self._dagboek_id = dagboek_id
 
@@ -43,15 +47,19 @@ class BoekjaarScopedBoekingenResource:
             )
         ]
 
-    def create(self, input: "CreateBoekingInput") -> "BoekingMetRegelsResponse":
+    def create(self, input: "NewBoeking") -> "BoekingMetRegelsResponse":
         """Create a new boeking with its boekingsregels in a single transaction.
 
         The scope's ``boekjaar_id`` is always injected into the request,
         overriding any value set on ``input``. All regels must balance
         (``sum(bedrag) == 0``).
 
+        Regels may reference a grootboekrekening via ``grootboekrekening_naam``
+        or ``grootboekrekening_code`` instead of ``grootboekrekening_id``; the
+        ID is resolved automatically (using the client-level cache).
+
         Args:
-            input: :py:class:`~mboek.models.boekingen.CreateBoekingInput` — boeking
+            input: :py:class:`~mboek.models.boekingen.NewBoeking` — boeking
                 header and lines. The ``boekjaar_id`` field may be omitted; the
                 scope provides it automatically.
 
@@ -61,8 +69,18 @@ class BoekjaarScopedBoekingenResource:
         Raises:
             :py:class:`~mboek._exceptions.ValidationError`: Regels do not balance
                 or fewer than 2 regels provided.
+            :py:class:`~mboek._exceptions.NotFoundError`: A naam/code could not
+                be resolved to a grootboekrekening.
         """
         from mboek._parsers import parse_boeking_met_regels
+
+        for regel in input.regels:
+            if regel.grootboekrekening_id is None:
+                regel.grootboekrekening_id = self._resolve_rekening_id(
+                    self._admin_id,
+                    naam=regel.grootboekrekening_naam,
+                    code=regel.grootboekrekening_code,
+                )
 
         data = input.to_dict()
         data["boekjaar_id"] = self._boekjaar_id
@@ -103,7 +121,7 @@ class BoekjaarDagboekScope:
         """Scoped boekingen resource for this dagboek and boekjaar."""
         if self._boekingen is None:
             self._boekingen = BoekjaarScopedBoekingenResource(
-                self._client, self._boekjaar_id, self._dagboek_id
+                self._client, self._admin_id, self._boekjaar_id, self._dagboek_id
             )
         return self._boekingen
 
@@ -135,7 +153,9 @@ class BoekjaarScope:
         if self._reports is None:
             from mboek.resources.reports import ReportsResource
 
-            self._reports = ReportsResource(self._client, self._admin_id, self.boekjaar_id)
+            self._reports = ReportsResource(
+                self._client, self._admin_id, self.boekjaar_id
+            )
         return self._reports
 
     @property

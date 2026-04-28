@@ -5,8 +5,8 @@ from __future__ import annotations
 from mboek._parsers import parse_administratie
 from mboek.models.administraties import (
     AdministratieResponse,
-    CreateAdministratieInput,
-    UpdateAdministratieInput,
+    NewAdministratie,
+    UpdateAdministratie,
 )
 from mboek.resources._base import BaseResource
 
@@ -39,7 +39,7 @@ class AdministratiesResource(BaseResource):
         """
         return parse_administratie(self._get(f"/api/administraties/{id}"))
 
-    def create(self, input: CreateAdministratieInput) -> AdministratieResponse:
+    def create(self, input: NewAdministratie) -> AdministratieResponse:
         """Create a new administratie.
 
         Args:
@@ -48,9 +48,11 @@ class AdministratiesResource(BaseResource):
         Returns:
             The newly created administratie.
         """
-        return parse_administratie(self._post("/api/administraties", json=input.to_dict()))
+        return parse_administratie(
+            self._post("/api/administraties", json=input.to_dict())
+        )
 
-    def update(self, id: int, input: UpdateAdministratieInput) -> AdministratieResponse:
+    def update(self, id: int, input: UpdateAdministratie) -> AdministratieResponse:
         """Partially update an administratie.
 
         Args:

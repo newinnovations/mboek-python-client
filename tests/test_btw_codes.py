@@ -31,7 +31,10 @@ def test_get(mocked_responses, client):
 
 def test_create(mocked_responses, client):
     mocked_responses.add(
-        responses.POST, f"{BASE_URL}/api/administraties/1/btw-codes", json=BTW_CODE, status=201
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/btw-codes",
+        json=BTW_CODE,
+        status=201,
     )
     inp = CreateBtwCodeInput(
         code="V21",
@@ -45,7 +48,9 @@ def test_create(mocked_responses, client):
 
 def test_seed_defaults(mocked_responses, client):
     mocked_responses.add(
-        responses.POST, f"{BASE_URL}/api/administraties/1/btw-codes/seed-defaults", status=204
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/btw-codes/seed-defaults",
+        status=204,
     )
     client.administratie(1).btw_codes.seed_defaults()
 

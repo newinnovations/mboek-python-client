@@ -64,7 +64,9 @@ class AdministratieScope:
         if self._grootboekrekeningen is None:
             from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
 
-            self._grootboekrekeningen = GrootboekrekeningenResource(self._client, self.admin_id)
+            self._grootboekrekeningen = GrootboekrekeningenResource(
+                self._client, self.admin_id
+            )
         return self._grootboekrekeningen
 
     @property
@@ -82,7 +84,9 @@ class AdministratieScope:
         if self._auto_booking_rules is None:
             from mboek.resources.auto_booking_rules import AutoBookingRulesResource
 
-            self._auto_booking_rules = AutoBookingRulesResource(self._client, self.admin_id)
+            self._auto_booking_rules = AutoBookingRulesResource(
+                self._client, self.admin_id
+            )
         return self._auto_booking_rules
 
     @property
@@ -105,7 +109,9 @@ class AdministratieScope:
 
     # ── Boekjaar scope ────────────────────────────────────────────────────────
 
-    def boekjaar(self, boekjaar_id: int | None = None, *, name: str | None = None) -> "BoekjaarScope":
+    def boekjaar(
+        self, boekjaar_id: int | None = None, *, name: str | None = None
+    ) -> "BoekjaarScope":
         """Return a :py:class:`~mboek.resources._boekjaar_scope.BoekjaarScope`.
 
         Pass either the numeric ``boekjaar_id`` (no HTTP call) or a ``name``
@@ -188,4 +194,3 @@ class AdministratieScope:
         from mboek.resources._dagboek_scope import DagboekScope
 
         return DagboekScope(self._client, self.admin_id, dagboek_id)
-

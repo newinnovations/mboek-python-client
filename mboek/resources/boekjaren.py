@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mboek._parsers import parse_boekjaar
-from mboek.models.boekjaren import Boekjaar, CreateBoekjaarInput, UpdateBoekjaarInput
+from mboek.models.boekjaren import Boekjaar, NewBoekjaar, UpdateBoekjaar
 from mboek.resources._base import BaseResource
 
 
@@ -34,9 +34,11 @@ class BoekjarenResource(BaseResource):
         Args:
             id: Boekjaar ID.
         """
-        return parse_boekjaar(self._get(f"/api/administraties/{self._admin_id}/boekjaren/{id}"))
+        return parse_boekjaar(
+            self._get(f"/api/administraties/{self._admin_id}/boekjaren/{id}")
+        )
 
-    def create(self, input: CreateBoekjaarInput) -> Boekjaar:
+    def create(self, input: NewBoekjaar) -> Boekjaar:
         """Create a new boekjaar.
 
         New boekjaren start with status ``open``.
@@ -45,10 +47,12 @@ class BoekjarenResource(BaseResource):
             input: Name and date range.
         """
         return parse_boekjaar(
-            self._post(f"/api/administraties/{self._admin_id}/boekjaren", json=input.to_dict())
+            self._post(
+                f"/api/administraties/{self._admin_id}/boekjaren", json=input.to_dict()
+            )
         )
 
-    def update(self, id: int, input: UpdateBoekjaarInput) -> Boekjaar:
+    def update(self, id: int, input: UpdateBoekjaar) -> Boekjaar:
         """Partially update a boekjaar's name or dates.
 
         To change status use :py:meth:`afsluiten` or :py:meth:`heropenen`.
@@ -59,7 +63,8 @@ class BoekjarenResource(BaseResource):
         """
         return parse_boekjaar(
             self._patch(
-                f"/api/administraties/{self._admin_id}/boekjaren/{id}", json=input.to_dict()
+                f"/api/administraties/{self._admin_id}/boekjaren/{id}",
+                json=input.to_dict(),
             )
         )
 
@@ -116,7 +121,9 @@ class BoekjarenResource(BaseResource):
             id: Boekjaar ID to set as current.
         """
         return parse_boekjaar(
-            self._post(f"/api/administraties/{self._admin_id}/boekjaren/{id}/set-huidig")
+            self._post(
+                f"/api/administraties/{self._admin_id}/boekjaren/{id}/set-huidig"
+            )
         )
 
     def find_by_naam(self, naam: str) -> Boekjaar | None:

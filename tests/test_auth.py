@@ -17,7 +17,9 @@ LOGIN_PAYLOAD = {
 
 
 def test_login_success(mocked_responses):
-    mocked_responses.add(responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD)
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
     client = MboekClient(BASE_URL)
     result = client.login("admin", "secret")
 
@@ -27,14 +29,19 @@ def test_login_success(mocked_responses):
 
 
 def test_login_in_constructor(mocked_responses):
-    mocked_responses.add(responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD)
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
     client = MboekClient(BASE_URL, "admin", "secret")
     assert client.token == "my-jwt-token"
 
 
 def test_login_invalid_credentials(mocked_responses):
     mocked_responses.add(
-        responses.POST, f"{BASE_URL}/api/auth/login", json={"error": "Invalid"}, status=401
+        responses.POST,
+        f"{BASE_URL}/api/auth/login",
+        json={"error": "Invalid"},
+        status=401,
     )
     client = MboekClient(BASE_URL)
     try:
@@ -73,7 +80,9 @@ def test_logout(mocked_responses, client):
 
 
 def test_context_manager_auto_logout(mocked_responses):
-    mocked_responses.add(responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD)
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
     mocked_responses.add(responses.POST, f"{BASE_URL}/api/auth/logout", status=204)
 
     with MboekClient(BASE_URL, "admin", "secret") as c:
@@ -85,7 +94,9 @@ def test_login_from_env_vars(mocked_responses, monkeypatch):
     monkeypatch.setenv("MBOEK_URL", BASE_URL)
     monkeypatch.setenv("MBOEK_USERNAME", "admin")
     monkeypatch.setenv("MBOEK_PASSWORD", "secret")
-    mocked_responses.add(responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD)
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
     client = MboekClient()
     assert client.token == "my-jwt-token"
     assert client._base_url == BASE_URL
@@ -106,7 +117,9 @@ def test_explicit_args_override_env_vars(mocked_responses, monkeypatch):
     monkeypatch.setenv("MBOEK_USERNAME", "env-user")
     monkeypatch.setenv("MBOEK_PASSWORD", "env-pass")
     # Explicit base_url and credentials override env vars
-    mocked_responses.add(responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD)
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
     client = MboekClient(BASE_URL, "admin", "secret")
     assert client._base_url == BASE_URL
     assert client.token == "my-jwt-token"

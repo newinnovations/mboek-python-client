@@ -38,7 +38,7 @@ class AdministratieResponse:
 
 
 @dataclass
-class CreateAdministratieInput:
+class NewAdministratie:
     """Input for creating a new administratie.
 
     Attributes:
@@ -56,17 +56,21 @@ class CreateAdministratieInput:
     adres: str | None = None
 
     def to_dict(self) -> dict:
-        return {k: v for k, v in {
-            "naam": self.naam,
-            "beschrijving": self.beschrijving,
-            "kvk_nummer": self.kvk_nummer,
-            "btw_nummer": self.btw_nummer,
-            "adres": self.adres,
-        }.items() if v is not None}
+        return {
+            k: v
+            for k, v in {
+                "naam": self.naam,
+                "beschrijving": self.beschrijving,
+                "kvk_nummer": self.kvk_nummer,
+                "btw_nummer": self.btw_nummer,
+                "adres": self.adres,
+            }.items()
+            if v is not None
+        }
 
 
 @dataclass
-class UpdateAdministratieInput:
+class UpdateAdministratie:
     """Input for partially updating an administratie.
 
     All fields are optional — omit any field you do not want to change.

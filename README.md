@@ -182,22 +182,22 @@ Amounts are in **euros** — the library converts to/from cents automatically.
 ```python
 from decimal import Decimal
 from datetime import date
-from mboek import CreateBoekingInput, CreateBoekingsregelInput, Regeltype
+from mboek import NewBoeking, NewBoekingsregel, Regeltype
 
 regels = [
-    CreateBoekingsregelInput(
+    NewBoekingsregel(
         grootboekrekening_id=bank_account_id,
         omschrijving="Bank outflow",
         bedrag=Decimal("-121.00"),   # credit the bank account
     ),
-    CreateBoekingsregelInput(
+    NewBoekingsregel(
         grootboekrekening_id=kosten_id,
         omschrijving="Hosting",
         bedrag=Decimal("100.00"),    # debit costs (netto)
         btw_code_id=btw_i21_id,
         regeltype=Regeltype.NETTO,
     ),
-    CreateBoekingsregelInput(
+    NewBoekingsregel(
         grootboekrekening_id=btw_vorderen_id,
         omschrijving="BTW",
         bedrag=Decimal("21.00"),     # debit VAT receivable
@@ -208,7 +208,7 @@ regels = [
 
 bj_dagboek = client.administratie(admin_id).boekjaar(boekjaar_id).dagboek(bank_dagboek_id)
 entry = bj_dagboek.boekingen.create(
-    CreateBoekingInput(
+    NewBoeking(
         datum=date(2024, 3, 15),
         omschrijving="Hosting invoice March",
         regels=regels,
@@ -218,15 +218,25 @@ entry = bj_dagboek.boekingen.create(
 print(f"Created boeking {entry.boeking.id}")
 ```
 
+Alternatively, you can reference accounts by **name or code** instead of a
+numeric ID — the library resolves them automatically (with caching):
+
+```python
+regels = [
+    NewBoekingsregel(grootboekrekening_code="1220", omschrijving="Bank", bedrag=Decimal("-100.00")),
+    NewBoekingsregel(grootboekrekening_naam="Kosten internet", omschrijving="Hosting", bedrag=Decimal("100.00")),
+]
+```
+
 ## Setting up a new administration
 
 ```python
 from datetime import date
-from mboek import CreateAdministratieInput, CreateBoekjaarInput
+from mboek import NewAdministratie, NewBoekjaar
 
 # 1. Create the administration
 admin = client.administraties.create(
-    CreateAdministratieInput(naam="My Company BV", btw_nummer="NL123456789B01")
+    NewAdministratie(naam="My Company BV", btw_nummer="NL123456789B01")
 )
 a = client.administratie(admin.id)
 
@@ -238,7 +248,7 @@ a.btw_codes.seed_defaults()
 
 # 4. Create a fiscal year
 boekjaar = a.boekjaren.create(
-    CreateBoekjaarInput(
+    NewBoekjaar(
         naam="2024",
         start_datum=date(2024, 1, 1),
         eind_datum=date(2024, 12, 31),
@@ -298,12 +308,12 @@ client.export_import.import_administratie(payload)
 ## Automatic booking rules
 
 ```python
-from mboek import CreateAutoBookingRuleInput
+from mboek import NewAutoBookingRule
 
 a = client.administratie(admin_id)
 
 rule = a.auto_booking_rules.create(
-    CreateAutoBookingRuleInput(
+    NewAutoBookingRule(
         naam="Hosting Duitsland",
         actie_type="enkel",
         tegenpartij_iban_patroon="DE75512308000000060004",

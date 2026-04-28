@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import responses
 
-from mboek import CreateGrootboekrekeningInput
+from mboek import CreateGrootboekrekeningInput, NewGrootboekrekening
 from mboek.models._enums import RekeningCategorie, RekeningType
 from tests.conftest import BASE_URL, GROOTBOEKREKENING
 
@@ -87,6 +87,7 @@ def test_mutaties(mocked_responses, client):
     )
     items = client.administratie(1).grootboekrekeningen.mutaties(30, 10)
     from decimal import Decimal
+
     assert items[0].bedrag == Decimal("-100.00")
 
 
@@ -130,3 +131,100 @@ def test_find_by_code_not_found(mocked_responses, client):
     )
     result = client.administratie(1).grootboekrekeningen.find_by_code("9999")
     assert result is None
+
+
+# ── Rename & cache tests ──────────────────────────────────────────────────────
+
+
+def test_new_naam_is_canonical():
+    """NewGrootboekrekening is importable and is the canonical class."""
+    assert NewGrootboekrekening is not None
+    assert CreateGrootboekrekeningInput is NewGrootboekrekening
+
+
+def test_list_cached(mocked_responses, client):
+    """list() is served from cache on the second call; only one HTTP request is made."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    gbr = client.administratie(1).grootboekrekeningen
+    first = gbr.list()
+    second = gbr.list()
+    assert first == second
+    # Only one HTTP call despite two list() calls
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
+    ]
+    assert len(gbr_calls) == 1
+
+
+def test_list_refresh_bypasses_cache(mocked_responses, client):
+    """list(refresh=True) bypasses the cache and fetches fresh data."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    gbr = client.administratie(1).grootboekrekeningen
+    gbr.list()
+    gbr.list(refresh=True)
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
+    ]
+    assert len(gbr_calls) == 2
+
+
+def test_clear_cache(mocked_responses, client):
+    """clear_cache() causes the next list() to fetch fresh data."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    gbr = client.administratie(1).grootboekrekeningen
+    gbr.list()
+    gbr.clear_cache()
+    gbr.list()
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
+    ]
+    assert len(gbr_calls) == 2
+
+
+def test_find_by_naam_uses_cache(mocked_responses, client):
+    """find_by_naam and find_by_code share the same cached list."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    gbr = client.administratie(1).grootboekrekeningen
+    r1 = gbr.find_by_naam("Bank")
+    r2 = gbr.find_by_code("1220")
+    assert r1 is not None
+    assert r2 is not None
+    # Only one HTTP request for two lookups
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
+    ]
+    assert len(gbr_calls) == 1

@@ -100,7 +100,7 @@ class GrootboekMutatie:
 
 
 @dataclass
-class CreateGrootboekrekeningInput:
+class NewGrootboekrekening:
     """Input for creating a new grootboekrekening.
 
     Attributes:
@@ -138,7 +138,7 @@ class CreateGrootboekrekeningInput:
 
 
 @dataclass
-class UpdateGrootboekrekeningInput:
+class UpdateGrootboekrekening:
     """Input for partially updating a grootboekrekening.
 
     All fields optional.

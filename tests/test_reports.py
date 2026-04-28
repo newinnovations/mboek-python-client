@@ -10,8 +10,24 @@ from tests.conftest import BASE_URL
 
 BALANS_RESPONSE = {
     "boekjaar_naam": "2024",
-    "activa": [{"code": "1220", "naam": "Bank", "debet": "5000.00", "credit": "0.00", "saldo": "5000.00"}],
-    "passiva": [{"code": "2000", "naam": "Eigen vermogen", "debet": "0.00", "credit": "5000.00", "saldo": "5000.00"}],
+    "activa": [
+        {
+            "code": "1220",
+            "naam": "Bank",
+            "debet": "5000.00",
+            "credit": "0.00",
+            "saldo": "5000.00",
+        }
+    ],
+    "passiva": [
+        {
+            "code": "2000",
+            "naam": "Eigen vermogen",
+            "debet": "0.00",
+            "credit": "5000.00",
+            "saldo": "5000.00",
+        }
+    ],
     "totaal_activa": "5000.00",
     "totaal_passiva": "5000.00",
     "in_balans": True,

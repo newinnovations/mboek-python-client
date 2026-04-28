@@ -5,11 +5,17 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+import pytest
 import responses
 
-from mboek import CreateBoekingInput, CreateBoekingsregelInput
+from mboek import (
+    CreateBoekingInput,
+    CreateBoekingsregelInput,
+    NewBoeking,
+    NewBoekingsregel,
+)
 from mboek.models._enums import Regeltype
-from tests.conftest import BASE_URL, BOEKING_MET_REGELS
+from tests.conftest import BASE_URL, BOEKING_MET_REGELS, GROOTBOEKREKENING
 
 
 def test_list(mocked_responses, client):
@@ -86,3 +92,84 @@ def test_boeking_bedrag_parsed_from_cents(mocked_responses, client):
     assert item.regels[0].bedrag == Decimal("-100.00")
     # BOEKING_REGEL2 has bedrag = 10000 cents → €100.00
     assert item.regels[1].bedrag == Decimal("100.00")
+
+
+# ── New name tests ────────────────────────────────────────────────────────────
+
+
+def test_new_names_are_canonical():
+    """New class names are importable from mboek directly."""
+    assert NewBoeking is not None
+    assert NewBoekingsregel is not None
+
+
+def test_old_names_are_aliases():
+    """Old Create...Input names still work as aliases for backward compat."""
+    assert CreateBoekingInput is NewBoeking
+    assert CreateBoekingsregelInput is NewBoekingsregel
+
+
+# ── NewBoekingsregel validation ───────────────────────────────────────────────
+
+
+def test_regel_validation_no_rekening():
+    """NewBoekingsregel raises if no rekening identifier is provided."""
+    with pytest.raises(ValueError, match="Provide exactly one"):
+        NewBoekingsregel(omschrijving="x", bedrag=Decimal("1.00"))
+
+
+def test_regel_validation_multiple_rekening():
+    """NewBoekingsregel raises if more than one rekening identifier is provided."""
+    with pytest.raises(ValueError, match="Provide only one"):
+        NewBoekingsregel(
+            omschrijving="x",
+            bedrag=Decimal("1.00"),
+            grootboekrekening_id=1,
+            grootboekrekening_naam="Bank",
+        )
+
+
+def test_regel_with_naam(mocked_responses, client):
+    """NewBoekingsregel created with naam/code resolves to the correct IDs."""
+    gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": "4000"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING, gbr2],
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/dagboeken/20/boekingen",
+        json=BOEKING_MET_REGELS,
+        status=201,
+    )
+
+    regels = [
+        NewBoekingsregel(
+            grootboekrekening_naam="Bank",
+            omschrijving="Bank",
+            bedrag=Decimal("-100.00"),
+        ),
+        NewBoekingsregel(
+            grootboekrekening_code="4000",
+            omschrijving="Kosten",
+            bedrag=Decimal("100.00"),
+        ),
+    ]
+    inp = NewBoeking(datum=date(2024, 1, 15), omschrijving="Test", regels=regels)
+    item = client.administratie(1).boekjaar(10).dagboek(20).boekingen.create(inp)
+    assert item.boeking.id == 100
+    # Both regels should have been resolved
+    assert regels[0].grootboekrekening_id == 30
+    assert regels[1].grootboekrekening_id == 31
+
+
+def test_regel_to_dict_unresolved_raises():
+    """to_dict() raises if grootboekrekening_id was not resolved yet."""
+    regel = NewBoekingsregel(
+        grootboekrekening_naam="Bank",
+        omschrijving="x",
+        bedrag=Decimal("1.00"),
+    )
+    with pytest.raises(ValueError, match="not yet resolved"):
+        regel.to_dict()
