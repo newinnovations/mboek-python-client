@@ -114,13 +114,20 @@ def test_find_by_naam_not_found(mocked_responses, client):
     assert result is None
 
 
-def test_boekjaar_scope_by_id(client):
-    """Positional and keyword ID still work without an HTTP call."""
+def test_boekjaar_scope_by_id(mocked_responses, client):
+    """Positional and keyword ID make one GET call and return a full Boekjaar."""
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
     scope = client.administratie(1).boekjaar(10)
-    assert scope.boekjaar_id == 10
+    assert scope.id == 10
+    assert scope.naam == "2024"
 
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
     scope = client.administratie(1).boekjaar(boekjaar_id=10)
-    assert scope.boekjaar_id == 10
+    assert scope.id == 10
 
 
 def test_boekjaar_scope_by_name(mocked_responses, client):
@@ -128,7 +135,7 @@ def test_boekjaar_scope_by_name(mocked_responses, client):
         responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren", json=[BOEKJAAR]
     )
     scope = client.administratie(1).boekjaar(name="2024")
-    assert scope.boekjaar_id == 10
+    assert scope.id == 10
 
 
 def test_boekjaar_scope_by_name_not_found(mocked_responses, client):
@@ -165,6 +172,9 @@ MET_SALDO = [{"rekening": GROOTBOEKREKENING, "aantal_transacties": 3, "saldo": 4
 
 def test_boekjaar_scope_grootboekrekeningen(mocked_responses, client):
     mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
         json=MET_SALDO,
@@ -182,6 +192,9 @@ def test_boekjaar_scope_grootboekrekeningen(mocked_responses, client):
 
 def test_boekjaar_scope_grootboekrekening_found(mocked_responses, client):
     mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
         json=MET_SALDO,
@@ -195,6 +208,9 @@ def test_boekjaar_scope_grootboekrekening_found(mocked_responses, client):
 
 def test_boekjaar_scope_grootboekrekening_not_found(mocked_responses, client):
     mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
         json=MET_SALDO,
@@ -204,3 +220,83 @@ def test_boekjaar_scope_grootboekrekening_not_found(mocked_responses, client):
         assert False
     except NotFoundError as e:
         assert "9999" in str(e)
+
+
+# ── Scope error tests ──────────────────────────────────────────────────────────
+
+
+def test_boekjaar_reports_scope_error():
+    """Boekjaar without client raises ScopeError when accessing reports."""
+    from mboek._exceptions import ScopeError
+
+    bj = client_free_boekjaar()
+    try:
+        _ = bj.reports
+        assert False
+    except ScopeError:
+        pass
+
+
+def test_boekjaar_btw_aangifte_scope_error():
+    """Boekjaar without client raises ScopeError when accessing btw_aangifte."""
+    from mboek._exceptions import ScopeError
+
+    bj = client_free_boekjaar()
+    try:
+        _ = bj.btw_aangifte
+        assert False
+    except ScopeError:
+        pass
+
+
+def test_boekjaar_grootboekrekeningen_scope_error():
+    """Boekjaar without client raises ScopeError when calling grootboekrekeningen()."""
+    from mboek._exceptions import ScopeError
+
+    bj = client_free_boekjaar()
+    try:
+        bj.grootboekrekeningen()
+        assert False
+    except ScopeError:
+        pass
+
+
+def test_boekjaar_dagboek_via_scope(mocked_responses, client):
+    """boekjaar.dagboek(code=...) returns a Dagboek scoped to that boekjaar."""
+    from mboek.models.dagboeken import Dagboek
+    from tests.conftest import DAGBOEK
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    dagboek = client.administratie(1).boekjaar(10).dagboek(code="BANK")
+    assert isinstance(dagboek, Dagboek)
+    assert dagboek.id == 20
+    assert dagboek._boekjaar_id == 10
+    assert dagboek.naam == "Bankboek"
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+
+def client_free_boekjaar():
+    """Return a Boekjaar instance without a client reference for scope-error tests."""
+    from datetime import date
+    from mboek.models.boekjaren import Boekjaar
+    from mboek.models._enums import BoekjaarStatus
+    from datetime import datetime
+
+    return Boekjaar(
+        id=10,
+        administratie_id=1,
+        naam="2024",
+        start_datum=date(2024, 1, 1),
+        eind_datum=date(2024, 12, 31),
+        status=BoekjaarStatus.OPEN,
+        created_at=datetime(2024, 1, 1),
+        updated_at=datetime(2024, 1, 1),
+        client=None,
+    )

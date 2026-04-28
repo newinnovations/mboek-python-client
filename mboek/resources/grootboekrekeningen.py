@@ -9,8 +9,7 @@ from mboek._parsers import (
 )
 from mboek.models.grootboekrekeningen import (
     GrootboekMutatie,
-    GrootboekrekeningMetSaldoResponse,
-    GrootboekrekeningResponse,
+    Grootboekrekening,
     NewGrootboekrekening,
     UpdateGrootboekrekening,
 )
@@ -35,7 +34,7 @@ class GrootboekrekeningenResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self, *, refresh: bool = False) -> list[GrootboekrekeningResponse]:
+    def list(self, *, refresh: bool = False) -> list[Grootboekrekening]:
         """Return all grootboekrekeningen for the administratie.
 
         Results are cached on the client for the lifetime of the session (keyed
@@ -52,7 +51,7 @@ class GrootboekrekeningenResource(BaseResource):
         if not refresh and self._admin_id in cache:
             return cache[self._admin_id]
         result = [
-            parse_grootboekrekening(d)
+            parse_grootboekrekening(d, client=self._client)
             for d in self._get(
                 f"/api/administraties/{self._admin_id}/grootboekrekeningen"
             )
@@ -60,17 +59,18 @@ class GrootboekrekeningenResource(BaseResource):
         cache[self._admin_id] = result
         return result
 
-    def get(self, id: int) -> GrootboekrekeningResponse:
+    def get(self, id: int) -> Grootboekrekening:
         """Return a single grootboekrekening.
 
         Args:
             id: Grootboekrekening ID.
         """
         return parse_grootboekrekening(
-            self._get(f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}")
+            self._get(f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}"),
+            client=self._client,
         )
 
-    def create(self, input: NewGrootboekrekening) -> GrootboekrekeningResponse:
+    def create(self, input: NewGrootboekrekening) -> Grootboekrekening:
         """Create a new grootboekrekening.
 
         Args:
@@ -80,12 +80,11 @@ class GrootboekrekeningenResource(BaseResource):
             self._post(
                 f"/api/administraties/{self._admin_id}/grootboekrekeningen",
                 json=input.to_dict(),
-            )
+            ),
+            client=self._client,
         )
 
-    def update(
-        self, id: int, input: UpdateGrootboekrekening
-    ) -> GrootboekrekeningResponse:
+    def update(self, id: int, input: UpdateGrootboekrekening) -> Grootboekrekening:
         """Partially update a grootboekrekening.
 
         Args:
@@ -96,7 +95,8 @@ class GrootboekrekeningenResource(BaseResource):
             self._patch(
                 f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}",
                 json=input.to_dict(),
-            )
+            ),
+            client=self._client,
         )
 
     def delete(self, id: int) -> None:
@@ -119,7 +119,7 @@ class GrootboekrekeningenResource(BaseResource):
         """
         self._post(f"/api/administraties/{self._admin_id}/grootboekrekeningen/seed-rgs")
 
-    def met_saldo(self, boekjaar_id: int) -> list[GrootboekrekeningMetSaldoResponse]:
+    def met_saldo(self, boekjaar_id: int) -> list[Grootboekrekening]:
         """Return all grootboekrekeningen enriched with transaction count and balance.
 
         Includes accounts with zero transactions in the boekjaar (with zeros).
@@ -132,7 +132,9 @@ class GrootboekrekeningenResource(BaseResource):
             One entry per rekening, sorted by code.
         """
         return [
-            parse_grootboekrekening_met_saldo(d)
+            parse_grootboekrekening_met_saldo(
+                d, client=self._client, boekjaar_id=boekjaar_id
+            )
             for d in self._get(
                 f"/api/administraties/{self._admin_id}/grootboekrekeningen/met-saldo/{boekjaar_id}"
             )
@@ -159,7 +161,7 @@ class GrootboekrekeningenResource(BaseResource):
             )
         ]
 
-    def find_by_naam(self, naam: str) -> GrootboekrekeningResponse | None:
+    def find_by_naam(self, naam: str) -> Grootboekrekening | None:
         """Find a grootboekrekening by exact name.
 
         Calls :py:meth:`list` and returns the first match, or ``None``.
@@ -168,12 +170,12 @@ class GrootboekrekeningenResource(BaseResource):
             naam: Exact account name to search for (case-sensitive).
 
         Returns:
-            The matching :py:class:`~mboek.models.grootboekrekeningen.GrootboekrekeningResponse`,
+            The matching :py:class:`~mboek.models.grootboekrekeningen.Grootboekrekening`,
             or ``None`` if not found.
         """
         return next((r for r in self.list() if r.naam == naam), None)
 
-    def find_by_code(self, code: str) -> GrootboekrekeningResponse | None:
+    def find_by_code(self, code: str) -> Grootboekrekening | None:
         """Find a grootboekrekening by its account code.
 
         Calls :py:meth:`list` and returns the first match, or ``None``.
@@ -182,7 +184,7 @@ class GrootboekrekeningenResource(BaseResource):
             code: Account code to search for (e.g. ``"1220"``).
 
         Returns:
-            The matching :py:class:`~mboek.models.grootboekrekeningen.GrootboekrekeningResponse`,
+            The matching :py:class:`~mboek.models.grootboekrekeningen.Grootboekrekening`,
             or ``None`` if not found.
         """
         return next((r for r in self.list() if r.code == code), None)

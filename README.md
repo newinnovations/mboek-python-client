@@ -31,7 +31,7 @@ with MboekClient("http://localhost:3000", "admin", "geheim") as client:
     boekjaar = next(y for y in years if y.status.value == "open")
     print(f"Open boekjaar: {boekjaar.naam}  ({boekjaar.start_datum} → {boekjaar.eind_datum})")
 
-    # Scope to a specific boekjaar
+    # Get a single fiscal year (one GET request)
     bj = a.boekjaar(boekjaar.id)
     # or by name:  bj = a.boekjaar(name=boekjaar.naam)
 
@@ -67,17 +67,72 @@ MboekClient
     ├── auto_booking_rules    ← automatic booking rules (CRUD)
     ├── import_               ← bank statement upload
     ├── export_import         ← full export / boekjaar export / import
-    ├── dagboek(id|name=|code=)  →  DagboekScope   (year-agnostic ops)
+    ├── dagboek(id|name=|code=)  →  Dagboek  (rich domain object, no boekjaar scope)
+    │   ├── naam, code, dagboek_type, …  ← always available
     │   ├── rerun_regels()
     │   ├── suggest(boeking_id)
-    │   └── import_boekingen(boekingen)
-    └── boekjaar(id|name=)  →  BoekjaarScope
+    │   ├── import_boekingen(boekingen)
+    │   └── with_boekjaar(boekjaar_id=|name=)  →  Dagboek  (boekjaar-scoped)
+    │       └── boekingen     ← list / create
+    └── boekjaar(id|name=)  →  Boekjaar  (rich domain object)
+        ├── naam, start_datum, eind_datum, status, …  ← always available
         ├── reports                   ← balance sheet and P&L
         ├── btw_aangifte              ← quarterly VAT returns
         ├── grootboekrekeningen()     ← all accounts with balance for this year
         ├── grootboekrekening(code=)  ← single account with balance, by code
-        └── dagboek(id|name=|code=)  →  BoekjaarDagboekScope
+        └── dagboek(id|name=|code=)  →  Dagboek  (boekjaar-scoped)
             └── boekingen     ← list / create
+```
+
+## Unified domain objects
+
+`Dagboek`, `Grootboekrekening`, and `Boekjaar` are *rich domain objects*: they
+always carry all data attributes **and** optionally hold a boekjaar scope that
+unlocks additional operations.  Every code path returns the same type:
+
+```python
+# Both paths return a Dagboek with .naam, .code, .dagboek_type, etc.
+dagboek = client.administratie(name="Demo BV").dagboeken.find_by_code("BTW")
+dagboek = client.administratie(name="Demo BV").boekjaar(name="2026").dagboek(code="BTW")
+
+# Both expose .naam (previously the second path had no .naam!)
+print(dagboek.naam)
+```
+
+### Adding / removing boekjaar scope
+
+```python
+# Obtained without scope — data attributes work, boekingen raises ScopeError
+dagboek = admin.dagboeken.find_by_code("BANK")
+print(dagboek.naam)           # ✓ always works
+dagboek.boekingen.list()      # ✗ raises ScopeError
+
+# Add scope — returns a new object (original is not mutated)
+scoped = dagboek.with_boekjaar(boekjaar_id=10)
+scoped.boekingen.list()       # ✓ works
+
+# Or look up the boekjaar by name
+scoped = dagboek.with_boekjaar(name="2026")
+
+# Remove scope
+unscoped = scoped.without_boekjaar()
+```
+
+The same pattern applies to `Grootboekrekening.saldo`:
+
+```python
+gbr = admin.grootboekrekeningen.find_by_code("1220")
+gbr.saldo                            # ✗ raises ScopeError — no boekjaar
+gbr.with_boekjaar(boekjaar_id=10).saldo  # ✓ lazily fetched and cached
+```
+
+### ScopeError
+
+`ScopeError` (a subclass of `ValueError`) is raised when a scope-dependent
+method is called without the required scope context.  Import it from `mboek`:
+
+```python
+from mboek import ScopeError
 ```
 
 ## Environment variables
@@ -143,11 +198,11 @@ nothing is found:
 ```python
 # Scope by name instead of ID — performs one list lookup per call
 admin = client.administratie(name="Demo BV")
-bj    = admin.boekjaar(name="2024")
-scope = bj.dagboek(name="Bankboek")
-scope = bj.dagboek(code="BANK")  # case-insensitive
+bj    = admin.boekjaar(name="2024")      # one GET /boekjaren/list call
+d     = bj.dagboek(name="Bankboek")     # one GET /dagboeken/list call
+d     = bj.dagboek(code="BANK")         # case-insensitive
 
-# Chained form (each name= triggers one HTTP call)
+# Chained form (each name= or ID triggers at most one HTTP call)
 entries = (
     client.administratie(name="Demo BV")
           .boekjaar(name="2024")
@@ -156,9 +211,13 @@ entries = (
 )
 ```
 
+> **Note:** `admin.boekjaar(10)` and `admin.dagboek(20)` always make one GET
+> request (even when passing a numeric ID) so that the returned object is
+> fully-populated with all data attributes.
+
 ## Grootboekrekeningen per boekjaar
 
-Use `BoekjaarScope.grootboekrekeningen()` to list all accounts enriched with the
+Use `Boekjaar.grootboekrekeningen()` to list all accounts enriched with the
 transaction count and net balance for a specific fiscal year.
 Each item exposes `.code`, `.naam`, `.transacties`, and `.saldo` as flat attributes.
 
@@ -351,6 +410,7 @@ from mboek import (
     ConflictError,     # 409 Conflict
     ValidationError,   # 422 Unprocessable Entity
     RateLimitError,    # 429 Too Many Requests
+    ScopeError,        # scope-dependent method called without required scope
     MboekError,        # base for all API errors
 )
 
@@ -362,10 +422,13 @@ except NotFoundError:
     print("Boekjaar not found")
 ```
 
-All exceptions expose:
+All HTTP exceptions expose:
 
 - `e.status_code` — HTTP status code
 - `e.detail` — parsed response body (dict or str)
+
+`ScopeError` (a subclass of `ValueError`) is raised when a scope-dependent
+method is called without the required scope context and has no `status_code`.
 
 ## Dutch accounting glossary
 

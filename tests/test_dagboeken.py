@@ -93,13 +93,20 @@ def test_find_by_code_not_found(mocked_responses, client):
     assert result is None
 
 
-def test_dagboek_scope_by_id(client):
-    """Positional and keyword ID still work without an HTTP call (AdministratieScope)."""
+def test_dagboek_scope_by_id(mocked_responses, client):
+    """Positional and keyword ID make one GET call and return a full Dagboek."""
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
+    )
     scope = client.administratie(1).dagboek(20)
-    assert scope._dagboek_id == 20
+    assert scope.id == 20
+    assert scope.naam == "Bankboek"
 
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
+    )
     scope = client.administratie(1).dagboek(dagboek_id=20)
-    assert scope._dagboek_id == 20
+    assert scope.id == 20
 
 
 def test_dagboek_scope_by_name(mocked_responses, client):
@@ -107,7 +114,7 @@ def test_dagboek_scope_by_name(mocked_responses, client):
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
     scope = client.administratie(1).dagboek(name="Bankboek")
-    assert scope._dagboek_id == 20
+    assert scope.id == 20
 
 
 def test_dagboek_scope_by_code(mocked_responses, client):
@@ -115,7 +122,7 @@ def test_dagboek_scope_by_code(mocked_responses, client):
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
     scope = client.administratie(1).dagboek(code="bank")  # case-insensitive
-    assert scope._dagboek_id == 20
+    assert scope.id == 20
 
 
 def test_dagboek_scope_by_name_not_found(mocked_responses, client):
@@ -153,24 +160,40 @@ def test_dagboek_scope_missing_args(client):
 
 
 def test_boekjaar_dagboek_scope_by_name(mocked_responses, client):
+    from tests.conftest import BOEKJAAR
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
     scope = client.administratie(1).boekjaar(10).dagboek(name="Bankboek")
-    assert scope._dagboek_id == 20
+    assert scope.id == 20
+    assert scope._boekjaar_id == 10
 
 
 def test_boekjaar_dagboek_scope_by_code(mocked_responses, client):
+    from tests.conftest import BOEKJAAR
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
     scope = client.administratie(1).boekjaar(10).dagboek(code="BANK")
-    assert scope._dagboek_id == 20
+    assert scope.id == 20
+    assert scope._boekjaar_id == 10
 
 
 def test_boekjaar_dagboek_scope_by_name_not_found(mocked_responses, client):
     from mboek._exceptions import NotFoundError
+    from tests.conftest import BOEKJAAR
 
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
@@ -250,3 +273,57 @@ def test_new_dagboek_validation_multiple_rekening():
             grootboekrekening_id=30,
             grootboekrekening_naam="Bank",
         )
+
+
+# ── Unified domain object tests ───────────────────────────────────────────────
+
+
+def test_dagboek_has_data_attrs(mocked_responses, client):
+    """Dagboek returned by any path always has naam, code, etc."""
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    d = client.administratie(1).dagboeken.find_by_code("BANK")
+    assert d is not None
+    assert d.naam == "Bankboek"
+    assert d.code == "BANK"
+
+
+def test_with_boekjaar_returns_new_object(mocked_responses, client):
+    """with_boekjaar() returns a new Dagboek; original is not mutated."""
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
+    )
+    d = client.administratie(1).dagboeken.find_by_code("BANK")
+    assert d is not None
+    scoped = d.with_boekjaar(boekjaar_id=10)
+    assert scoped is not d
+    assert scoped._boekjaar_id == 10
+    assert d._boekjaar_id is None  # original unchanged
+
+
+def test_without_boekjaar_clears_scope(mocked_responses, client):
+    """without_boekjaar() returns a new Dagboek with boekjaar scope removed."""
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
+    )
+    d = client.administratie(1).dagboek(20)
+    scoped = d.with_boekjaar(boekjaar_id=10)
+    unscoped = scoped.without_boekjaar()
+    assert unscoped._boekjaar_id is None
+    assert scoped._boekjaar_id == 10  # original scoped not mutated
+
+
+def test_boekingen_scope_error(mocked_responses, client):
+    """Accessing boekingen without a boekjaar scope raises ScopeError."""
+    from mboek._exceptions import ScopeError
+
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
+    )
+    d = client.administratie(1).dagboek(20)
+    try:
+        _ = d.boekingen
+        assert False
+    except ScopeError:
+        pass

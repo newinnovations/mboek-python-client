@@ -228,3 +228,64 @@ def test_find_by_naam_uses_cache(mocked_responses, client):
         if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
     ]
     assert len(gbr_calls) == 1
+
+
+# ── Unified domain object tests ───────────────────────────────────────────────
+
+
+def test_grootboekrekening_saldo_scope_error(mocked_responses, client):
+    """Accessing saldo without boekjaar scope raises ScopeError."""
+    from mboek._exceptions import ScopeError
+
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    gbr = client.administratie(1).grootboekrekeningen.get(30)
+    try:
+        _ = gbr.saldo
+        assert False
+    except ScopeError:
+        pass
+
+
+def test_grootboekrekening_with_boekjaar(mocked_responses, client):
+    """with_boekjaar() sets scope; without_boekjaar() removes it."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    gbr = client.administratie(1).grootboekrekeningen.get(30)
+    scoped = gbr.with_boekjaar(boekjaar_id=10)
+    assert scoped is not gbr
+    assert scoped._boekjaar_id == 10
+    assert gbr._boekjaar_id is None
+
+    unscoped = scoped.without_boekjaar()
+    assert unscoped._boekjaar_id is None
+
+
+def test_grootboekrekening_lazy_saldo(mocked_responses, client):
+    """saldo is lazily fetched via met-saldo when boekjaar scope is set."""
+    from decimal import Decimal
+
+    data = [{"rekening": GROOTBOEKREKENING, "aantal_transacties": 2, "saldo": 50000}]
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=data,
+    )
+    gbr = client.administratie(1).grootboekrekeningen.get(30)
+    scoped = gbr.with_boekjaar(boekjaar_id=10)
+    assert scoped.saldo == Decimal("500.00")
+    # Second access is cached — no additional HTTP call
+    assert scoped.saldo == Decimal("500.00")
+    saldo_calls = [c for c in mocked_responses.calls if "met-saldo" in c.request.url]
+    assert len(saldo_calls) == 1

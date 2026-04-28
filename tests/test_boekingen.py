@@ -15,10 +15,26 @@ from mboek import (
     NewBoekingsregel,
 )
 from mboek.models._enums import Regeltype
-from tests.conftest import BASE_URL, BOEKING_MET_REGELS, GROOTBOEKREKENING
+from tests.conftest import (
+    BASE_URL,
+    BOEKJAAR,
+    BOEKING_MET_REGELS,
+    DAGBOEK,
+    GROOTBOEKREKENING,
+)
 
 
 def test_list(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20",
+        json=DAGBOEK,
+    )
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/dagboeken/20/boekingen",
@@ -39,6 +55,16 @@ def test_get(mocked_responses, client):
 
 
 def test_create(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20",
+        json=DAGBOEK,
+    )
     mocked_responses.add(
         responses.POST,
         f"{BASE_URL}/api/dagboeken/20/boekingen",
@@ -134,6 +160,16 @@ def test_regel_with_naam(mocked_responses, client):
     gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": "4000"}
     mocked_responses.add(
         responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20",
+        json=DAGBOEK,
+    )
+    mocked_responses.add(
+        responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
         json=[GROOTBOEKREKENING, gbr2],
     )
@@ -173,3 +209,25 @@ def test_regel_to_dict_unresolved_raises():
     )
     with pytest.raises(ValueError, match="not yet resolved"):
         regel.to_dict()
+
+
+# ── Unified boekingen via with_boekjaar ───────────────────────────────────────
+
+
+def test_boekingen_via_with_boekjaar(mocked_responses, client):
+    """Dagboek obtained from dagboeken.find_by_code gets boekingen via with_boekjaar."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken",
+        json=[DAGBOEK],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/dagboeken/20/boekingen",
+        json=[BOEKING_MET_REGELS],
+    )
+    dagboek = client.administratie(1).dagboeken.find_by_code("BANK")
+    assert dagboek is not None
+    scoped = dagboek.with_boekjaar(boekjaar_id=10)
+    items = scoped.boekingen.list()
+    assert len(items) == 1

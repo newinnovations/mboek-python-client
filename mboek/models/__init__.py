@@ -42,6 +42,7 @@ from mboek.models.boekjaren import (
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
 from mboek.models.btw_codes import BtwCodeResponse, NewBtwCode, UpdateBtwCode
 from mboek.models.dagboeken import (
+    Dagboek,
     DagboekResponse,
     DagboekWerkStatus,
     NewDagboek,
@@ -50,6 +51,7 @@ from mboek.models.dagboeken import (
 from mboek.models.export_import import ImportResult, MatchSuggestion
 from mboek.models.grootboekrekeningen import (
     GrootboekMutatie,
+    Grootboekrekening,
     GrootboekrekeningMetSaldoResponse,
     GrootboekrekeningResponse,
     NewGrootboekrekening,
@@ -110,6 +112,7 @@ __all__ = [
     "CreateBoekjaarInput",  # alias
     "UpdateBoekjaarInput",  # alias
     # dagboeken
+    "Dagboek",
     "DagboekResponse",
     "DagboekWerkStatus",
     "NewDagboek",
@@ -118,6 +121,7 @@ __all__ = [
     "UpdateDagboekInput",  # alias
     # grootboekrekeningen
     "GrootboekMutatie",
+    "Grootboekrekening",
     "GrootboekrekeningMetSaldoResponse",
     "GrootboekrekeningResponse",
     "NewGrootboekrekening",

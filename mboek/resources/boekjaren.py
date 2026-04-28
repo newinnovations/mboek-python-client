@@ -24,7 +24,7 @@ class BoekjarenResource(BaseResource):
             List sorted by start date ascending.
         """
         return [
-            parse_boekjaar(d)
+            parse_boekjaar(d, client=self._client)
             for d in self._get(f"/api/administraties/{self._admin_id}/boekjaren")
         ]
 
@@ -35,7 +35,8 @@ class BoekjarenResource(BaseResource):
             id: Boekjaar ID.
         """
         return parse_boekjaar(
-            self._get(f"/api/administraties/{self._admin_id}/boekjaren/{id}")
+            self._get(f"/api/administraties/{self._admin_id}/boekjaren/{id}"),
+            client=self._client,
         )
 
     def create(self, input: NewBoekjaar) -> Boekjaar:
@@ -49,7 +50,8 @@ class BoekjarenResource(BaseResource):
         return parse_boekjaar(
             self._post(
                 f"/api/administraties/{self._admin_id}/boekjaren", json=input.to_dict()
-            )
+            ),
+            client=self._client,
         )
 
     def update(self, id: int, input: UpdateBoekjaar) -> Boekjaar:
@@ -65,7 +67,8 @@ class BoekjarenResource(BaseResource):
             self._patch(
                 f"/api/administraties/{self._admin_id}/boekjaren/{id}",
                 json=input.to_dict(),
-            )
+            ),
+            client=self._client,
         )
 
     def delete(self, id: int) -> None:
@@ -92,7 +95,10 @@ class BoekjarenResource(BaseResource):
             :py:class:`~mboek._exceptions.ConflictError`: Already closed.
         """
         return parse_boekjaar(
-            self._post(f"/api/administraties/{self._admin_id}/boekjaren/{id}/afsluiten")
+            self._post(
+                f"/api/administraties/{self._admin_id}/boekjaren/{id}/afsluiten"
+            ),
+            client=self._client,
         )
 
     def heropenen(self, id: int) -> Boekjaar:
@@ -108,7 +114,10 @@ class BoekjarenResource(BaseResource):
                 definitieve BTW-aangiften.
         """
         return parse_boekjaar(
-            self._post(f"/api/administraties/{self._admin_id}/boekjaren/{id}/heropenen")
+            self._post(
+                f"/api/administraties/{self._admin_id}/boekjaren/{id}/heropenen"
+            ),
+            client=self._client,
         )
 
     def set_huidig(self, id: int) -> Boekjaar:
@@ -123,7 +132,8 @@ class BoekjarenResource(BaseResource):
         return parse_boekjaar(
             self._post(
                 f"/api/administraties/{self._admin_id}/boekjaren/{id}/set-huidig"
-            )
+            ),
+            client=self._client,
         )
 
     def find_by_naam(self, naam: str) -> Boekjaar | None:

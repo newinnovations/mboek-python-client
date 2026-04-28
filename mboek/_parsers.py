@@ -30,13 +30,9 @@ from mboek.models.boekingen import (
 from mboek.models.boekjaren import Boekjaar
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
 from mboek.models.btw_codes import BtwCodeResponse
-from mboek.models.dagboeken import DagboekResponse, DagboekWerkStatus
+from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.models.export_import import ImportResult, MatchSuggestion
-from mboek.models.grootboekrekeningen import (
-    GrootboekMutatie,
-    GrootboekrekeningMetSaldoResponse,
-    GrootboekrekeningResponse,
-)
+from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
 from mboek.models.reports import (
     BalansRegel,
     BalansReport,
@@ -88,7 +84,7 @@ def parse_administratie(d: dict) -> AdministratieResponse:
     )
 
 
-def parse_boekjaar(d: dict) -> Boekjaar:
+def parse_boekjaar(d: dict, *, client=None) -> Boekjaar:
     return Boekjaar(
         id=d["id"],
         administratie_id=d["administratie_id"],
@@ -98,11 +94,12 @@ def parse_boekjaar(d: dict) -> Boekjaar:
         status=BoekjaarStatus(d["status"]),
         created_at=_dt(d["created_at"]),
         updated_at=_dt(d["updated_at"]),
+        client=client,
     )
 
 
-def parse_dagboek(d: dict) -> DagboekResponse:
-    return DagboekResponse(
+def parse_dagboek(d: dict, *, client=None, boekjaar_id=None) -> Dagboek:
+    return Dagboek(
         id=d["id"],
         administratie_id=d["administratie_id"],
         code=d["code"],
@@ -112,6 +109,8 @@ def parse_dagboek(d: dict) -> DagboekResponse:
         iban=d.get("iban"),
         created_at=_dt(d["created_at"]),
         updated_at=_dt(d["updated_at"]),
+        client=client,
+        boekjaar_id=boekjaar_id,
     )
 
 
@@ -123,8 +122,10 @@ def parse_werkstatus(d: dict) -> DagboekWerkStatus:
     )
 
 
-def parse_grootboekrekening(d: dict) -> GrootboekrekeningResponse:
-    return GrootboekrekeningResponse(
+def parse_grootboekrekening(
+    d: dict, *, client=None, boekjaar_id=None
+) -> Grootboekrekening:
+    return Grootboekrekening(
         id=d["id"],
         administratie_id=d["administratie_id"],
         code=d["code"],
@@ -137,15 +138,32 @@ def parse_grootboekrekening(d: dict) -> GrootboekrekeningResponse:
         actief=d.get("actief", True),
         created_at=_dt(d["created_at"]),
         updated_at=_dt(d["updated_at"]),
+        client=client,
+        boekjaar_id=boekjaar_id,
     )
 
 
-def parse_grootboekrekening_met_saldo(d: dict) -> GrootboekrekeningMetSaldoResponse:
+def parse_grootboekrekening_met_saldo(
+    d: dict, *, client=None, boekjaar_id=None
+) -> Grootboekrekening:
     rekening_data = d.get("rekening", d)
-    return GrootboekrekeningMetSaldoResponse(
-        rekening=parse_grootboekrekening(rekening_data),
-        aantal_transacties=d["aantal_transacties"],
+    return Grootboekrekening(
+        id=rekening_data["id"],
+        administratie_id=rekening_data["administratie_id"],
+        code=rekening_data["code"],
+        naam=rekening_data["naam"],
+        rekening_type=RekeningType(rekening_data["rekening_type"]),
+        categorie=RekeningCategorie(rekening_data["categorie"]),
+        rgs_code=rekening_data.get("rgs_code"),
+        parent_id=rekening_data.get("parent_id"),
+        default_btw_id=rekening_data.get("default_btw_id"),
+        actief=rekening_data.get("actief", True),
+        created_at=_dt(rekening_data["created_at"]),
+        updated_at=_dt(rekening_data["updated_at"]),
+        client=client,
+        boekjaar_id=boekjaar_id,
         saldo=_cents(d["saldo"]),
+        aantal_transacties=d["aantal_transacties"],
     )
 
 
@@ -216,7 +234,7 @@ def parse_boeking(d: dict) -> BoekingResponse:
 
 def parse_boeking_met_regels(d: dict) -> BoekingMetRegelsResponse:
     return BoekingMetRegelsResponse(
-        boeking=parse_boeking(d["boeking"]),
+        boeking=parse_boeking(d),
         regels=[parse_boekingsregel(r) for r in d.get("regels", [])],
     )
 

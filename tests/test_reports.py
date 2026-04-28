@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import responses
 
-from tests.conftest import BASE_URL
+from tests.conftest import BASE_URL, BOEKJAAR
 
 BALANS_RESPONSE = {
     "boekjaar_naam": "2024",
@@ -47,6 +47,9 @@ WV_RESPONSE = {
 
 def test_balans(mocked_responses, client):
     mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/rapporten/balans",
         json=BALANS_RESPONSE,
@@ -60,6 +63,9 @@ def test_balans(mocked_responses, client):
 
 
 def test_winst_verlies(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/rapporten/winst-verlies",

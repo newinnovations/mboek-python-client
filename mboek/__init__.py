@@ -8,6 +8,7 @@ from mboek._exceptions import (
     MboekError,
     NotFoundError,
     RateLimitError,
+    ScopeError,
     ValidationError,
 )
 from mboek.models import (
@@ -26,6 +27,8 @@ from mboek.models import (
     BtwCodeResponse,
     BtwSoort,
     # new canonical names
+    Dagboek,
+    Grootboekrekening,
     NewAdministratie,
     NewAutoBookingRule,
     NewAutoBookingRuleLine,
@@ -90,6 +93,7 @@ __all__ = [
     "ValidationError",
     "ConflictError",
     "RateLimitError",
+    "ScopeError",
     # models — new canonical names
     "AdministratieResponse",
     "AutoBookingRuleLineResponse",
@@ -105,9 +109,11 @@ __all__ = [
     "BtwBerekening",
     "BtwCodeResponse",
     "BtwSoort",
+    "Dagboek",
     "DagboekResponse",
     "DagboekType",
     "DagboekWerkStatus",
+    "Grootboekrekening",
     "GrootboekMutatie",
     "GrootboekrekeningMetSaldoResponse",
     "GrootboekrekeningResponse",

@@ -8,8 +8,8 @@ from mboek._exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.resources._boekjaar_scope import BoekjaarScope
-    from mboek.resources._dagboek_scope import DagboekScope
+    from mboek.models.boekjaren import Boekjaar
+    from mboek.models.dagboeken import Dagboek
 
 
 class AdministratieScope:
@@ -111,21 +111,24 @@ class AdministratieScope:
 
     def boekjaar(
         self, boekjaar_id: int | None = None, *, name: str | None = None
-    ) -> "BoekjaarScope":
-        """Return a :py:class:`~mboek.resources._boekjaar_scope.BoekjaarScope`.
+    ) -> "Boekjaar":
+        """Return a :py:class:`~mboek.models.boekjaren.Boekjaar` for this administratie.
 
-        Pass either the numeric ``boekjaar_id`` (no HTTP call) or a ``name``
-        to look up the boekjaar by exact name (one HTTP call)::
+        Pass either the numeric ``boekjaar_id`` (one HTTP call to fetch data)
+        or a ``name`` to look up the boekjaar by exact name (one HTTP call)::
 
             bj = admin.boekjaar(10)
             bj = admin.boekjaar(name="2024")
 
+        The returned :py:class:`~mboek.models.boekjaren.Boekjaar` is
+        fully-populated and carries a client reference, so scope-specific
+        methods (``reports``, ``btw_aangifte``, ``dagboek()``, etc.) work
+        directly on it.
+
         Args:
-            boekjaar_id: Boekjaar ID. No HTTP call is made.
+            boekjaar_id: Boekjaar ID. Makes one GET request to fetch data.
             name: Exact boekjaar name, e.g. ``"2024"`` (case-sensitive).
-                Performs a
-                :py:meth:`~mboek.resources.boekjaren.BoekjarenResource.list`
-                lookup request.
+                Performs a list lookup request.
 
         Raises:
             :py:class:`~mboek._exceptions.NotFoundError`: ``name`` given but
@@ -140,12 +143,10 @@ class AdministratieScope:
             found = self.boekjaren.find_by_naam(name)
             if found is None:
                 raise NotFoundError(f"Boekjaar '{name}' not found")
-            boekjaar_id = found.id
-        from mboek.resources._boekjaar_scope import BoekjaarScope
+            return found
+        return self.boekjaren.get(boekjaar_id)  # type: ignore[arg-type]
 
-        return BoekjaarScope(self._client, self.admin_id, boekjaar_id)
-
-    # ── Dagboek scope (year-agnostic operations) ──────────────────────────────
+    # ── Dagboek scope ─────────────────────────────────────────────────────────
 
     def dagboek(
         self,
@@ -153,24 +154,34 @@ class AdministratieScope:
         *,
         name: str | None = None,
         code: str | None = None,
-    ) -> "DagboekScope":
-        """Return a :py:class:`~mboek.resources._dagboek_scope.DagboekScope`.
+    ) -> "Dagboek":
+        """Return a :py:class:`~mboek.models.dagboeken.Dagboek` for this administratie.
 
-        Pass the numeric ``dagboek_id`` (no HTTP call), a ``name``, or a
-        ``code`` to look up by exact name or short code (one HTTP call each)::
+        Pass the numeric ``dagboek_id`` (one HTTP call to fetch data), a
+        ``name``, or a ``code`` to look up by exact name or short code::
 
             dagboek = admin.dagboek(20)
             dagboek = admin.dagboek(name="Bankboek")
             dagboek = admin.dagboek(code="BANK")
 
+        The returned :py:class:`~mboek.models.dagboeken.Dagboek` is
+        fully-populated (all data attributes available) and carries a client
+        reference, so :py:meth:`~mboek.models.dagboeken.Dagboek.rerun_regels`,
+        :py:meth:`~mboek.models.dagboeken.Dagboek.suggest`, and
+        :py:meth:`~mboek.models.dagboeken.Dagboek.import_boekingen` work
+        directly.  To access boekingen, add a boekjaar scope first::
+
+            dagboek.with_boekjaar(name="2024").boekingen.list()
+
+        .. note::
+            Unlike the old ``DagboekScope``, this method always makes one HTTP
+            call (even when ``dagboek_id`` is provided) to ensure the returned
+            object is fully populated.
+
         Args:
-            dagboek_id: Dagboek ID. No HTTP call is made.
-            name: Exact dagboek name (case-sensitive). Performs a
-                :py:meth:`~mboek.resources.dagboeken.DagboekenResource.list`
-                lookup request.
-            code: Dagboek short code (case-insensitive). Performs a
-                :py:meth:`~mboek.resources.dagboeken.DagboekenResource.list`
-                lookup request.
+            dagboek_id: Dagboek ID. Makes one GET request to fetch data.
+            name: Exact dagboek name (case-sensitive). Performs a list lookup.
+            code: Dagboek short code (case-insensitive). Performs a list lookup.
 
         Raises:
             :py:class:`~mboek._exceptions.NotFoundError`: ``name`` or ``code``
@@ -181,16 +192,14 @@ class AdministratieScope:
         provided = sum(x is not None for x in [dagboek_id, name, code])
         if provided != 1:
             raise ValueError("Provide exactly one of: dagboek_id, name, code")
+        if dagboek_id is not None:
+            return self.dagboeken.get(dagboek_id)
         if name is not None:
             found = self.dagboeken.find_by_naam(name)
             if found is None:
                 raise NotFoundError(f"Dagboek '{name}' not found")
-            dagboek_id = found.id
-        elif code is not None:
-            found = self.dagboeken.find_by_code(code)
-            if found is None:
-                raise NotFoundError(f"Dagboek with code '{code}' not found")
-            dagboek_id = found.id
-        from mboek.resources._dagboek_scope import DagboekScope
-
-        return DagboekScope(self._client, self.admin_id, dagboek_id)
+            return found
+        found = self.dagboeken.find_by_code(code)  # type: ignore[arg-type]
+        if found is None:
+            raise NotFoundError(f"Dagboek with code '{code}' not found")
+        return found

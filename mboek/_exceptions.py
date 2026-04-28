@@ -65,3 +65,26 @@ class RateLimitError(MboekError):
 
     The login endpoint applies rate limiting. Wait before retrying.
     """
+
+
+class ScopeError(ValueError):
+    """Raised when a method or property requires a scope that has not been set.
+
+    This is a programming error, not an HTTP error — no network call is involved.
+
+    Examples::
+
+        dagboek = client.administratie(1).dagboeken.find_by_code("BANK")
+        dagboek.boekingen.list()      # raises ScopeError — no boekjaar scope
+
+        gbr = client.administratie(1).grootboekrekeningen.find_by_code("1220")
+        gbr.saldo                     # raises ScopeError — no boekjaar scope
+
+    Fix by adding the required scope::
+
+        dagboek_scoped = dagboek.with_boekjaar(boekjaar_id=10)
+        dagboek_scoped.boekingen.list()   # ✓ works
+
+        gbr_scoped = gbr.with_boekjaar(boekjaar_id=10)
+        gbr_scoped.saldo                  # ✓ fetches on first access
+    """

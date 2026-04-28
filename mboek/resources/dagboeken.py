@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from mboek._parsers import parse_dagboek, parse_werkstatus
 from mboek.models.dagboeken import (
-    DagboekResponse,
+    Dagboek,
     DagboekWerkStatus,
     NewDagboek,
     UpdateDagboek,
@@ -30,28 +30,29 @@ class DagboekenResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> list[DagboekResponse]:
+    def list(self) -> list[Dagboek]:
         """Return all dagboeken for the administratie.
 
         Returns:
             List sorted by code ascending.
         """
         return [
-            parse_dagboek(d)
+            parse_dagboek(d, client=self._client)
             for d in self._get(f"/api/administraties/{self._admin_id}/dagboeken")
         ]
 
-    def get(self, id: int) -> DagboekResponse:
+    def get(self, id: int) -> Dagboek:
         """Return a single dagboek.
 
         Args:
             id: Dagboek ID.
         """
         return parse_dagboek(
-            self._get(f"/api/administraties/{self._admin_id}/dagboeken/{id}")
+            self._get(f"/api/administraties/{self._admin_id}/dagboeken/{id}"),
+            client=self._client,
         )
 
-    def create(self, input: NewDagboek) -> DagboekResponse:
+    def create(self, input: NewDagboek) -> Dagboek:
         """Create a new dagboek.
 
         A grootboekrekening may be specified via ``grootboekrekening_naam`` or
@@ -72,10 +73,11 @@ class DagboekenResource(BaseResource):
         return parse_dagboek(
             self._post(
                 f"/api/administraties/{self._admin_id}/dagboeken", json=input.to_dict()
-            )
+            ),
+            client=self._client,
         )
 
-    def update(self, id: int, input: UpdateDagboek) -> DagboekResponse:
+    def update(self, id: int, input: UpdateDagboek) -> Dagboek:
         """Partially update a dagboek.
 
         A grootboekrekening may be specified via ``grootboekrekening_naam`` or
@@ -98,7 +100,8 @@ class DagboekenResource(BaseResource):
             self._patch(
                 f"/api/administraties/{self._admin_id}/dagboeken/{id}",
                 json=input.to_dict(),
-            )
+            ),
+            client=self._client,
         )
 
     def delete(self, id: int) -> None:
@@ -136,7 +139,7 @@ class DagboekenResource(BaseResource):
             )
         ]
 
-    def find_by_naam(self, naam: str) -> DagboekResponse | None:
+    def find_by_naam(self, naam: str) -> Dagboek | None:
         """Find a dagboek by exact name.
 
         Calls :py:meth:`list` and returns the first match, or ``None``.
@@ -145,12 +148,12 @@ class DagboekenResource(BaseResource):
             naam: Exact dagboek name to search for (case-sensitive).
 
         Returns:
-            The matching :py:class:`~mboek.models.dagboeken.DagboekResponse`,
+            The matching :py:class:`~mboek.models.dagboeken.Dagboek`,
             or ``None`` if not found.
         """
         return next((d for d in self.list() if d.naam == naam), None)
 
-    def find_by_code(self, code: str) -> DagboekResponse | None:
+    def find_by_code(self, code: str) -> Dagboek | None:
         """Find a dagboek by its short code.
 
         Calls :py:meth:`list` and returns the first match, or ``None``.
@@ -160,7 +163,7 @@ class DagboekenResource(BaseResource):
                 The comparison is case-insensitive.
 
         Returns:
-            The matching :py:class:`~mboek.models.dagboeken.DagboekResponse`,
+            The matching :py:class:`~mboek.models.dagboeken.Dagboek`,
             or ``None`` if not found.
         """
         code_upper = code.upper()
