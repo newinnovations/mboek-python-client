@@ -20,22 +20,14 @@ from mboek.models.auto_booking_rules import (
     NewAutoBookingRuleLine,
 )
 from mboek.models.boekingen import (
-    BoekingMetRegelsResponse,
     BoekingResponse,
     BoekingsregelResponse,
     NewBoekingsregel,
 )
-from mboek.models.boekjaren import (
-    Boekjaar,
-    BoekjaarResponse,
-)
+from mboek.models.boekjaren import Boekjaar, BoekjaarResponse
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
 from mboek.models.btw_codes import BtwCodeResponse
-from mboek.models.dagboeken import (
-    Dagboek,
-    DagboekResponse,
-    DagboekWerkStatus,
-)
+from mboek.models.dagboeken import Dagboek, DagboekResponse, DagboekWerkStatus
 from mboek.models.export_import import ImportResult, MatchSuggestion
 from mboek.models.grootboekrekeningen import (
     GrootboekMutatie,
@@ -79,7 +71,6 @@ __all__ = [
     "GrootboekrekeningMetSaldoResponse",
     "GrootboekrekeningResponse",
     # boekingen
-    "BoekingMetRegelsResponse",
     "BoekingResponse",
     "BoekingsregelResponse",
     "NewBoekingsregel",

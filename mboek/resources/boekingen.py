@@ -7,9 +7,7 @@ from typing import TYPE_CHECKING
 
 from mboek._parsers import parse_boeking_met_regels
 from mboek.models._enums import BoekingStatus
-from mboek.models.boekingen import (
-    BoekingMetRegelsResponse,
-)
+from mboek.models.boekingen import BoekingResponse
 from mboek.resources._base import BaseResource
 
 if TYPE_CHECKING:
@@ -32,7 +30,7 @@ class BoekingenResource(BaseResource):
         deleted** at ``/api/boekingen/{id}``.
     """
 
-    def get(self, id: int) -> BoekingMetRegelsResponse:
+    def get(self, id: int) -> BoekingResponse:
         """Return a single boeking with all its boekingsregels.
 
         Args:
@@ -57,7 +55,7 @@ class BoekingenResource(BaseResource):
         gecontroleerd: bool | None = None,
         auto_geboekt: bool | None = None,
         regels: "list[NewBoekingsregel] | None" = None,
-    ) -> BoekingMetRegelsResponse:
+    ) -> BoekingResponse:
         """Update a boeking's header fields and optionally replace all regels.
 
         If ``regels`` is provided the existing regels are deleted and the new

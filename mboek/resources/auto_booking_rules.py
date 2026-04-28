@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from mboek._parsers import parse_auto_booking_rule, parse_boeking_met_regels
 from mboek.models._enums import AutoBookingActieType
 from mboek.models.auto_booking_rules import AutoBookingRuleResponse
-from mboek.models.boekingen import BoekingMetRegelsResponse
+from mboek.models.boekingen import BoekingResponse
 from mboek.resources._base import BaseResource
 
 if TYPE_CHECKING:
@@ -166,7 +166,7 @@ class AutoBookingRulesResource(BaseResource):
         """
         self._delete(f"/api/administraties/{self._admin_id}/regels/{rule_id}")
 
-    def apply_to_boeking(self, boeking_id: int) -> BoekingMetRegelsResponse | None:
+    def apply_to_boeking(self, boeking_id: int) -> BoekingResponse | None:
         """Apply the first matching rule to a single boeking.
 
         Args:

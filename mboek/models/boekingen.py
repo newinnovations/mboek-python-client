@@ -38,7 +38,7 @@ class BoekingsregelResponse:
 
 @dataclass
 class BoekingResponse:
-    """A journal entry (boeking).
+    """A journal entry (boeking) with all its boekingsregels.
 
     Attributes:
         id: Unique database identifier.
@@ -54,6 +54,7 @@ class BoekingResponse:
         import_hash: Hash used to deduplicate bank imports.
         auto_geboekt: ``True`` when booked by an automatic rule (shows ⚡ in the UI).
         gecontroleerd: ``True`` when manually reviewed/confirmed.
+        regels: The individual debit/credit lines.
         created_at: Creation timestamp (UTC).
         updated_at: Last-update timestamp (UTC).
     """
@@ -72,20 +73,8 @@ class BoekingResponse:
     auto_geboekt: bool
     gecontroleerd: bool
     created_at: datetime
-    updated_at: datetime
-
-
-@dataclass
-class BoekingMetRegelsResponse:
-    """A boeking together with all its boekingsregels.
-
-    Attributes:
-        boeking: The journal entry header.
-        regels: The individual debit/credit lines.
-    """
-
-    boeking: BoekingResponse
     regels: list[BoekingsregelResponse]
+    updated_at: datetime
 
 
 @dataclass

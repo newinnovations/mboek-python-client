@@ -10,13 +10,7 @@ import responses
 
 from mboek import NewBoekingsregel
 from mboek.models._enums import Regeltype
-from tests.conftest import (
-    BASE_URL,
-    BOEKJAAR,
-    BOEKING_MET_REGELS,
-    DAGBOEK,
-    GROOTBOEKREKENING,
-)
+from tests.conftest import BASE_URL, BOEKING, BOEKJAAR, DAGBOEK, GROOTBOEKREKENING
 
 
 def test_list(mocked_responses, client):
@@ -33,20 +27,18 @@ def test_list(mocked_responses, client):
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/dagboeken/20/boekingen",
-        json=[BOEKING_MET_REGELS],
+        json=[BOEKING],
     )
     items = client.administratie(1).boekjaar(10).dagboek(20).boekingen.list()
     assert len(items) == 1
-    assert items[0].boeking.datum == date(2024, 1, 15)
+    assert items[0].datum == date(2024, 1, 15)
     assert len(items[0].regels) == 2
 
 
 def test_get(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING_MET_REGELS
-    )
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
     item = client.boekingen.get(100)
-    assert item.boeking.id == 100
+    assert item.id == 100
 
 
 def test_create(mocked_responses, client):
@@ -63,7 +55,7 @@ def test_create(mocked_responses, client):
     mocked_responses.add(
         responses.POST,
         f"{BASE_URL}/api/dagboeken/20/boekingen",
-        json=BOEKING_MET_REGELS,
+        json=BOEKING,
         status=201,
     )
     regels = [
@@ -88,7 +80,7 @@ def test_create(mocked_responses, client):
             omschrijving="Test",
         )
     )
-    assert item.boeking.id == 100
+    assert item.id == 100
 
 
 def test_create_serialises_cents():
@@ -109,9 +101,7 @@ def test_delete(mocked_responses, client):
 
 def test_boeking_bedrag_parsed_from_cents(mocked_responses, client):
     """Verify bedrag is converted from cents to euros when parsing."""
-    mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING_MET_REGELS
-    )
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
     item = client.boekingen.get(100)
     # BOEKING_REGEL has bedrag = -10000 cents → -€100.00
     assert item.regels[0].bedrag == Decimal("-100.00")
@@ -160,7 +150,7 @@ def test_regel_with_naam(mocked_responses, client):
     mocked_responses.add(
         responses.POST,
         f"{BASE_URL}/api/dagboeken/20/boekingen",
-        json=BOEKING_MET_REGELS,
+        json=BOEKING,
         status=201,
     )
 
@@ -186,7 +176,7 @@ def test_regel_with_naam(mocked_responses, client):
             omschrijving="Test",
         )
     )
-    assert item.boeking.id == 100
+    assert item.id == 100
     # Both regels should have been resolved
     assert regels[0].grootboekrekening_id == 30
     assert regels[1].grootboekrekening_id == 31
@@ -216,7 +206,7 @@ def test_boekingen_via_with_boekjaar(mocked_responses, client):
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/dagboeken/20/boekingen",
-        json=[BOEKING_MET_REGELS],
+        json=[BOEKING],
     )
     dagboek = client.administratie(1).dagboeken.find_by_code("BANK")
     assert dagboek is not None

@@ -22,11 +22,7 @@ from mboek.models.auto_booking_rules import (
     AutoBookingRuleLineResponse,
     AutoBookingRuleResponse,
 )
-from mboek.models.boekingen import (
-    BoekingMetRegelsResponse,
-    BoekingResponse,
-    BoekingsregelResponse,
-)
+from mboek.models.boekingen import BoekingResponse, BoekingsregelResponse
 from mboek.models.boekjaren import Boekjaar
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
 from mboek.models.btw_codes import BtwCodeResponse
@@ -212,7 +208,7 @@ def parse_boekingsregel(d: dict) -> BoekingsregelResponse:
     )
 
 
-def parse_boeking(d: dict) -> BoekingResponse:
+def parse_boeking_met_regels(d: dict) -> BoekingResponse:
     return BoekingResponse(
         id=d["id"],
         dagboek_id=d["dagboek_id"],
@@ -227,15 +223,9 @@ def parse_boeking(d: dict) -> BoekingResponse:
         import_hash=d.get("import_hash"),
         auto_geboekt=d.get("auto_geboekt", False),
         gecontroleerd=d.get("gecontroleerd", False),
+        regels=[parse_boekingsregel(r) for r in d.get("regels", [])],
         created_at=_dt(d["created_at"]),
         updated_at=_dt(d["updated_at"]),
-    )
-
-
-def parse_boeking_met_regels(d: dict) -> BoekingMetRegelsResponse:
-    return BoekingMetRegelsResponse(
-        boeking=parse_boeking(d),
-        regels=[parse_boekingsregel(r) for r in d.get("regels", [])],
     )
 
 

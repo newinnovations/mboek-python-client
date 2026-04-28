@@ -10,7 +10,7 @@ from mboek.resources._base import BaseResource
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.models.boekingen import BoekingMetRegelsResponse, NewBoekingsregel
+    from mboek.models.boekingen import BoekingResponse, NewBoekingsregel
 
 
 class BoekjaarScopedBoekingenResource(BaseResource):
@@ -34,7 +34,7 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         self._boekjaar_id = boekjaar_id
         self._dagboek_id = dagboek_id
 
-    def list(self) -> list["BoekingMetRegelsResponse"]:
+    def list(self) -> list["BoekingResponse"]:
         """Return all boekingen for this dagboek within the fiscal year.
 
         Each boeking is returned together with all its boekingsregels.
@@ -64,7 +64,7 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         tegenpartij_iban: str | None = None,
         referentie_import: str | None = None,
         auto_geboekt: bool | None = None,
-    ) -> "BoekingMetRegelsResponse":
+    ) -> "BoekingResponse":
         """Create a new boeking with its boekingsregels in a single transaction.
 
         The scope's ``boekjaar_id`` is always injected into the request.

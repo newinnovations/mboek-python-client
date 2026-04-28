@@ -105,13 +105,9 @@ BOEKING = {
     "import_hash": None,
     "auto_geboekt": False,
     "gecontroleerd": False,
+    "regels": [BOEKING_REGEL, BOEKING_REGEL2],
     "created_at": "2024-01-15T10:00:00Z",
     "updated_at": "2024-01-15T10:00:00Z",
-}
-
-BOEKING_MET_REGELS = {
-    "boeking": BOEKING,
-    "regels": [BOEKING_REGEL, BOEKING_REGEL2],
 }
 
 BTW_CODE = {
