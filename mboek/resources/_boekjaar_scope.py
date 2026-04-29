@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from datetime import date
 from typing import TYPE_CHECKING
 
@@ -33,8 +34,17 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         self._boekjaar_id = boekjaar_id
         self._dagboek_id = dagboek_id
 
-    def list(self) -> list["Boeking"]:
-        """Return all boekingen for this dagboek within the fiscal year.
+    def list(
+        self,
+        *,
+        id: int | None = None,
+        item: str | int | None = None,
+        description: str | None = None,
+    ) -> builtins.list["Boeking"]:
+        """Return boekingen for this dagboek within the fiscal year.
+
+        All filters are exact matches and are combined with ``AND`` semantics.
+        ``item`` matches ``stuknummer``.
 
         Each boeking is returned together with all its boekingsregels.
 
@@ -43,7 +53,7 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         """
         from mboek._parsers import parse_boeking_met_regels
 
-        return [
+        items = [
             parse_boeking_met_regels(d, client=self._client)
             for d in self._client._request(
                 "GET",
@@ -51,10 +61,18 @@ class BoekjaarScopedBoekingenResource(BaseResource):
                 params={"boekjaar_id": self._boekjaar_id},
             )
         ]
+        if id is not None:
+            items = [entry for entry in items if entry.id == id]
+        if item is not None:
+            item_value = str(item)
+            items = [entry for entry in items if entry.stuknummer == item_value]
+        if description is not None:
+            items = [entry for entry in items if entry.omschrijving == description]
+        return items
 
     def create(
         self,
-        regels: "list[NewBoekingsregel]",
+        regels: "builtins.list[NewBoekingsregel]",
         datum: date,
         omschrijving: str,
         *,

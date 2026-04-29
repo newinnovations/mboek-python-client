@@ -57,38 +57,45 @@ def test_delete(mocked_responses, client):
     client.administratie(1).dagboeken.delete(20)
 
 
-def test_find_by_naam_found(mocked_responses, client):
+def test_list_filters(mocked_responses, client):
+    other = {**DAGBOEK, "id": 21, "code": "KAS", "naam": "Kasboek"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken",
+        json=[DAGBOEK, other],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken",
+        json=[DAGBOEK, other],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken",
+        json=[DAGBOEK, other],
+    )
+    by_name = client.administratie(1).dagboeken.list(name="Bankboek")
+    assert len(by_name) == 1
+    assert by_name[0].id == 20
+
+    by_code = client.administratie(1).dagboeken.list(code="kas")
+    assert len(by_code) == 1
+    assert by_code[0].id == 21
+
+    by_id = client.administratie(1).dagboeken.list(id=20)
+    assert len(by_id) == 1
+    assert by_id[0].code == "BANK"
+
+
+def test_list_filters_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
-    result = client.administratie(1).dagboeken.find_by_naam("Bankboek")
-    assert result is not None
-    assert result.id == 20
-
-
-def test_find_by_naam_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
-    result = client.administratie(1).dagboeken.find_by_naam("Onbekend")
-    assert result is None
-
-
-def test_find_by_code_found(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
-    )
-    result = client.administratie(1).dagboeken.find_by_code("bank")  # case-insensitive
-    assert result is not None
-    assert result.code == "BANK"
-
-
-def test_find_by_code_not_found(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
-    )
-    result = client.administratie(1).dagboeken.find_by_code("KAS")
-    assert result is None
+    assert client.administratie(1).dagboeken.list(name="Onbekend") == []
+    assert client.administratie(1).dagboeken.list(code="KAS") == []
 
 
 def test_dagboek_scope_by_id(mocked_responses, client):
@@ -103,7 +110,7 @@ def test_dagboek_scope_by_id(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
     )
-    scope = client.administratie(1).dagboek(dagboek_id=20)
+    scope = client.administratie(1).dagboek(id=20)
     assert scope.id == 20
 
 
@@ -134,6 +141,20 @@ def test_dagboek_scope_by_name_not_found(mocked_responses, client):
         assert False
     except NotFoundError as e:
         assert "Onbekend" in str(e)
+
+
+def test_dagboek_scope_by_name_requires_single_match(mocked_responses, client):
+    duplicate = {**DAGBOEK, "id": 21, "code": "BNK2"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken",
+        json=[DAGBOEK, duplicate],
+    )
+    try:
+        client.administratie(1).dagboek(name="Bankboek")
+        assert False
+    except ValueError as e:
+        assert "Bankboek" in str(e)
 
 
 def test_dagboek_scope_by_code_not_found(mocked_responses, client):
@@ -200,6 +221,25 @@ def test_boekjaar_dagboek_scope_by_name_not_found(mocked_responses, client):
         assert False
     except NotFoundError:
         pass
+
+
+def test_boekjaar_dagboek_scope_by_name_requires_single_match(mocked_responses, client):
+    from tests.conftest import BOEKJAAR
+
+    duplicate = {**DAGBOEK, "id": 21, "code": "BNK2"}
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken",
+        json=[DAGBOEK, duplicate],
+    )
+    try:
+        client.administratie(1).boekjaar(10).dagboek(name="Bankboek")
+        assert False
+    except ValueError as e:
+        assert "Bankboek" in str(e)
 
 
 # ── New names & naam/code resolution ─────────────────────────────────────────
@@ -280,8 +320,7 @@ def test_dagboek_has_data_attrs(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
-    d = client.administratie(1).dagboeken.find_by_code("BANK")
-    assert d is not None
+    d = client.administratie(1).dagboeken.list(code="BANK")[0]
     assert d.naam == "Bankboek"
     assert d.code == "BANK"
 
@@ -291,9 +330,8 @@ def test_with_boekjaar_returns_new_object(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
-    d = client.administratie(1).dagboeken.find_by_code("BANK")
-    assert d is not None
-    scoped = d.with_boekjaar(boekjaar_id=10)
+    d = client.administratie(1).dagboeken.list(code="BANK")[0]
+    scoped = d.with_boekjaar(id=10)
     assert scoped is not d
     assert scoped._boekjaar_id == 10
     assert d._boekjaar_id is None  # original unchanged
@@ -305,10 +343,30 @@ def test_without_boekjaar_clears_scope(mocked_responses, client):
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
     )
     d = client.administratie(1).dagboek(20)
-    scoped = d.with_boekjaar(boekjaar_id=10)
+    scoped = d.with_boekjaar(id=10)
     unscoped = scoped.without_boekjaar()
     assert unscoped._boekjaar_id is None
     assert scoped._boekjaar_id == 10  # original scoped not mutated
+
+
+def test_with_boekjaar_name_requires_single_match(mocked_responses, client):
+    from tests.conftest import BOEKJAAR
+
+    duplicate = {**BOEKJAAR, "id": 11}
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren",
+        json=[BOEKJAAR, duplicate],
+    )
+    dagboek = client.administratie(1).dagboek(20)
+    try:
+        dagboek.with_boekjaar(name="2024")
+        assert False
+    except ValueError as e:
+        assert "2024" in str(e)
 
 
 def test_boekingen_scope_error(mocked_responses, client):

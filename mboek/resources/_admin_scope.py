@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from mboek._exceptions import NotFoundError
-
 if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.models.boekjaren import Boekjaar
@@ -109,12 +107,10 @@ class AdministratieScope:
 
     # ── Boekjaar scope ────────────────────────────────────────────────────────
 
-    def boekjaar(
-        self, boekjaar_id: int | None = None, *, name: str | None = None
-    ) -> "Boekjaar":
+    def boekjaar(self, id: int | None = None, *, name: str | None = None) -> "Boekjaar":
         """Return a :py:class:`~mboek.models.boekjaren.Boekjaar` for this administratie.
 
-        Pass either the numeric ``boekjaar_id`` (one HTTP call to fetch data)
+        Pass either the numeric ``id`` (one HTTP call to fetch data)
         or a ``name`` to look up the boekjaar by exact name (one HTTP call)::
 
             bj = admin.boekjaar(10)
@@ -126,38 +122,42 @@ class AdministratieScope:
         directly on it.
 
         Args:
-            boekjaar_id: Boekjaar ID. Makes one GET request to fetch data.
+            id: Boekjaar ID. Makes one GET request to fetch data.
             name: Exact boekjaar name, e.g. ``"2024"`` (case-sensitive).
                 Performs a list lookup request.
 
         Raises:
             :py:class:`~mboek._exceptions.NotFoundError`: ``name`` given but
                 no matching boekjaar found.
-            :py:exc:`ValueError`: Neither or both of ``boekjaar_id`` and
+            :py:exc:`ValueError`: Neither or both of ``id`` and
                 ``name`` provided.
         """
-        provided = sum(x is not None for x in [boekjaar_id, name])
+        provided = sum(x is not None for x in [id, name])
         if provided != 1:
-            raise ValueError("Provide exactly one of: boekjaar_id, name")
+            raise ValueError("Provide exactly one of: id, name")
         if name is not None:
-            found = self.boekjaren.find_by_naam(name)
-            if found is None:
-                raise NotFoundError(f"Boekjaar '{name}' not found")
+            found = self.boekjaren._require_single_match(
+                self.boekjaren.list(name=name),
+                not_found_message=f"Boekjaar '{name}' not found",
+                multiple_message=f"Multiple boekjaren named '{name}' found",
+            )
             return found
-        return self.boekjaren.get(boekjaar_id)  # type: ignore[arg-type]
+        if id is None:
+            raise AssertionError("boekjaar() could not resolve a boekjaar ID")
+        return self.boekjaren.get(id)
 
     # ── Dagboek scope ─────────────────────────────────────────────────────────
 
     def dagboek(
         self,
-        dagboek_id: int | None = None,
+        id: int | None = None,
         *,
         name: str | None = None,
         code: str | None = None,
     ) -> "Dagboek":
         """Return a :py:class:`~mboek.models.dagboeken.Dagboek` for this administratie.
 
-        Pass the numeric ``dagboek_id`` (one HTTP call to fetch data), a
+        Pass the numeric ``id`` (one HTTP call to fetch data), a
         ``name``, or a ``code`` to look up by exact name or short code::
 
             dagboek = admin.dagboek(20)
@@ -175,11 +175,11 @@ class AdministratieScope:
 
         .. note::
             Unlike the old ``DagboekScope``, this method always makes one HTTP
-            call (even when ``dagboek_id`` is provided) to ensure the returned
+            call (even when ``id`` is provided) to ensure the returned
             object is fully populated.
 
         Args:
-            dagboek_id: Dagboek ID. Makes one GET request to fetch data.
+            id: Dagboek ID. Makes one GET request to fetch data.
             name: Exact dagboek name (case-sensitive). Performs a list lookup.
             code: Dagboek short code (case-insensitive). Performs a list lookup.
 
@@ -189,17 +189,22 @@ class AdministratieScope:
             :py:exc:`ValueError`: None or more than one of the arguments
                 provided.
         """
-        provided = sum(x is not None for x in [dagboek_id, name, code])
+        provided = sum(x is not None for x in [id, name, code])
         if provided != 1:
-            raise ValueError("Provide exactly one of: dagboek_id, name, code")
-        if dagboek_id is not None:
-            return self.dagboeken.get(dagboek_id)
+            raise ValueError("Provide exactly one of: id, name, code")
+        if id is not None:
+            return self.dagboeken.get(id)
         if name is not None:
-            found = self.dagboeken.find_by_naam(name)
-            if found is None:
-                raise NotFoundError(f"Dagboek '{name}' not found")
+            found = self.dagboeken._require_single_match(
+                self.dagboeken.list(name=name),
+                not_found_message=f"Dagboek '{name}' not found",
+                multiple_message=f"Multiple dagboeken named '{name}' found",
+            )
             return found
-        found = self.dagboeken.find_by_code(code)  # type: ignore[arg-type]
-        if found is None:
-            raise NotFoundError(f"Dagboek with code '{code}' not found")
-        return found
+        if code is None:
+            raise AssertionError("dagboek() could not resolve dagboek filters")
+        return self.dagboeken._require_single_match(
+            self.dagboeken.list(code=code),
+            not_found_message=f"Dagboek with code '{code}' not found",
+            multiple_message=f"Multiple dagboeken with code '{code}' found",
+        )

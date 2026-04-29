@@ -72,7 +72,7 @@ MboekClient
     │   ├── rerun_regels()
     │   ├── suggest(boeking_id)
     │   ├── import_boekingen(boekingen)
-    │   └── with_boekjaar(boekjaar_id=|name=)  →  Dagboek  (boekjaar-scoped)
+    │   └── with_boekjaar(id=|name=)  →  Dagboek  (boekjaar-scoped)
     │       └── boekingen     ← list / create
     └── boekjaar(id|name=)  →  Boekjaar  (rich domain object)
         ├── naam, start_datum, eind_datum, status, …  ← always available
@@ -92,7 +92,7 @@ unlocks additional operations.  Every code path returns the same type:
 
 ```python
 # Both paths return a Dagboek with .naam, .code, .dagboek_type, etc.
-dagboek = client.administratie(name="Demo BV").dagboeken.find_by_code("BTW")
+dagboek = client.administratie(name="Demo BV").dagboeken.list(code="BTW")[0]
 dagboek = client.administratie(name="Demo BV").boekjaar(name="2026").dagboek(code="BTW")
 
 # Both expose .naam (previously the second path had no .naam!)
@@ -103,12 +103,12 @@ print(dagboek.naam)
 
 ```python
 # Obtained without scope — data attributes work, boekingen raises ScopeError
-dagboek = admin.dagboeken.find_by_code("BANK")
+dagboek = admin.dagboeken.list(code="BANK")[0]
 print(dagboek.naam)           # ✓ always works
 dagboek.boekingen.list()      # ✗ raises ScopeError
 
 # Add scope — returns a new object (original is not mutated)
-scoped = dagboek.with_boekjaar(boekjaar_id=10)
+scoped = dagboek.with_boekjaar(id=10)
 scoped.boekingen.list()       # ✓ works
 
 # Or look up the boekjaar by name
@@ -121,9 +121,9 @@ unscoped = scoped.without_boekjaar()
 The same pattern applies to `Grootboekrekening.saldo`:
 
 ```python
-gbr = admin.grootboekrekeningen.find_by_code("1220")
+gbr = admin.grootboekrekeningen.list(code="1220")[0]
 gbr.saldo                            # ✗ raises ScopeError — no boekjaar
-gbr.with_boekjaar(boekjaar_id=10).saldo  # ✓ lazily fetched and cached
+gbr.with_boekjaar(id=10).saldo  # ✓ lazily fetched and cached
 ```
 
 ### ScopeError
@@ -168,32 +168,40 @@ client.login("admin", "geheim")
 client.logout()
 ```
 
-## Finding resources by name or code
+## Filtering list results
 
-Every list-based resource exposes `find_by_naam()` and/or `find_by_code()` as a
-convenience. All return `None` when not found.
+List-based resources support exact-match filters and always return lists.
+Common filters are `id=`, `name=`, and `code=` when those fields exist.
+Scoped `boekingen.list()` also supports `item=` (for `stuknummer`) and
+`description=` (for `omschrijving`).
 
 ```python
-a = client.administratie(admin_id)
+a = client.administratie(1)
 
-# Find a fiscal year by name
-boekjaar = a.boekjaren.find_by_naam("2024")
+# Filter fiscal years by name
+boekjaar = a.boekjaren.list(name="2024")[0]
 
-# Find a journal by name or short code (code comparison is case-insensitive)
-bank = a.dagboeken.find_by_naam("Bankboek")
-bank = a.dagboeken.find_by_code("bank")   # matches "BANK"
+# Filter journals by name or short code (code comparison is case-insensitive)
+bank = a.dagboeken.list(name="Bankboek")[0]
+bank = a.dagboeken.list(code="bank")[0]   # matches "BANK"
 
-# Find a general-ledger account by name or account code
-rekening = a.grootboekrekeningen.find_by_naam("Bank")
-rekening = a.grootboekrekeningen.find_by_code("1220")
+# Filter a general-ledger account by name or account code
+rekening = a.grootboekrekeningen.list(name="Bank")[0]
+rekening = a.grootboekrekeningen.list(code="1220")[0]
 
-# Find a VAT code by its short code (case-insensitive)
-btw = a.btw_codes.find_by_code("v21")    # matches "V21"
+# Filter a VAT code by its short code (case-insensitive)
+btw = a.btw_codes.list(code="v21")[0]    # matches "V21"
+
+# Filter scoped boekingen by boekstuknummer or description
+boekingen = a.boekjaar(name="2024").dagboek(code="BANK").boekingen.list(item="INV-42")
+boekingen = a.boekjaar(name="2024").dagboek(code="BANK").boekingen.list(description="Factuur 42")
 ```
 
 The scope factory methods also accept a `name` (or `code`) keyword as a
-shorthand. A lookup request is performed and `NotFoundError` is raised when
-nothing is found:
+shorthand. A lookup request is performed and the result must be unique:
+
+- `NotFoundError` is raised when nothing matches
+- `ValueError` is raised when more than one item matches
 
 ```python
 # Scope by name instead of ID — performs one list lookup per call

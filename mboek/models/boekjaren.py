@@ -151,14 +151,14 @@ class Boekjaar:
 
     def dagboek(
         self,
-        dagboek_id: int | None = None,
+        id: int | None = None,
         *,
         name: str | None = None,
         code: str | None = None,
     ) -> "Dagboek":
         """Return a :py:class:`~mboek.models.dagboeken.Dagboek` scoped to this boekjaar.
 
-        Pass the numeric ``dagboek_id`` (one HTTP call to fetch data), a
+        Pass the numeric ``id`` (one HTTP call to fetch data), a
         ``name``, or a ``code`` to look up by exact name or short code::
 
             dagboek = boekjaar.dagboek(20)
@@ -172,27 +172,29 @@ class Boekjaar:
             :py:class:`~mboek._exceptions.ScopeError`: No client reference.
         """
         client = self._require_client("dagboek()")
-        provided = sum(x is not None for x in [dagboek_id, name, code])
+        provided = sum(x is not None for x in [id, name, code])
         if provided != 1:
-            raise ValueError("Provide exactly one of: dagboek_id, name, code")
+            raise ValueError("Provide exactly one of: id, name, code")
         from mboek.resources.dagboeken import DagboekenResource
 
         dagboeken = DagboekenResource(client, self.administratie_id)
-        if dagboek_id is not None:
-            found = dagboeken.get(dagboek_id)
+        if id is not None:
+            found = dagboeken.get(id)
         elif name is not None:
-            from mboek._exceptions import NotFoundError
-
-            found = dagboeken.find_by_naam(name)
-            if found is None:
-                raise NotFoundError(f"Dagboek '{name}' not found")
+            found = dagboeken._require_single_match(
+                dagboeken.list(name=name),
+                not_found_message=f"Dagboek '{name}' not found",
+                multiple_message=f"Multiple dagboeken named '{name}' found",
+            )
         else:
-            from mboek._exceptions import NotFoundError
-
-            found = dagboeken.find_by_code(code)  # type: ignore[arg-type]
-            if found is None:
-                raise NotFoundError(f"Dagboek with code '{code}' not found")
-        return found.with_boekjaar(boekjaar_id=self.id)
+            if code is None:
+                raise AssertionError("dagboek() could not resolve dagboek filters")
+            found = dagboeken._require_single_match(
+                dagboeken.list(code=code),
+                not_found_message=f"Dagboek with code '{code}' not found",
+                multiple_message=f"Multiple dagboeken with code '{code}' found",
+            )
+        return found.with_boekjaar(id=self.id)
 
     # ── Dunder helpers ────────────────────────────────────────────────────────
 

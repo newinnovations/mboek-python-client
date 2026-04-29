@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import builtins
+
 from mboek._parsers import parse_btw_aangifte
 from mboek.models.btw_aangifte import BtwAangifte
 from mboek.resources._base import BaseResource
@@ -26,7 +28,7 @@ class BtwAangifteResource(BaseResource):
         self._admin_id = admin_id
         self._boekjaar_id = boekjaar_id
 
-    def list(self) -> list[BtwAangifte]:
+    def list(self) -> builtins.list[BtwAangifte]:
         """Return all BTW-aangiften for the boekjaar.
 
         Returns:

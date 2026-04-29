@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import builtins
+
 from mboek._parsers import parse_administratie
 from mboek.models.administraties import Administratie
 from mboek.resources._base import BaseResource
@@ -15,13 +17,22 @@ class AdministratiesResource(BaseResource):
     Each user sees only the administrations they own.
     """
 
-    def list(self) -> list[Administratie]:
-        """Return all administraties owned by the authenticated user.
+    def list(
+        self, *, id: int | None = None, name: str | None = None
+    ) -> builtins.list[Administratie]:
+        """Return administraties owned by the authenticated user.
+
+        All filters are exact matches and are combined with ``AND`` semantics.
 
         Returns:
             List sorted alphabetically by name.
         """
-        return [parse_administratie(d) for d in self._get("/api/administraties")]
+        items = [parse_administratie(d) for d in self._get("/api/administraties")]
+        if id is not None:
+            items = [item for item in items if item.id == id]
+        if name is not None:
+            items = [item for item in items if item.naam == name]
+        return items
 
     def get(self, id: int) -> Administratie:
         """Return a single administratie by ID.
@@ -122,17 +133,3 @@ class AdministratiesResource(BaseResource):
             id: Administratie ID.
         """
         self._delete(f"/api/administraties/{id}")
-
-    def find_by_naam(self, naam: str) -> Administratie | None:
-        """Find an administratie by exact name.
-
-        Calls :py:meth:`list` and returns the first match, or ``None``.
-
-        Args:
-            naam: Exact name to search for (case-sensitive).
-
-        Returns:
-            The matching :py:class:`~mboek.models.administraties.Administratie`,
-            or ``None`` if not found.
-        """
-        return next((a for a in self.list() if a.naam == naam), None)

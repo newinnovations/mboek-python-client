@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import responses
 
 from mboek._exceptions import ConflictError, NotFoundError
 from mboek.models._enums import BoekjaarStatus
 from tests.conftest import BASE_URL, BOEKJAAR, GROOTBOEKREKENING
-
-from datetime import date
 
 
 def test_list(mocked_responses, client):
@@ -95,21 +95,32 @@ def test_delete(mocked_responses, client):
     client.administratie(1).boekjaren.delete(10)
 
 
-def test_find_by_naam_found(mocked_responses, client):
+def test_list_filters(mocked_responses, client):
+    other = {**BOEKJAAR, "id": 11, "naam": "2025"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren",
+        json=[BOEKJAAR, other],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren",
+        json=[BOEKJAAR, other],
+    )
+    by_name = client.administratie(1).boekjaren.list(name="2024")
+    assert len(by_name) == 1
+    assert by_name[0].id == 10
+
+    by_id = client.administratie(1).boekjaren.list(id=11)
+    assert len(by_id) == 1
+    assert by_id[0].naam == "2025"
+
+
+def test_list_filters_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren", json=[BOEKJAAR]
     )
-    result = client.administratie(1).boekjaren.find_by_naam("2024")
-    assert result is not None
-    assert result.id == 10
-
-
-def test_find_by_naam_not_found(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren", json=[BOEKJAAR]
-    )
-    result = client.administratie(1).boekjaren.find_by_naam("2099")
-    assert result is None
+    assert client.administratie(1).boekjaren.list(name="2099") == []
 
 
 def test_boekjaar_scope_by_id(mocked_responses, client):
@@ -124,7 +135,7 @@ def test_boekjaar_scope_by_id(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
     )
-    scope = client.administratie(1).boekjaar(boekjaar_id=10)
+    scope = client.administratie(1).boekjaar(id=10)
     assert scope.id == 10
 
 
@@ -147,6 +158,20 @@ def test_boekjaar_scope_by_name_not_found(mocked_responses, client):
         assert False
     except NotFoundError as e:
         assert "2099" in str(e)
+
+
+def test_boekjaar_scope_by_name_requires_single_match(mocked_responses, client):
+    duplicate = {**BOEKJAAR, "id": 11}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren",
+        json=[BOEKJAAR, duplicate],
+    )
+    try:
+        client.administratie(1).boekjaar(name="2024")
+        assert False
+    except ValueError as e:
+        assert "2024" in str(e)
 
 
 def test_boekjaar_scope_missing_args(client):
@@ -282,10 +307,10 @@ def test_boekjaar_dagboek_via_scope(mocked_responses, client):
 
 def client_free_boekjaar():
     """Return a Boekjaar instance without a client reference for scope-error tests."""
-    from datetime import date
-    from mboek.models.boekjaren import Boekjaar
+    from datetime import date, datetime
+
     from mboek.models._enums import BoekjaarStatus
-    from datetime import datetime
+    from mboek.models.boekjaren import Boekjaar
 
     return Boekjaar(
         id=10,

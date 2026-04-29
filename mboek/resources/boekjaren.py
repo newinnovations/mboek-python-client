@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from datetime import date
 
 from mboek._parsers import parse_boekjaar
@@ -19,16 +20,25 @@ class BoekjarenResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> list[Boekjaar]:
-        """Return all boekjaren for the administratie.
+    def list(
+        self, *, id: int | None = None, name: str | None = None
+    ) -> builtins.list[Boekjaar]:
+        """Return boekjaren for the administratie.
+
+        All filters are exact matches and are combined with ``AND`` semantics.
 
         Returns:
             List sorted by start date ascending.
         """
-        return [
+        items = [
             parse_boekjaar(d, client=self._client)
             for d in self._get(f"/api/administraties/{self._admin_id}/boekjaren")
         ]
+        if id is not None:
+            items = [item for item in items if item.id == id]
+        if name is not None:
+            items = [item for item in items if item.naam == name]
+        return items
 
     def get(self, id: int) -> Boekjaar:
         """Return a single boekjaar.
@@ -157,17 +167,3 @@ class BoekjarenResource(BaseResource):
             ),
             client=self._client,
         )
-
-    def find_by_naam(self, naam: str) -> Boekjaar | None:
-        """Find a boekjaar by exact name.
-
-        Calls :py:meth:`list` and returns the first match, or ``None``.
-
-        Args:
-            naam: Exact boekjaar name to search for (e.g. ``"2024"``).
-
-        Returns:
-            The matching :py:class:`~mboek.models.boekjaren.Boekjaar`,
-            or ``None`` if not found.
-        """
-        return next((b for b in self.list() if b.naam == naam), None)

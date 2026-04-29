@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import builtins
+
 from mboek._parsers import (
     parse_grootboek_mutatie,
     parse_grootboekrekening,
@@ -33,12 +35,20 @@ class GrootboekrekeningenResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self, *, refresh: bool = False) -> list[Grootboekrekening]:
-        """Return all grootboekrekeningen for the administratie.
+    def list(
+        self,
+        *,
+        id: int | None = None,
+        name: str | None = None,
+        code: str | None = None,
+        refresh: bool = False,
+    ) -> builtins.list[Grootboekrekening]:
+        """Return grootboekrekeningen for the administratie.
 
         Results are cached on the client for the lifetime of the session (keyed
         by admin ID).  Call ``list(refresh=True)`` or :py:meth:`clear_cache` to
-        force a fresh fetch.
+        force a fresh fetch. All filters are exact matches and are combined with
+        ``AND`` semantics.
 
         Args:
             refresh: When ``True``, bypass the cache and fetch from the API.
@@ -48,15 +58,23 @@ class GrootboekrekeningenResource(BaseResource):
         """
         cache = self._client._gbr_cache
         if not refresh and self._admin_id in cache:
-            return cache[self._admin_id]
-        result = [
-            parse_grootboekrekening(d, client=self._client)
-            for d in self._get(
-                f"/api/administraties/{self._admin_id}/grootboekrekeningen"
-            )
-        ]
-        cache[self._admin_id] = result
-        return result
+            items = cache[self._admin_id]
+        else:
+            items = [
+                parse_grootboekrekening(d, client=self._client)
+                for d in self._get(
+                    f"/api/administraties/{self._admin_id}/grootboekrekeningen"
+                )
+            ]
+            cache[self._admin_id] = items
+
+        if id is not None:
+            items = [item for item in items if item.id == id]
+        if name is not None:
+            items = [item for item in items if item.naam == name]
+        if code is not None:
+            items = [item for item in items if item.code == code]
+        return items
 
     def get(self, id: int) -> Grootboekrekening:
         """Return a single grootboekrekening.
@@ -181,7 +199,7 @@ class GrootboekrekeningenResource(BaseResource):
         """
         self._post(f"/api/administraties/{self._admin_id}/grootboekrekeningen/seed-rgs")
 
-    def met_saldo(self, boekjaar_id: int) -> list[Grootboekrekening]:
+    def met_saldo(self, boekjaar_id: int) -> builtins.list[Grootboekrekening]:
         """Return all grootboekrekeningen enriched with transaction count and balance.
 
         Includes accounts with zero transactions in the boekjaar (with zeros).
@@ -202,7 +220,7 @@ class GrootboekrekeningenResource(BaseResource):
             )
         ]
 
-    def mutaties(self, id: int, boekjaar_id: int) -> list[GrootboekMutatie]:
+    def mutaties(self, id: int, boekjaar_id: int) -> builtins.list[GrootboekMutatie]:
         """Return the full mutation ledger for a single rekening.
 
         Returns every boekingsregel with its date, dagboek, journal entry
@@ -223,38 +241,9 @@ class GrootboekrekeningenResource(BaseResource):
             )
         ]
 
-    def find_by_naam(self, naam: str) -> Grootboekrekening | None:
-        """Find a grootboekrekening by exact name.
-
-        Calls :py:meth:`list` and returns the first match, or ``None``.
-
-        Args:
-            naam: Exact account name to search for (case-sensitive).
-
-        Returns:
-            The matching :py:class:`~mboek.models.grootboekrekeningen.Grootboekrekening`,
-            or ``None`` if not found.
-        """
-        return next((r for r in self.list() if r.naam == naam), None)
-
-    def find_by_code(self, code: str) -> Grootboekrekening | None:
-        """Find a grootboekrekening by its account code.
-
-        Calls :py:meth:`list` and returns the first match, or ``None``.
-
-        Args:
-            code: Account code to search for (e.g. ``"1220"``).
-
-        Returns:
-            The matching :py:class:`~mboek.models.grootboekrekeningen.Grootboekrekening`,
-            or ``None`` if not found.
-        """
-        return next((r for r in self.list() if r.code == code), None)
-
     def clear_cache(self) -> None:
         """Remove the cached grootboekrekening list for this administratie.
 
-        The next call to :py:meth:`list`, :py:meth:`find_by_naam`, or
-        :py:meth:`find_by_code` will fetch fresh data from the API.
+        The next call to :py:meth:`list` will fetch fresh data from the API.
         """
         self._client._gbr_cache.pop(self._admin_id, None)

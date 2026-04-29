@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
+
+T = TypeVar("T")
 
 
 class BaseResource:
@@ -37,6 +39,21 @@ class BaseResource:
     ) -> Any:
         return self._client._request("POST", path, files=files, data=data)
 
+    @staticmethod
+    def _require_single_match(
+        matches: list[T],
+        *,
+        not_found_message: str,
+        multiple_message: str,
+    ) -> T:
+        from mboek._exceptions import NotFoundError
+
+        if not matches:
+            raise NotFoundError(not_found_message)
+        if len(matches) > 1:
+            raise ValueError(multiple_message)
+        return matches[0]
+
     # ── Grootboekrekening resolution helper ──────────────────────────────────
 
     def _resolve_rekening_id(
@@ -63,22 +80,19 @@ class BaseResource:
             :py:class:`~mboek._exceptions.NotFoundError`: No account matched.
             :py:exc:`ValueError`: Neither ``naam`` nor ``code`` was provided.
         """
-        from mboek._exceptions import NotFoundError
         from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
 
         gbr = GrootboekrekeningenResource(self._client, admin_id)
         if naam is not None:
-            r = gbr.find_by_naam(naam)
-            if r is None:
-                raise NotFoundError(
-                    f"Grootboekrekening met naam '{naam}' niet gevonden"
-                )
-            return r.id
+            return gbr._require_single_match(
+                gbr.list(name=naam),
+                not_found_message=f"Grootboekrekening met naam '{naam}' niet gevonden",
+                multiple_message=f"Meerdere grootboekrekeningen met naam '{naam}' gevonden",
+            ).id
         if code is not None:
-            r = gbr.find_by_code(code)
-            if r is None:
-                raise NotFoundError(
-                    f"Grootboekrekening met code '{code}' niet gevonden"
-                )
-            return r.id
+            return gbr._require_single_match(
+                gbr.list(code=code),
+                not_found_message=f"Grootboekrekening met code '{code}' niet gevonden",
+                multiple_message=f"Meerdere grootboekrekeningen met code '{code}' gevonden",
+            ).id
         raise ValueError("Provide naam or code")

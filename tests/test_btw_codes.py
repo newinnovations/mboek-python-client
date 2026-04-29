@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import responses
 
 from mboek.models._enums import BtwSoort
-from decimal import Decimal
 from tests.conftest import BASE_URL, BTW_CODE
 
 
@@ -60,18 +61,29 @@ def test_delete(mocked_responses, client):
     client.administratie(1).btw_codes.delete(50)
 
 
-def test_find_by_code_found(mocked_responses, client):
+def test_list_filters(mocked_responses, client):
+    other = {**BTW_CODE, "id": 51, "code": "V9"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/btw-codes",
+        json=[BTW_CODE, other],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/btw-codes",
+        json=[BTW_CODE, other],
+    )
+    by_code = client.administratie(1).btw_codes.list(code="v21")
+    assert len(by_code) == 1
+    assert by_code[0].id == 50
+
+    by_id = client.administratie(1).btw_codes.list(id=51)
+    assert len(by_id) == 1
+    assert by_id[0].code == "V9"
+
+
+def test_list_filters_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/btw-codes", json=[BTW_CODE]
     )
-    result = client.administratie(1).btw_codes.find_by_code("v21")  # case-insensitive
-    assert result is not None
-    assert result.id == 50
-
-
-def test_find_by_code_not_found(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/administraties/1/btw-codes", json=[BTW_CODE]
-    )
-    result = client.administratie(1).btw_codes.find_by_code("V0")
-    assert result is None
+    assert client.administratie(1).btw_codes.list(code="V0") == []

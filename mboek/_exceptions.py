@@ -74,17 +74,17 @@ class ScopeError(ValueError):
 
     Examples::
 
-        dagboek = client.administratie(1).dagboeken.find_by_code("BANK")
+        dagboek = client.administratie(1).dagboeken.list(code="BANK")[0]
         dagboek.boekingen.list()      # raises ScopeError — no boekjaar scope
 
-        gbr = client.administratie(1).grootboekrekeningen.find_by_code("1220")
+        gbr = client.administratie(1).grootboekrekeningen.list(code="1220")[0]
         gbr.saldo                     # raises ScopeError — no boekjaar scope
 
     Fix by adding the required scope::
 
-        dagboek_scoped = dagboek.with_boekjaar(boekjaar_id=10)
+        dagboek_scoped = dagboek.with_boekjaar(id=10)
         dagboek_scoped.boekingen.list()   # ✓ works
 
-        gbr_scoped = gbr.with_boekjaar(boekjaar_id=10)
+        gbr_scoped = gbr.with_boekjaar(id=10)
         gbr_scoped.saldo                  # ✓ fetches on first access
     """

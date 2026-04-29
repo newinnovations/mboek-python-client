@@ -24,12 +24,12 @@ class Dagboek:
     Obtain a fully-scoped instance via the scope helpers::
 
         # Both return the same Dagboek type — with all attributes populated:
-        dagboek = client.administratie(1).dagboeken.find_by_code("BANK")
+        dagboek = client.administratie(1).dagboeken.list(code="BANK")[0]
         dagboek = client.administratie(1).boekjaar(10).dagboek(code="BANK")
 
     To add or change scope on an existing object use::
 
-        scoped = dagboek.with_boekjaar(boekjaar_id=10)
+        scoped = dagboek.with_boekjaar(id=10)
         scoped = dagboek.with_boekjaar(name="2024")
         unscoped = scoped.without_boekjaar()
 
@@ -76,17 +76,17 @@ class Dagboek:
 
     def with_boekjaar(
         self,
-        boekjaar_id: int | None = None,
+        id: int | None = None,
         *,
         name: str | None = None,
     ) -> "Dagboek":
         """Return a copy of this dagboek with a boekjaar scope added.
 
-        Pass either a numeric ``boekjaar_id`` (no HTTP call) or a ``name``
+        Pass either a numeric ``id`` (no HTTP call) or a ``name``
         to look up the boekjaar by exact name (one HTTP call).
 
         Args:
-            boekjaar_id: Boekjaar ID. No HTTP call is made.
+            id: Boekjaar ID. No HTTP call is made.
             name: Exact boekjaar name (e.g. ``"2024"``). Requires a client
                 reference on this object.
 
@@ -100,11 +100,11 @@ class Dagboek:
             :py:class:`~mboek._exceptions.NotFoundError`: ``name`` given but
                 no matching boekjaar found.
         """
-        provided = sum(x is not None for x in [boekjaar_id, name])
+        provided = sum(x is not None for x in [id, name])
         if provided != 1:
-            raise ValueError("Provide exactly one of: boekjaar_id, name")
+            raise ValueError("Provide exactly one of: id, name")
         if name is not None:
-            from mboek._exceptions import NotFoundError, ScopeError
+            from mboek._exceptions import ScopeError
 
             if self._client is None:
                 raise ScopeError(
@@ -112,12 +112,13 @@ class Dagboek:
                 )
             from mboek.resources.boekjaren import BoekjarenResource
 
-            found = BoekjarenResource(self._client, self.administratie_id).find_by_naam(
-                name
+            boekjaren = BoekjarenResource(self._client, self.administratie_id)
+            found = boekjaren._require_single_match(
+                boekjaren.list(name=name),
+                not_found_message=f"Boekjaar '{name}' not found",
+                multiple_message=f"Multiple boekjaren named '{name}' found",
             )
-            if found is None:
-                raise NotFoundError(f"Boekjaar '{name}' not found")
-            boekjaar_id = found.id
+            id = found.id
         return Dagboek(
             id=self.id,
             administratie_id=self.administratie_id,
@@ -129,7 +130,7 @@ class Dagboek:
             created_at=self.created_at,
             updated_at=self.updated_at,
             client=self._client,
-            boekjaar_id=boekjaar_id,
+            boekjaar_id=id,
         )
 
     def without_boekjaar(self) -> "Dagboek":
@@ -167,7 +168,7 @@ class Dagboek:
         if self._boekjaar_id is None:
             raise ScopeError(
                 "Accessing boekingen requires a boekjaar scope. "
-                "Use .with_boekjaar(boekjaar_id=...) or .with_boekjaar(name=...) first."
+                "Use .with_boekjaar(id=...) or .with_boekjaar(name=...) first."
             )
         if self._client is None:
             raise ScopeError("Accessing boekingen requires a client reference.")

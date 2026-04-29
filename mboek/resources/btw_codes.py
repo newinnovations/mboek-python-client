@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from decimal import Decimal
 
 from mboek._parsers import parse_btw_code
@@ -35,16 +36,27 @@ class BtwCodesResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> list[BtwCode]:
-        """Return all BTW codes for the administratie.
+    def list(
+        self, *, id: int | None = None, code: str | None = None
+    ) -> builtins.list[BtwCode]:
+        """Return BTW codes for the administratie.
+
+        All filters are exact matches and are combined with ``AND`` semantics.
+        The ``code`` filter is case-insensitive.
 
         Returns:
             List sorted by code ascending.
         """
-        return [
+        items = [
             parse_btw_code(d)
             for d in self._get(f"/api/administraties/{self._admin_id}/btw-codes")
         ]
+        if id is not None:
+            items = [item for item in items if item.id == id]
+        if code is not None:
+            code_upper = code.upper()
+            items = [item for item in items if item.code.upper() == code_upper]
+        return items
 
     def get(self, id: int) -> BtwCode:
         """Return a single BTW code.
@@ -163,19 +175,3 @@ class BtwCodesResource(BaseResource):
         appropriate for your business.
         """
         self._post(f"/api/administraties/{self._admin_id}/btw-codes/seed-defaults")
-
-    def find_by_code(self, code: str) -> BtwCode | None:
-        """Find a BTW code by its short code string.
-
-        Calls :py:meth:`list` and returns the first match, or ``None``.
-
-        Args:
-            code: BTW code to search for (e.g. ``"V21"``).
-                The comparison is case-insensitive.
-
-        Returns:
-            The matching :py:class:`~mboek.models.btw_codes.BtwCode`,
-            or ``None`` if not found.
-        """
-        code_upper = code.upper()
-        return next((b for b in self.list() if b.code.upper() == code_upper), None)

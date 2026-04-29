@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import builtins
+
 from mboek._parsers import parse_dagboek, parse_werkstatus
 from mboek.models._enums import DagboekType
 from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
@@ -26,16 +28,33 @@ class DagboekenResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> list[Dagboek]:
-        """Return all dagboeken for the administratie.
+    def list(
+        self,
+        *,
+        id: int | None = None,
+        name: str | None = None,
+        code: str | None = None,
+    ) -> builtins.list[Dagboek]:
+        """Return dagboeken for the administratie.
+
+        All filters are exact matches and are combined with ``AND`` semantics.
+        The ``code`` filter is case-insensitive.
 
         Returns:
             List sorted by code ascending.
         """
-        return [
+        items = [
             parse_dagboek(d, client=self._client)
             for d in self._get(f"/api/administraties/{self._admin_id}/dagboeken")
         ]
+        if id is not None:
+            items = [item for item in items if item.id == id]
+        if name is not None:
+            items = [item for item in items if item.naam == name]
+        if code is not None:
+            code_upper = code.upper()
+            items = [item for item in items if item.code.upper() == code_upper]
+        return items
 
     def get(self, id: int) -> Dagboek:
         """Return a single dagboek.
@@ -184,7 +203,9 @@ class DagboekenResource(BaseResource):
         """
         self._delete(f"/api/administraties/{self._admin_id}/dagboeken/{id}")
 
-    def werkstatus(self, boekjaar_id: int | None = None) -> list[DagboekWerkStatus]:
+    def werkstatus(
+        self, boekjaar_id: int | None = None
+    ) -> builtins.list[DagboekWerkStatus]:
         """Return per-dagboek work-status counts.
 
         Returns the number of unprocessed bank imports (``onverwerkt``) and
@@ -208,33 +229,3 @@ class DagboekenResource(BaseResource):
                 params=params,
             )
         ]
-
-    def find_by_naam(self, naam: str) -> Dagboek | None:
-        """Find a dagboek by exact name.
-
-        Calls :py:meth:`list` and returns the first match, or ``None``.
-
-        Args:
-            naam: Exact dagboek name to search for (case-sensitive).
-
-        Returns:
-            The matching :py:class:`~mboek.models.dagboeken.Dagboek`,
-            or ``None`` if not found.
-        """
-        return next((d for d in self.list() if d.naam == naam), None)
-
-    def find_by_code(self, code: str) -> Dagboek | None:
-        """Find a dagboek by its short code.
-
-        Calls :py:meth:`list` and returns the first match, or ``None``.
-
-        Args:
-            code: Short dagboek code to search for (e.g. ``"BANK"``).
-                The comparison is case-insensitive.
-
-        Returns:
-            The matching :py:class:`~mboek.models.dagboeken.Dagboek`,
-            or ``None`` if not found.
-        """
-        code_upper = code.upper()
-        return next((d for d in self.list() if d.code.upper() == code_upper), None)

@@ -11,7 +11,6 @@ from mboek.models._enums import RekeningCategorie, RekeningType
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.models.grootboekrekeningen import GrootboekMutatie
 
 
 class Grootboekrekening:
@@ -31,8 +30,8 @@ class Grootboekrekening:
     Use :py:meth:`with_boekjaar` to add a boekjaar scope; the saldo is then
     lazy-fetched on first access::
 
-        gbr = client.administratie(1).grootboekrekeningen.find_by_code("1220")
-        gbr_scoped = gbr.with_boekjaar(boekjaar_id=10)
+        gbr = client.administratie(1).grootboekrekeningen.list(code="1220")[0]
+        gbr_scoped = gbr.with_boekjaar(id=10)
         print(gbr_scoped.saldo)   # one HTTP call here; result is cached
 
     Attributes:
@@ -91,7 +90,7 @@ class Grootboekrekening:
 
     def with_boekjaar(
         self,
-        boekjaar_id: int | None = None,
+        id: int | None = None,
         *,
         name: str | None = None,
     ) -> "Grootboekrekening":
@@ -101,7 +100,7 @@ class Grootboekrekening:
         after scoping (unless it was already available).
 
         Args:
-            boekjaar_id: Boekjaar ID. No HTTP call is made.
+            id: Boekjaar ID. No HTTP call is made.
             name: Exact boekjaar name (e.g. ``"2024"``). Requires a client
                 reference.
 
@@ -115,11 +114,11 @@ class Grootboekrekening:
             :py:class:`~mboek._exceptions.NotFoundError`: ``name`` given but
                 no matching boekjaar found.
         """
-        provided = sum(x is not None for x in [boekjaar_id, name])
+        provided = sum(x is not None for x in [id, name])
         if provided != 1:
-            raise ValueError("Provide exactly one of: boekjaar_id, name")
+            raise ValueError("Provide exactly one of: id, name")
         if name is not None:
-            from mboek._exceptions import NotFoundError, ScopeError
+            from mboek._exceptions import ScopeError
 
             if self._client is None:
                 raise ScopeError(
@@ -127,12 +126,13 @@ class Grootboekrekening:
                 )
             from mboek.resources.boekjaren import BoekjarenResource
 
-            found = BoekjarenResource(self._client, self.administratie_id).find_by_naam(
-                name
+            boekjaren = BoekjarenResource(self._client, self.administratie_id)
+            found = boekjaren._require_single_match(
+                boekjaren.list(name=name),
+                not_found_message=f"Boekjaar '{name}' not found",
+                multiple_message=f"Multiple boekjaren named '{name}' found",
             )
-            if found is None:
-                raise NotFoundError(f"Boekjaar '{name}' not found")
-            boekjaar_id = found.id
+            id = found.id
         return Grootboekrekening(
             id=self.id,
             administratie_id=self.administratie_id,
@@ -147,7 +147,7 @@ class Grootboekrekening:
             created_at=self.created_at,
             updated_at=self.updated_at,
             client=self._client,
-            boekjaar_id=boekjaar_id,
+            boekjaar_id=id,
             # saldo not carried over — will be lazy-fetched for the new boekjaar
         )
 
@@ -186,7 +186,11 @@ class Grootboekrekening:
         if self._saldo is not None:
             return self._saldo
         self._fetch_saldo()
-        return self._saldo  # type: ignore[return-value]
+        if self._saldo is None:
+            raise AssertionError(
+                "saldo could not be resolved for the scoped grootboekrekening"
+            )
+        return self._saldo
 
     @property
     def aantal_transacties(self) -> int:
@@ -198,7 +202,11 @@ class Grootboekrekening:
         if self._aantal_transacties is not None:
             return self._aantal_transacties
         self._fetch_saldo()
-        return self._aantal_transacties  # type: ignore[return-value]
+        if self._aantal_transacties is None:
+            raise AssertionError(
+                "aantal_transacties could not be resolved for the scoped grootboekrekening"
+            )
+        return self._aantal_transacties
 
     @property
     def transacties(self) -> int:
@@ -212,7 +220,7 @@ class Grootboekrekening:
         if self._boekjaar_id is None:
             raise ScopeError(
                 "saldo requires a boekjaar scope. "
-                "Use .with_boekjaar(boekjaar_id=...) or .with_boekjaar(name=...) first."
+                "Use .with_boekjaar(id=...) or .with_boekjaar(name=...) first."
             )
         if self._client is None:
             raise ScopeError("saldo requires a client reference.")
@@ -243,7 +251,7 @@ class Grootboekrekening:
         if self._boekjaar_id is None:
             raise ScopeError(
                 "mutaties() requires a boekjaar scope. "
-                "Use .with_boekjaar(boekjaar_id=...) first."
+                "Use .with_boekjaar(id=...) first."
             )
         if self._client is None:
             raise ScopeError("mutaties() requires a client reference.")

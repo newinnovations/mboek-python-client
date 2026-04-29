@@ -89,46 +89,34 @@ def test_mutaties(mocked_responses, client):
     assert items[0].bedrag == Decimal("-100.00")
 
 
-def test_find_by_naam_found(mocked_responses, client):
+def test_list_filters(mocked_responses, client):
+    other = {**GROOTBOEKREKENING, "id": 31, "code": "4000", "naam": "Kosten"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING, other],
+    )
+    by_name = client.administratie(1).grootboekrekeningen.list(name="Bank")
+    assert len(by_name) == 1
+    assert by_name[0].id == 30
+
+    by_code = client.administratie(1).grootboekrekeningen.list(code="4000")
+    assert len(by_code) == 1
+    assert by_code[0].naam == "Kosten"
+
+    by_id = client.administratie(1).grootboekrekeningen.list(id=31)
+    assert len(by_id) == 1
+    assert by_id[0].code == "4000"
+
+
+def test_list_filters_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
         json=[GROOTBOEKREKENING],
     )
-    result = client.administratie(1).grootboekrekeningen.find_by_naam("Bank")
-    assert result is not None
-    assert result.id == 30
-
-
-def test_find_by_naam_not_found(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
-        json=[GROOTBOEKREKENING],
-    )
-    result = client.administratie(1).grootboekrekeningen.find_by_naam("Kas")
-    assert result is None
-
-
-def test_find_by_code_found(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
-        json=[GROOTBOEKREKENING],
-    )
-    result = client.administratie(1).grootboekrekeningen.find_by_code("1220")
-    assert result is not None
-    assert result.naam == "Bank"
-
-
-def test_find_by_code_not_found(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
-        json=[GROOTBOEKREKENING],
-    )
-    result = client.administratie(1).grootboekrekeningen.find_by_code("9999")
-    assert result is None
+    assert client.administratie(1).grootboekrekeningen.list(name="Kas") == []
+    assert client.administratie(1).grootboekrekeningen.list(code="9999") == []
 
 
 # ── Cache tests ───────────────────────────────────────────────────────────────
@@ -201,19 +189,18 @@ def test_clear_cache(mocked_responses, client):
     assert len(gbr_calls) == 2
 
 
-def test_find_by_naam_uses_cache(mocked_responses, client):
-    """find_by_naam and find_by_code share the same cached list."""
+def test_list_filters_use_cache(mocked_responses, client):
+    """Filtered list() calls share the same cached list."""
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
         json=[GROOTBOEKREKENING],
     )
     gbr = client.administratie(1).grootboekrekeningen
-    r1 = gbr.find_by_naam("Bank")
-    r2 = gbr.find_by_code("1220")
-    assert r1 is not None
-    assert r2 is not None
-    # Only one HTTP request for two lookups
+    r1 = gbr.list(name="Bank")
+    r2 = gbr.list(code="1220")
+    assert len(r1) == 1
+    assert len(r2) == 1
     gbr_calls = [
         c
         for c in mocked_responses.calls
@@ -250,7 +237,7 @@ def test_grootboekrekening_with_boekjaar(mocked_responses, client):
         json=GROOTBOEKREKENING,
     )
     gbr = client.administratie(1).grootboekrekeningen.get(30)
-    scoped = gbr.with_boekjaar(boekjaar_id=10)
+    scoped = gbr.with_boekjaar(id=10)
     assert scoped is not gbr
     assert scoped._boekjaar_id == 10
     assert gbr._boekjaar_id is None
@@ -275,9 +262,33 @@ def test_grootboekrekening_lazy_saldo(mocked_responses, client):
         json=data,
     )
     gbr = client.administratie(1).grootboekrekeningen.get(30)
-    scoped = gbr.with_boekjaar(boekjaar_id=10)
+    scoped = gbr.with_boekjaar(id=10)
     assert scoped.saldo == Decimal("500.00")
     # Second access is cached — no additional HTTP call
     assert scoped.saldo == Decimal("500.00")
     saldo_calls = [c for c in mocked_responses.calls if "met-saldo" in c.request.url]
     assert len(saldo_calls) == 1
+
+
+def test_grootboekrekening_with_boekjaar_name_requires_single_match(
+    mocked_responses, client
+):
+    from tests.conftest import BOEKJAAR
+
+    duplicate = {**BOEKJAAR, "id": 11}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren",
+        json=[BOEKJAAR, duplicate],
+    )
+    gbr = client.administratie(1).grootboekrekeningen.get(30)
+    try:
+        gbr.with_boekjaar(name="2024")
+        assert False
+    except ValueError as e:
+        assert "2024" in str(e)

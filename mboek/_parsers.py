@@ -53,6 +53,27 @@ def _cents(v: int | None) -> Decimal | None:
     return Decimal(v) / 100
 
 
+def _require_dt(s: str | None) -> datetime:
+    value = _dt(s)
+    if value is None:
+        raise ValueError("Expected datetime value")
+    return value
+
+
+def _require_date(s: str | None) -> date:
+    value = _date(s)
+    if value is None:
+        raise ValueError("Expected date value")
+    return value
+
+
+def _require_cents(v: int | None) -> Decimal:
+    value = _cents(v)
+    if value is None:
+        raise ValueError("Expected amount in cents")
+    return value
+
+
 def parse_login(d: dict) -> AuthToken:
     return AuthToken(
         token=d["token"],
@@ -72,8 +93,8 @@ def parse_administratie(d: dict) -> Administratie:
         active=d.get("active", True),
         huidig_boekjaar_id=d.get("huidig_boekjaar_id"),
         bankimport_rekening_id=d.get("bankimport_rekening_id"),
-        created_at=_dt(d["created_at"]),
-        updated_at=_dt(d["updated_at"]),
+        created_at=_require_dt(d["created_at"]),
+        updated_at=_require_dt(d["updated_at"]),
     )
 
 
@@ -82,11 +103,11 @@ def parse_boekjaar(d: dict, *, client=None) -> Boekjaar:
         id=d["id"],
         administratie_id=d["administratie_id"],
         naam=d["naam"],
-        start_datum=_date(d["start_datum"]),
-        eind_datum=_date(d["eind_datum"]),
+        start_datum=_require_date(d["start_datum"]),
+        eind_datum=_require_date(d["eind_datum"]),
         status=BoekjaarStatus(d["status"]),
-        created_at=_dt(d["created_at"]),
-        updated_at=_dt(d["updated_at"]),
+        created_at=_require_dt(d["created_at"]),
+        updated_at=_require_dt(d["updated_at"]),
         client=client,
     )
 
@@ -100,8 +121,8 @@ def parse_dagboek(d: dict, *, client=None, boekjaar_id=None) -> Dagboek:
         dagboek_type=DagboekType(d["dagboek_type"]),
         grootboekrekening_id=d.get("grootboekrekening_id"),
         iban=d.get("iban"),
-        created_at=_dt(d["created_at"]),
-        updated_at=_dt(d["updated_at"]),
+        created_at=_require_dt(d["created_at"]),
+        updated_at=_require_dt(d["updated_at"]),
         client=client,
         boekjaar_id=boekjaar_id,
     )
@@ -129,8 +150,8 @@ def parse_grootboekrekening(
         parent_id=d.get("parent_id"),
         default_btw_id=d.get("default_btw_id"),
         actief=d.get("actief", True),
-        created_at=_dt(d["created_at"]),
-        updated_at=_dt(d["updated_at"]),
+        created_at=_require_dt(d["created_at"]),
+        updated_at=_require_dt(d["updated_at"]),
         client=client,
         boekjaar_id=boekjaar_id,
     )
@@ -151,11 +172,11 @@ def parse_grootboekrekening_met_saldo(
         parent_id=rekening_data.get("parent_id"),
         default_btw_id=rekening_data.get("default_btw_id"),
         actief=rekening_data.get("actief", True),
-        created_at=_dt(rekening_data["created_at"]),
-        updated_at=_dt(rekening_data["updated_at"]),
+        created_at=_require_dt(rekening_data["created_at"]),
+        updated_at=_require_dt(rekening_data["updated_at"]),
         client=client,
         boekjaar_id=boekjaar_id,
-        saldo=_cents(d["saldo"]),
+        saldo=_require_cents(d["saldo"]),
         aantal_transacties=d["aantal_transacties"],
     )
 
@@ -170,7 +191,7 @@ def parse_grootboek_mutatie(d: dict) -> GrootboekMutatie:
         dagboek_naam=d["dagboek_naam"],
         boeking_omschrijving=d["boeking_omschrijving"],
         regel_omschrijving=d["regel_omschrijving"],
-        bedrag=_cents(d["bedrag"]),
+        bedrag=_require_cents(d["bedrag"]),
     )
 
 
@@ -186,8 +207,8 @@ def parse_btw_code(d: dict) -> BtwCode:
         input_rekening_id=d.get("input_rekening_id"),
         pct_aftrek=Decimal(str(d["pct_aftrek"])),
         actief=d.get("actief", True),
-        created_at=_dt(d["created_at"]),
-        updated_at=_dt(d["updated_at"]),
+        created_at=_require_dt(d["created_at"]),
+        updated_at=_require_dt(d["updated_at"]),
     )
 
 
@@ -197,11 +218,11 @@ def parse_boekingsregel(d: dict) -> Boekingsregel:
         boeking_id=d["boeking_id"],
         grootboekrekening_id=d["grootboekrekening_id"],
         omschrijving=d.get("omschrijving", ""),
-        bedrag=_cents(d["bedrag"]),
+        bedrag=_require_cents(d["bedrag"]),
         btw_code_id=d.get("btw_code_id"),
         regeltype=Regeltype(d["regeltype"]),
         netto_id=d.get("netto_id"),
-        created_at=_dt(d["created_at"]),
+        created_at=_require_dt(d["created_at"]),
     )
 
 
@@ -210,7 +231,7 @@ def parse_boeking_met_regels(d: dict, *, client=None) -> Boeking:
         id=d["id"],
         dagboek_id=d["dagboek_id"],
         boekjaar_id=d["boekjaar_id"],
-        datum=_date(d["datum"]),
+        datum=_require_date(d["datum"]),
         omschrijving=d.get("omschrijving", ""),
         stuknummer=d.get("stuknummer"),
         status=BoekingStatus(d.get("status", "concept")),
@@ -221,8 +242,8 @@ def parse_boeking_met_regels(d: dict, *, client=None) -> Boeking:
         auto_geboekt=d.get("auto_geboekt", False),
         gecontroleerd=d.get("gecontroleerd", False),
         regels=[parse_boekingsregel(r) for r in d.get("regels", [])],
-        created_at=_dt(d["created_at"]),
-        updated_at=_dt(d["updated_at"]),
+        created_at=_require_dt(d["created_at"]),
+        updated_at=_require_dt(d["updated_at"]),
         client=client,
     )
 
@@ -259,8 +280,8 @@ def parse_btw_aangifte(d: dict) -> BtwAangifte:
         administratie_id=d["administratie_id"],
         boekjaar_id=d["boekjaar_id"],
         kwartaal=d["kwartaal"],
-        periode_start=_date(d["periode_start"]),
-        periode_eind=_date(d["periode_eind"]),
+        periode_start=_require_date(d["periode_start"]),
+        periode_eind=_require_date(d["periode_eind"]),
         berekening=parse_btw_berekening(d["berekening"]),
         r5g=Decimal(str(d["r5g"])),
         status=d["status"],
@@ -292,8 +313,8 @@ def parse_auto_booking_rule(d: dict) -> AutoBookingRule:
         tegenpartij_iban_patroon=d.get("tegenpartij_iban_patroon"),
         omschrijving_patroon=d.get("omschrijving_patroon"),
         lines=[parse_auto_booking_rule_line(ln) for ln in d.get("lines", [])],
-        created_at=_dt(d["created_at"]),
-        updated_at=_dt(d["updated_at"]),
+        created_at=_require_dt(d["created_at"]),
+        updated_at=_require_dt(d["updated_at"]),
     )
 
 

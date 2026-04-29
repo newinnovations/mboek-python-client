@@ -40,7 +40,9 @@ class BoekingenResource(BaseResource):
             :py:class:`~mboek._exceptions.NotFoundError`: Not found.
             :py:class:`~mboek._exceptions.ForbiddenError`: Not the owner.
         """
-        return parse_boeking_met_regels(self._get(f"/api/boekingen/{id}"), client=self._client)
+        return parse_boeking_met_regels(
+            self._get(f"/api/boekingen/{id}"), client=self._client
+        )
 
     def update(
         self,
@@ -96,7 +98,9 @@ class BoekingenResource(BaseResource):
             data["auto_geboekt"] = auto_geboekt
         if regels is not None:
             data["regels"] = [r.to_dict() for r in regels]
-        return parse_boeking_met_regels(self._patch(f"/api/boekingen/{id}", json=data), client=self._client)
+        return parse_boeking_met_regels(
+            self._patch(f"/api/boekingen/{id}", json=data), client=self._client
+        )
 
     def delete(self, id: int) -> None:
         """Permanently delete a boeking and all its boekingsregels.

@@ -9,7 +9,6 @@ import pytest
 import responses
 
 from mboek import NewBoekingsregel
-from mboek.models._enums import Regeltype
 from tests.conftest import BASE_URL, BOEKING, BOEKJAAR, DAGBOEK, GROOTBOEKREKENING
 
 
@@ -33,6 +32,39 @@ def test_list(mocked_responses, client):
     assert len(items) == 1
     assert items[0].datum == date(2024, 1, 15)
     assert len(items[0].regels) == 2
+
+
+def test_list_filters(mocked_responses, client):
+    other = {
+        **BOEKING,
+        "id": 101,
+        "stuknummer": "INV-2",
+        "omschrijving": "Other boeking",
+    }
+    filtered = {**BOEKING, "stuknummer": "INV-1"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20",
+        json=DAGBOEK,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/dagboeken/20/boekingen",
+        json=[filtered, other],
+    )
+    items = (
+        client.administratie(1)
+        .boekjaar(10)
+        .dagboek(20)
+        .boekingen.list(id=101, item="INV-2", description="Other boeking")
+    )
+    assert len(items) == 1
+    assert items[0].id == 101
 
 
 def test_get(mocked_responses, client):
@@ -197,7 +229,7 @@ def test_regel_to_dict_unresolved_raises():
 
 
 def test_boekingen_via_with_boekjaar(mocked_responses, client):
-    """Dagboek obtained from dagboeken.find_by_code gets boekingen via with_boekjaar."""
+    """Dagboek obtained from dagboeken.list(code=...) gets boekingen via with_boekjaar."""
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/dagboeken",
@@ -208,9 +240,8 @@ def test_boekingen_via_with_boekjaar(mocked_responses, client):
         f"{BASE_URL}/api/dagboeken/20/boekingen",
         json=[BOEKING],
     )
-    dagboek = client.administratie(1).dagboeken.find_by_code("BANK")
-    assert dagboek is not None
-    scoped = dagboek.with_boekjaar(boekjaar_id=10)
+    dagboek = client.administratie(1).dagboeken.list(code="BANK")[0]
+    scoped = dagboek.with_boekjaar(id=10)
     items = scoped.boekingen.list()
     assert len(items) == 1
 
@@ -283,4 +314,3 @@ def test_boeking_update_without_client_raises(client):
     boeking = parse_boeking_met_regels(BOEKING)  # no client
     with pytest.raises(ScopeError):
         boeking.update(omschrijving="x")
-

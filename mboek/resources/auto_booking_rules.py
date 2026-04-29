@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING
 
 from mboek._parsers import parse_auto_booking_rule, parse_boeking_met_regels
@@ -36,7 +37,7 @@ class AutoBookingRulesResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> list[AutoBookingRule]:
+    def list(self) -> builtins.list[AutoBookingRule]:
         """Return all automatic booking rules for the administratie.
 
         Returns:
@@ -51,7 +52,7 @@ class AutoBookingRulesResource(BaseResource):
         self,
         naam: str,
         actie_type: AutoBookingActieType,
-        lines: "list[NewAutoBookingRuleLine]",
+        lines: "builtins.list[NewAutoBookingRuleLine]",
         *,
         prioriteit: int = 100,
         actief: bool = True,
@@ -104,7 +105,7 @@ class AutoBookingRulesResource(BaseResource):
         eigen_iban_patroon: str | None = None,
         tegenpartij_iban_patroon: str | None = None,
         omschrijving_patroon: str | None = None,
-        lines: "list[NewAutoBookingRuleLine] | None" = None,
+        lines: "builtins.list[NewAutoBookingRuleLine] | None" = None,
     ) -> AutoBookingRule:
         """Partially update a rule.
 
@@ -148,7 +149,7 @@ class AutoBookingRulesResource(BaseResource):
             )
         )
 
-    def _resolve_lines(self, lines: list) -> None:
+    def _resolve_lines(self, lines: "builtins.list[NewAutoBookingRuleLine]") -> None:
         """Resolve grootboekrekening naam/code → id for each line in-place."""
         for line in lines:
             if line.grootboekrekening_id is None:

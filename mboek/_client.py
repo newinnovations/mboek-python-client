@@ -33,8 +33,8 @@ class MboekClient:
             admin = client.administratie(admins[0].id)
 
             boekjaren = admin.boekjaren.list()
-            dagboek = admin.dagboek(20)
-            boekingen = dagboek.boekingen.list(boekjaar_id=10)
+            dagboek = admin.dagboek(20).with_boekjaar(id=10)
+            boekingen = dagboek.boekingen.list()
 
     **Environment variables**::
 
@@ -204,10 +204,10 @@ class MboekClient:
 
     # ── Scoped access ─────────────────────────────────────────────────────────
 
-    def administratie(self, admin_id: int | None = None, *, name: str | None = None):
+    def administratie(self, id: int | None = None, *, name: str | None = None):
         """Return an :py:class:`~mboek.resources._admin_scope.AdministratieScope`.
 
-        Pass either the numeric ``admin_id`` (no HTTP call) or a ``name`` to
+        Pass either the numeric ``id`` (no HTTP call) or a ``name`` to
         look up the administratie by exact name (one HTTP call)::
 
             admin = client.administratie(1)
@@ -217,7 +217,7 @@ class MboekClient:
             dagboek = admin.dagboek(20)
 
         Args:
-            admin_id: Administratie ID. No HTTP call is made.
+            id: Administratie ID. No HTTP call is made.
             name: Exact administratie name (case-sensitive). Performs a
                 :py:meth:`~mboek.resources.administraties.AdministratiesResource.list`
                 lookup request.
@@ -225,20 +225,26 @@ class MboekClient:
         Raises:
             :py:class:`~mboek._exceptions.NotFoundError`: ``name`` given but no
                 matching administratie found.
-            :py:exc:`ValueError`: Neither or both of ``admin_id`` and ``name``
+            :py:exc:`ValueError`: Neither or both of ``id`` and ``name``
                 provided.
         """
-        provided = sum(x is not None for x in [admin_id, name])
+        provided = sum(x is not None for x in [id, name])
         if provided != 1:
-            raise ValueError("Provide exactly one of: admin_id, name")
+            raise ValueError("Provide exactly one of: id, name")
         if name is not None:
-            found = self.administraties.find_by_naam(name)
-            if found is None:
-                raise NotFoundError(f"Administratie '{name}' not found")
-            admin_id = found.id
+            found = self.administraties._require_single_match(
+                self.administraties.list(name=name),
+                not_found_message=f"Administratie '{name}' not found",
+                multiple_message=f"Multiple administraties named '{name}' found",
+            )
+            id = found.id
         from mboek.resources._admin_scope import AdministratieScope
 
-        return AdministratieScope(self, admin_id)
+        if id is None:
+            raise AssertionError(
+                "administratie() could not resolve an administratie ID"
+            )
+        return AdministratieScope(self, id)
 
     # ── Internal HTTP helpers ─────────────────────────────────────────────────
 

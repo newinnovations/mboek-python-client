@@ -1,0 +1,5468 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "mboek API",
+    "description": "REST API for the mboek (bookkeeping) application.\n\n**Authentication**: All endpoints except `/api/auth/login` require a Bearer JWT token. Obtain a token via `POST /api/auth/login` and pass it in the `Authorization: Bearer <token>` header.\n\n**Known inconsistencies**:\n- Boekingen are listed/created under `/api/dagboeken/{id}/boekingen` but read/updated/deleted at `/api/boekingen/{id}`\n- `/api/vacuum` has no admin-only guard\n- `/api/administraties/import` must be registered before `/{id}` to avoid path collision",
+    "license": {
+      "name": ""
+    },
+    "version": "1.0"
+  },
+  "paths": {
+    "/api/administraties": {
+      "get": {
+        "tags": [
+          "administraties"
+        ],
+        "description": "Returns all administraties (company administrations) owned by the authenticated user, sorted alphabetically by name. Each user sees only their own administraties.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "List of administraties owned by the current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdministratieResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "administraties"
+        ],
+        "description": "Creates a new administratie owned by the authenticated user. The name is required; KvK number, BTW number, address, and description are optional.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdministratieInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Administratie created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministratieResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/import": {
+      "post": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Imports a previously exported administratie JSON file (type=administratie). Creates a new administratie owned by the authenticated user with all its data (grootboekrekeningen, dagboeken, BTW codes, auto-booking rules, boekjaren, boekingen). If `overwrite=true` and an administratie with the same name already exists, it will be replaced. The entire import is done in a single transaction.",
+        "operationId": "import_administratie",
+        "parameters": [
+          {
+            "name": "overwrite",
+            "in": "query",
+            "description": "If true, overwrite existing administratie with same name",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "ExportEnvelope JSON (type=administratie)",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Import result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Dummy schemas for export-import response bodies.",
+                  "required": [
+                    "administratie_id",
+                    "naam",
+                    "boekingen_imported"
+                  ],
+                  "properties": {
+                    "administratie_id": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "boekingen_imported": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 0
+                    },
+                    "naam": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "administratie_id": 1,
+                  "boekingen_imported": 42,
+                  "naam": "My BV"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Administratie name already exists (and overwrite=false)"
+          },
+          "422": {
+            "description": "Validation error (wrong type or missing fields)"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekingen/{boeking_id}/apply-rules": {
+      "post": {
+        "tags": [
+          "regels"
+        ],
+        "description": "Applies all active auto-booking rules to a single boeking. If a rule matches, the boeking's staging-account regel (9990) is replaced with the categorized account lines defined by the matching rule. Only the first matching rule (by priority) is applied. Returns `{\"matched\": true}` if a rule fired, `{\"matched\": false}` otherwise.",
+        "operationId": "apply_to_boeking",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boeking_id",
+            "in": "path",
+            "description": "Boeking ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result of rule application",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Dummy schema type for the apply-to-boeking response.",
+                  "required": [
+                    "matched"
+                  ],
+                  "properties": {
+                    "matched": {
+                      "type": "boolean"
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                },
+                "example": {
+                  "matched": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekingen/{boeking_id}/export": {
+      "get": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Exports a single boeking and all its regels as a JSON file download. Useful for inspecting a specific entry or copying it to another dagboek.",
+        "operationId": "export_boeking",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boeking_id",
+            "in": "path",
+            "description": "Boeking ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Single boeking export as JSON file download",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekjaren": {
+      "get": {
+        "tags": [
+          "boekjaren"
+        ],
+        "description": "Returns all fiscal years (boekjaren) for an administratie, ordered by start date. Status is either `open` (accepting new boekingen) or `gesloten` (closed).",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of boekjaren",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BoekjaarResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "boekjaren"
+        ],
+        "description": "Creates a new fiscal year for an administratie. New boekjaren start with status `open`. Provide `naam`, `start_datum` (YYYY-MM-DD), and `eind_datum` (YYYY-MM-DD).",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoekjaarInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Boekjaar created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekjaarResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekjaren/import": {
+      "post": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Imports a previously exported boekjaar JSON file (type=boekjaar) into an existing administratie. All references in the export (dagboek codes, grootboekrekening codes, BTW codes) must exist in the target administratie. Returns 409 if a boekjaar with the same name already exists. The entire import is transactional.",
+        "operationId": "import_boekjaar",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "ExportEnvelope JSON (type=boekjaar)",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Boekjaar imported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "boekjaar_id",
+                    "naam",
+                    "boekingen_imported"
+                  ],
+                  "properties": {
+                    "boekingen_imported": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 0
+                    },
+                    "boekjaar_id": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "naam": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "boekingen_imported": 10,
+                  "boekjaar_id": 5,
+                  "naam": "2024"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Boekjaar name already exists"
+          },
+          "422": {
+            "description": "Validation error (wrong type or missing references)"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekjaren/{id}": {
+      "get": {
+        "tags": [
+          "boekjaren"
+        ],
+        "description": "Returns the details of a single boekjaar.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Boekjaar details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekjaarResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "boekjaren"
+        ],
+        "description": "Permanently deletes a boekjaar and all its boekingen. This action is irreversible.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "boekjaren"
+        ],
+        "description": "Updates the name, dates, or other fields of a boekjaar. To change the status, use the dedicated `afsluiten` or `heropenen` endpoints instead.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBoekjaarInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated boekjaar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekjaarResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekjaren/{id}/afsluiten": {
+      "post": {
+        "tags": [
+          "boekjaren"
+        ],
+        "description": "Atomically transitions a boekjaar from status `open` to `gesloten`. A closed boekjaar can no longer receive new boekingen. This is a prerequisite for finalising BTW aangiften (`vastleggen`). Returns 409 if the boekjaar is already gesloten.",
+        "operationId": "afsluiten",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Boekjaar closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekjaarResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflict — already closed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekjaren/{id}/export": {
+      "get": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Exports a single boekjaar with all its boekingen and BTW aangiften as a JSON file download. The export includes references by code (dagboek, grootboekrekening, BTW code) so it can be imported into an administratie with matching codes.",
+        "operationId": "export_boekjaar",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Boekjaar export as JSON file download",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekjaren/{id}/heropenen": {
+      "post": {
+        "tags": [
+          "boekjaren"
+        ],
+        "description": "Reopens a gesloten boekjaar by setting its status back to `open`. Blocked with 409 if the boekjaar has any definitieve BTW aangiften, as reopening would invalidate locked VAT returns.",
+        "operationId": "heropenen",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Boekjaar reopened",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekjaarResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflict — not closed or has definitieve BTW aangiften"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekjaren/{id}/set-huidig": {
+      "post": {
+        "tags": [
+          "boekjaren"
+        ],
+        "description": "Sets the `huidig_boekjaar_id` field on the administratie to this boekjaar. This value is used as the default boekjaar in queries that accept an optional `boekjaar_id`, such as the dagboeken `werkstatus` endpoint.",
+        "operationId": "set_huidig",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boekjaar ID to set as current",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current boekjaar updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekjaarResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/btw-aangiften": {
+      "get": {
+        "tags": [
+          "btw-aangifte"
+        ],
+        "description": "Returns the BTW (VAT) return status for all 4 quarters of a boekjaar. Quarters that have not yet been calculated are included as synthetic entries with status `niet_berekend` and zero amounts, so the response always contains 4 items. Calculated quarters have status `concept`; finalised quarters have status `definitief`.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "query",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of BTW aangiften (all 4 quarters synthesized if not yet calculated)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BtwAangifte"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Boekjaar not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/btw-aangiften/berekenen": {
+      "post": {
+        "tags": [
+          "btw-aangifte"
+        ],
+        "description": "Calculates (or recalculates) the VAT return for a specific quarter. Aggregates all BTW-coded boekingsregels in the quarter's date range and maps them to the standard Dutch VAT return fields (1a through 5g). Creates a new record or updates an existing one; result has status `concept`. Returns 409 if the aangifte is already `definitief` (use delete + recalculate instead).",
+        "operationId": "berekenen",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BerekeningInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "BTW aangifte berekening (created or updated as concept)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BtwAangifte"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Boekjaar not found"
+          },
+          "409": {
+            "description": "Cannot recalculate a definitieve aangifte"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/btw-aangiften/{aangifte_id}": {
+      "delete": {
+        "tags": [
+          "btw-aangifte"
+        ],
+        "description": "Deletes a BTW aangifte record. Only concept-status aangiften can be deleted. Returns 409 if the aangifte is definitief.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "aangifte_id",
+            "in": "path",
+            "description": "BTW aangifte ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Dummy schema for delete response `{\"deleted\": N}`.",
+                  "required": [
+                    "deleted"
+                  ],
+                  "properties": {
+                    "deleted": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "example": {
+                  "deleted": 1
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Definitieve aangifte cannot be deleted"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/btw-aangiften/{aangifte_id}/vastleggen": {
+      "post": {
+        "tags": [
+          "btw-aangifte"
+        ],
+        "description": "Locks a concept BTW aangifte as definitief (final). Requires the boekjaar to be gesloten first — you cannot finalise a VAT return for an open fiscal year. Once definitief, the aangifte cannot be recalculated and the boekjaar cannot be heropened.",
+        "operationId": "vastleggen",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "aangifte_id",
+            "in": "path",
+            "description": "BTW aangifte ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "BTW aangifte definitief vastgelegd",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BtwAangifte"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Boekjaar must be gesloten before vastleggen"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/btw-codes": {
+      "get": {
+        "tags": [
+          "btw-codes"
+        ],
+        "description": "Returns all BTW (VAT) codes for an administratie, sorted by code. Each code defines a VAT rate, type, and optionally the linked output/input rekeningen.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of BTW codes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BtwCodeResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "btw-codes"
+        ],
+        "description": "Creates a new BTW code. `percentage` is a decimal percentage (e.g. 21.0 for 21%). `pct_aftrek` (deductibility percentage) defaults to 100% when omitted. Optionally link `output_rekening_id` (BTW te betalen) and `input_rekening_id` (BTW te vorderen). New codes are created as inactive (`actief = false`) — activate them when appropriate for your business.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBtwCodeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "BTW code created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BtwCodeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/btw-codes/seed-defaults": {
+      "post": {
+        "tags": [
+          "btw-codes"
+        ],
+        "description": "Creates the standard Dutch BTW codes (V21, V9, V0, I21, I9, EU21, INT21, VRL) if they do not already exist. Skips any code that is already present. Output/input rekeningen are auto-resolved by looking up grootboekrekeningen with codes 2310 (Te betalen BTW) and 2320 (Te vorderen BTW) if they exist. All seeded codes are created as inactive (`actief = false`).",
+        "operationId": "seed_defaults",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default BTW codes seeded (skips existing codes)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/btw-codes/{id}": {
+      "get": {
+        "tags": [
+          "btw-codes"
+        ],
+        "description": "Returns a single BTW code by ID.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BTW code ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "BTW code details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BtwCodeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "btw-codes"
+        ],
+        "description": "Permanently deletes a BTW code. Note: deleting a code that is referenced by existing boekingsregels may cause referential issues.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BTW code ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "btw-codes"
+        ],
+        "description": "Partially updates a BTW code. All request body fields are optional; omit a field to leave it unchanged.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BTW code ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBtwCodeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated BTW code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BtwCodeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/dagboeken": {
+      "get": {
+        "tags": [
+          "dagboeken"
+        ],
+        "description": "Returns all dagboeken (journals/sub-ledgers) for an administratie, sorted by code. Dagboek types include: `bank`, `kas`, `inkoop`, `verkoop`, and `memoriaal`.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of dagboeken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DagboekResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "dagboeken"
+        ],
+        "description": "Creates a new dagboek. For bank-type dagboeken, set `grootboekrekening_id` to the linked bank account in the chart of accounts, and optionally set `iban` for IBAN-based matching during bank statement import.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDagboekInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Dagboek created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DagboekResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/dagboeken/werkstatus": {
+      "get": {
+        "tags": [
+          "dagboeken"
+        ],
+        "description": "Returns per-dagboek work-status counts for a given boekjaar: `onverwerkt` counts boekingen that still have a line pointing to the bankimport staging account (9990, i.e. unprocessed bank imports), and `te_bevestigen` counts boekingen that were auto-booked by rules but not yet manually confirmed. Defaults to the administratie's `huidig_boekjaar_id` when `boekjaar_id` is omitted.",
+        "operationId": "werkstatus",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "query",
+            "description": "Boekjaar ID (defaults to huidig_boekjaar_id of the administratie)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Work-status counts per dagboek",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DagboekWerkStatus"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/dagboeken/{dagboek_id}/boekingen/import": {
+      "post": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Imports previously exported boekingen into a specific dagboek of an administratie. The target boekjaar must be open. All referenced grootboekrekening codes and BTW codes must exist in the target administratie. Boekingen are inserted atomically.",
+        "operationId": "import_boekingen_into_dagboek",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "dagboek_id",
+            "in": "path",
+            "description": "Dagboek ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "query",
+            "description": "Target boekjaar ID (must be open)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "JSON object with 'boekingen' array of ExportBoeking",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Boekingen imported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "dagboek_id",
+                    "boekingen_imported"
+                  ],
+                  "properties": {
+                    "boekingen_imported": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 0
+                    },
+                    "dagboek_id": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  }
+                },
+                "example": {
+                  "boekingen_imported": 7,
+                  "dagboek_id": 3
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Dagboek or boekjaar not found"
+          },
+          "422": {
+            "description": "Validation error (missing references or gesloten boekjaar)"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/dagboeken/{dagboek_id}/rerun-regels": {
+      "post": {
+        "tags": [
+          "regels"
+        ],
+        "summary": "Re-run auto-booking rules on all unbooked entries (contra = bankimport rekening) for a dagboek",
+        "description": "Re-applies all active auto-booking rules to all currently-unprocessed boekingen in the dagboek across all open boekjaren. A boeking is considered unprocessed when it still has a regel pointing to the bankimport staging account (9990). For each matching boeking, the staging-account regel is replaced with categorized account lines. Returns the count of boekingen that were updated.",
+        "operationId": "rerun",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "dagboek_id",
+            "in": "path",
+            "description": "Dagboek ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Number of boekingen updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Dummy schema type for the rerun/apply response `{\"updated\": N}`.",
+                  "required": [
+                    "updated"
+                  ],
+                  "properties": {
+                    "updated": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "example": {
+                  "updated": 5
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/dagboeken/{dagboek_id}/suggest": {
+      "post": {
+        "tags": [
+          "import"
+        ],
+        "description": "Suggests contra-rekeningen (counter accounts) for a bank transaction based on its description and optional tegenpartij_naam. Looks up previously used contra-accounts for similar transactions in the same dagboek and ranks them by frequency of use. Useful for presenting booking suggestions to the user before they confirm an import.",
+        "operationId": "suggest",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "dagboek_id",
+            "in": "path",
+            "description": "Dagboek ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Suggested contra-rekeningen ranked by confidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MatchSuggestion"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/dagboeken/{id}": {
+      "get": {
+        "tags": [
+          "dagboeken"
+        ],
+        "description": "Returns the details of a single dagboek, including its linked grootboekrekening and IBAN if configured.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Dagboek ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dagboek details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DagboekResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "dagboeken"
+        ],
+        "description": "Permanently deletes a dagboek. This will fail if the dagboek has existing boekingen (foreign key constraint).",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Dagboek ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "dagboeken"
+        ],
+        "description": "Partially updates a dagboek. All fields are optional; omit a field to leave it unchanged.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Dagboek ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDagboekInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated dagboek",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DagboekResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/export": {
+      "get": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Exports the complete administratie as a JSON file download. The export includes all BTW codes, grootboekrekeningen, dagboeken, auto-booking rules, boekjaren, and all boekingen with their regels. Suitable for full backup or migration to another instance. The exported file can be re-imported with the import endpoint.",
+        "operationId": "export_administratie",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full administratie export as JSON file download",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Administratie not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/grootboekrekeningen": {
+      "get": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Returns all grootboekrekeningen (chart of accounts entries) for an administratie, sorted by code. Includes all types: activa, passiva, kosten, opbrengsten, and bijzonder.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of grootboekrekeningen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GrootboekrekeningResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Creates a new grootboekrekening. `rekening_type` must be one of: `activa`, `passiva`, `kosten`, `opbrengsten`, `bijzonder`. Optionally set `parent_id` to nest under another rekening and `rgs_code` for Dutch RGS (Referentie Grootboekschema) compatibility.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGrootboekrekeningInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Grootboekrekening created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrootboekrekeningResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/grootboekrekeningen/met-saldo/{boekjaar_id}": {
+      "get": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Returns all grootboekrekeningen for an administratie, enriched with the number of boekingsregels (`aantal_transacties`) and the net balance (`saldo`, in euro cents, positive = debet) for the given boekjaar. Accounts with no transactions in the boekjaar are included with zeros. Useful for scripts and for filtering the chart of accounts in the UI.",
+        "operationId": "met_saldo",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "path",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All grootboekrekeningen with transaction count and saldo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GrootboekrekeningMetSaldoResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Boekjaar not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/grootboekrekeningen/seed-rgs": {
+      "post": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Seeds a standard Dutch RGS (Referentie Grootboekschema) chart of accounts with ~15 common account categories (1000–4900) if those codes do not already exist. Skips any code that is already present. Run `seed-defaults` on btw-codes afterwards to set up linked BTW rekeningen.",
+        "operationId": "seed_rgs",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "RGS grootboekrekeningen seeded (skips existing codes)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/grootboekrekeningen/{id}": {
+      "get": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Returns a single grootboekrekening by ID.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Grootboekrekening ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Grootboekrekening details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrootboekrekeningResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Permanently deletes a grootboekrekening. Will fail if the account is referenced by existing boekingsregels or BTW codes.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Grootboekrekening ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Updates the fields of a grootboekrekening. All fields are optional. Use `actief = false` to deactivate an account without deleting it.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Grootboekrekening ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGrootboekrekeningInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated grootboekrekening",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrootboekrekeningResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/import": {
+      "post": {
+        "tags": [
+          "import"
+        ],
+        "description": "Imports a bank statement file (MT940 or CAMT.053 format) into the matching dagboeken. The format is auto-detected from the filename and file content. Transactions are matched to dagboeken by IBAN. Existing transactions are deduplicated by a SHA-256 hash of immutable transaction fields (own IBAN, date, signed amount, bank reference, description, counterparty IBAN) unless `allow_duplicates = true` is set in the form. A bankimport staging account (code 9990) is created automatically if it does not exist. After import, all active auto-booking rules are applied to the new boekingen. Returns counts of imported, skipped (duplicates, zero-amount), and auto-booked transactions.",
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "MT940 or CAMT.053 bank statement file",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "description": "Form data for bank statement upload. Send `file` as a file field and\noptionally `allow_duplicates=true` to re-import transactions already present.",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "allow_duplicates": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Set to \"true\" to re-import transactions already present (default: false)"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Bank statement file (MT940 or CAMT.053 XML)",
+                    "contentMediaType": "application/octet-stream"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Import result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "413": {
+            "description": "File too large (max 10 MB)"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/rapporten/balans": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "description": "Generates a balance sheet (balans) for a boekjaar. Aggregates all boekingsregels for active activa and passiva grootboekrekeningen. Returns per-account debet/credit/saldo values and totals. `in_balans` is true when the absolute difference between activa and passiva totals is less than €0.01.",
+        "operationId": "balans",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "query",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Balans report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalansReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Boekjaar not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/rapporten/winst-verlies": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "description": "Generates a profit & loss report (winst & verlies) for a boekjaar. Aggregates all boekingsregels for active kosten, opbrengsten, and bijzonder grootboekrekeningen. Returns per-account amounts and the `netto_resultaat` (opbrengsten − kosten − bijzonder). Accounts with zero balance are omitted.",
+        "operationId": "winst_verlies",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "query",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Winst & verlies report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WinstVerliesReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Boekjaar not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/regels": {
+      "get": {
+        "tags": [
+          "regels"
+        ],
+        "description": "Returns all auto-booking rules for an administratie, each with their rule lines (match criteria and booking actions). Rules are ordered by priority (lower number = higher priority). Rules are matched against imported bank transaction descriptions to automatically categorize boekingen.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of auto-booking rules with lines",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AutoBookingRuleResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "regels"
+        ],
+        "description": "Creates a new auto-booking rule with optional rule lines. A rule can match by: own IBAN (`iban_eigen`), counterparty IBAN (`iban_tegenpartij`), and/or description regex (`omschrijving_regex`). Each rule line defines an account and optional BTW code to book to when the rule fires. Lower `prioriteit` values take precedence. Set `actief = false` to create a disabled rule.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAutoBookingRuleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Auto-booking rule created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoBookingRuleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation error (e.g. invalid regex)"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/regels/{rule_id}": {
+      "delete": {
+        "tags": [
+          "regels"
+        ],
+        "description": "Permanently deletes an auto-booking rule and all its lines.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "rule_id",
+            "in": "path",
+            "description": "Auto-booking rule ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "regels"
+        ],
+        "description": "Partially updates an auto-booking rule's fields. If `lines` is provided, the existing rule lines are replaced atomically. All fields are optional; omit a field to leave it unchanged.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "rule_id",
+            "in": "path",
+            "description": "Auto-booking rule ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAutoBookingRuleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoBookingRuleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/rekening/{id}/mutaties": {
+      "get": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Returns the full mutation ledger for a single grootboekrekening within a boekjaar: every boekingsregel with its date, dagboek code/name, journal entry description, line description, and amount (positive = debet, negative = credit). Ordered by date and id.",
+        "operationId": "mutaties",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Grootboekrekening ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "query",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of mutations for this rekening in the given boekjaar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GrootboekMutatie"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{id}": {
+      "get": {
+        "tags": [
+          "administraties"
+        ],
+        "description": "Returns the full details of a single administratie. Returns 403 if the authenticated user is not the owner.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Administratie details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministratieResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden — not owner"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "administraties"
+        ],
+        "description": "Permanently deletes an administratie and all associated data (boekjaren, dagboeken, boekingen, BTW codes, grootboekrekeningen, etc.). This action is irreversible. Only the owner may delete it.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden — not owner"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "administraties"
+        ],
+        "description": "Partially updates an administratie. All request body fields are optional; omit a field to leave it unchanged.\n        To change the active boekjaar shown by default in queries, set `huidig_boekjaar_id`.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAdministratieInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated administratie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministratieResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden — not owner"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "description": "Authenticates a user with username and password. Returns a signed JWT bearer token. Argon2id password hashing is always run regardless of whether the user exists, preventing username enumeration via timing attacks.",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "description": "Revokes the current JWT token server-side. The token remains syntactically valid but is rejected by all protected endpoints until it expires naturally.",
+        "operationId": "logout",
+        "responses": {
+          "204": {
+            "description": "Logged out — token revoked"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "description": "Returns the username and subject claim from the current bearer token. Useful for verifying a token is still valid and retrieving the logged-in username.",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "Current user info",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "gebruikersnaam": "admin",
+                  "sub": "1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/boekingen/{id}": {
+      "get": {
+        "tags": [
+          "boekingen"
+        ],
+        "description": "Returns a single boeking with all its boekingsregels. Unlike the list endpoint (under a dagboek), this endpoint is routed directly under `/api/boekingen/{id}` for convenient single-record access.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boeking ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Boeking with regels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekingMetRegelsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "boekingen"
+        ],
+        "description": "Permanently deletes a boeking and all its boekingsregels in a transaction.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boeking ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "boekingen"
+        ],
+        "description": "Updates a boeking's fields and optionally replaces all its boekingsregels. If `regels` is provided, the existing regels are deleted and the new set is inserted atomically. Manually editing regels automatically clears `auto_geboekt` and `gecontroleerd` flags.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boeking ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBoekingInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated boeking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekingMetRegelsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/dagboeken/{dagboek_id}/boekingen": {
+      "get": {
+        "tags": [
+          "boekingen"
+        ],
+        "description": "Returns all boekingen (journal entries) for a dagboek within a boekjaar, each including their boekingsregels (lines). Ordered by date and id. The `boekjaar_id` query parameter is required.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "dagboek_id",
+            "in": "path",
+            "description": "Dagboek ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "query",
+            "description": "Boekjaar ID (required)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of boekingen with regels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BoekingMetRegelsResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Dagboek not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "boekingen"
+        ],
+        "description": "Creates a new boeking with its boekingsregels in a single transaction. All regels must balance (sum of bedragen must equal zero). Set `auto_geboekt = true` to flag the boeking as system-generated (it will then appear in the `te_bevestigen` work-status count until manually confirmed).",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "dagboek_id",
+            "in": "path",
+            "description": "Dagboek ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoekingInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Boeking created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoekingMetRegelsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Dagboek not found"
+          },
+          "422": {
+            "description": "Validation error (e.g. regels not balanced)"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/vacuum": {
+      "post": {
+        "tags": [
+          "maintenance"
+        ],
+        "description": "Runs SQLite VACUUM to reclaim disk space and defragment the database. Note: this endpoint is only protected by JWT authentication — there is no additional admin guard. Any authenticated user can trigger a VACUUM.",
+        "operationId": "vacuum",
+        "responses": {
+          "200": {
+            "description": "Database vacuum completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VacuumResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdministratieResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "naam",
+          "active",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "adres": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "beschrijving": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "btw_nummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "huidig_boekjaar_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kvk_nummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "naam": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AutoBookingActieType": {
+        "type": "string",
+        "enum": [
+          "enkel",
+          "splits"
+        ]
+      },
+      "AutoBookingBedragType": {
+        "type": "string",
+        "enum": [
+          "vast",
+          "rest"
+        ]
+      },
+      "AutoBookingRuleLineResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "rule_id",
+          "volgorde",
+          "bedrag_type",
+          "tegenrekening_id",
+          "omschrijving"
+        ],
+        "properties": {
+          "bedrag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bedrag_type": {
+            "$ref": "#/components/schemas/AutoBookingBedragType"
+          },
+          "btw_code_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "omschrijving": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tegenrekening_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "volgorde": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AutoBookingRuleResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "administratie_id",
+          "naam",
+          "prioriteit",
+          "actie_type",
+          "actief",
+          "lines",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "actie_type": {
+            "$ref": "#/components/schemas/AutoBookingActieType"
+          },
+          "actief": {
+            "type": "boolean"
+          },
+          "administratie_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "btw_code_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "iban_eigen": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "iban_tegenpartij": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoBookingRuleLineResponse"
+            }
+          },
+          "naam": {
+            "type": "string"
+          },
+          "omschrijving_regex": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prioriteit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tegenrekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BalansRegel": {
+        "type": "object",
+        "required": [
+          "code",
+          "naam",
+          "debet",
+          "credit",
+          "saldo"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "credit": {
+            "type": "string"
+          },
+          "debet": {
+            "type": "string"
+          },
+          "naam": {
+            "type": "string"
+          },
+          "saldo": {
+            "type": "string"
+          }
+        }
+      },
+      "BalansReport": {
+        "type": "object",
+        "required": [
+          "boekjaar_naam",
+          "activa",
+          "passiva",
+          "totaal_activa",
+          "totaal_passiva",
+          "in_balans"
+        ],
+        "properties": {
+          "activa": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BalansRegel"
+            }
+          },
+          "boekjaar_naam": {
+            "type": "string"
+          },
+          "in_balans": {
+            "type": "boolean"
+          },
+          "passiva": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BalansRegel"
+            }
+          },
+          "totaal_activa": {
+            "type": "string"
+          },
+          "totaal_passiva": {
+            "type": "string"
+          }
+        }
+      },
+      "BerekeningInput": {
+        "type": "object",
+        "required": [
+          "boekjaar_id",
+          "kwartaal"
+        ],
+        "properties": {
+          "boekjaar_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kwartaal": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "BoekingMetRegelsResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BoekingResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "regels"
+            ],
+            "properties": {
+              "regels": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BoekingsregelResponse"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "BoekingResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "dagboek_id",
+          "boekjaar_id",
+          "datum",
+          "omschrijving",
+          "status",
+          "auto_geboekt",
+          "gecontroleerd",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "auto_geboekt": {
+            "type": "boolean"
+          },
+          "boekjaar_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dagboek_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "datum": {
+            "type": "string",
+            "format": "date"
+          },
+          "gecontroleerd": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "import_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "omschrijving": {
+            "type": "string"
+          },
+          "referentie_import": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/BoekingStatus"
+          },
+          "stuknummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tegenpartij_iban": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tegenpartij_naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BoekingStatus": {
+        "type": "string",
+        "enum": [
+          "concept",
+          "definitief"
+        ]
+      },
+      "BoekingsregelResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "boeking_id",
+          "grootboekrekening_id",
+          "omschrijving",
+          "bedrag",
+          "regeltype",
+          "created_at"
+        ],
+        "properties": {
+          "bedrag": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "boeking_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "btw_code_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "grootboekrekening_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "netto_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "omschrijving": {
+            "type": "string"
+          },
+          "regeltype": {
+            "$ref": "#/components/schemas/Regeltype"
+          }
+        }
+      },
+      "BoekjaarResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "administratie_id",
+          "naam",
+          "start_datum",
+          "eind_datum",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "administratie_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "eind_datum": {
+            "type": "string",
+            "format": "date"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "naam": {
+            "type": "string"
+          },
+          "start_datum": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BoekjaarStatus"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BoekjaarStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "gesloten"
+        ]
+      },
+      "BtwAangifte": {
+        "type": "object",
+        "required": [
+          "id",
+          "administratie_id",
+          "boekjaar_id",
+          "kwartaal",
+          "periode_start",
+          "periode_eind",
+          "berekening",
+          "r5g",
+          "status"
+        ],
+        "properties": {
+          "administratie_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "berekening": {
+            "$ref": "#/components/schemas/BtwBerekening"
+          },
+          "boekjaar_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kwartaal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "periode_eind": {
+            "type": "string",
+            "format": "date"
+          },
+          "periode_start": {
+            "type": "string",
+            "format": "date"
+          },
+          "r5g": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "BtwBerekening": {
+        "type": "object",
+        "required": [
+          "r1a",
+          "r1b",
+          "r1c",
+          "r1d",
+          "r1e",
+          "r2a",
+          "r3a",
+          "r3b",
+          "r3c",
+          "r4a",
+          "r4b",
+          "r5a",
+          "r5b",
+          "r5g"
+        ],
+        "properties": {
+          "r1a": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r1b": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r1c": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r1d": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r1e": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r2a": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r3a": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r3b": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r3c": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r4a": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r4b": {
+            "$ref": "#/components/schemas/RubriekBedragen"
+          },
+          "r5a": {
+            "type": "string"
+          },
+          "r5b": {
+            "type": "string"
+          },
+          "r5g": {
+            "type": "string"
+          }
+        }
+      },
+      "BtwCodeResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "administratie_id",
+          "code",
+          "omschrijving",
+          "percentage",
+          "soort",
+          "pct_aftrek",
+          "actief",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "actief": {
+            "type": "boolean"
+          },
+          "administratie_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "input_rekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "omschrijving": {
+            "type": "string"
+          },
+          "output_rekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "pct_aftrek": {
+            "type": "number",
+            "format": "double"
+          },
+          "percentage": {
+            "type": "number",
+            "format": "double"
+          },
+          "soort": {
+            "$ref": "#/components/schemas/BtwSoort"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BtwSoort": {
+        "type": "string",
+        "enum": [
+          "verkopen_nl_hoog",
+          "verkopen_nl_laag",
+          "verkopen_nl_overig",
+          "verkopen_nl_nul",
+          "verkopen_nl_verlegd",
+          "verkopen_int",
+          "verkopen_eu_zakelijk",
+          "verkopen_eu_particulier",
+          "privegebruik",
+          "verlegd_nl",
+          "inkopen_int",
+          "inkopen_eu",
+          "inkopen_nl"
+        ]
+      },
+      "CreateAdministratieInput": {
+        "type": "object",
+        "description": "API input for creating an administratie",
+        "required": [
+          "naam"
+        ],
+        "properties": {
+          "adres": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "beschrijving": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "btw_nummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kvk_nummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "naam": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAutoBookingRuleInput": {
+        "type": "object",
+        "required": [
+          "naam",
+          "actie_type"
+        ],
+        "properties": {
+          "actie_type": {
+            "$ref": "#/components/schemas/AutoBookingActieType"
+          },
+          "actief": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "btw_code_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "iban_eigen": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "iban_tegenpartij": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lines": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CreateAutoBookingRuleLineInput"
+            }
+          },
+          "naam": {
+            "type": "string"
+          },
+          "omschrijving_regex": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prioriteit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "tegenrekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "CreateAutoBookingRuleLineInput": {
+        "type": "object",
+        "required": [
+          "bedrag_type",
+          "tegenrekening_id"
+        ],
+        "properties": {
+          "bedrag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bedrag_type": {
+            "$ref": "#/components/schemas/AutoBookingBedragType"
+          },
+          "btw_code_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "omschrijving": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tegenrekening_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "volgorde": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "CreateBoekingInput": {
+        "type": "object",
+        "required": [
+          "boekjaar_id",
+          "datum",
+          "omschrijving",
+          "regels"
+        ],
+        "properties": {
+          "auto_geboekt": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "boekjaar_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "datum": {
+            "type": "string",
+            "format": "date"
+          },
+          "omschrijving": {
+            "type": "string"
+          },
+          "referentie_import": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateBoekingsregelInput"
+            }
+          },
+          "stuknummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tegenpartij_iban": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tegenpartij_naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CreateBoekingsregelInput": {
+        "type": "object",
+        "required": [
+          "grootboekrekening_id",
+          "omschrijving",
+          "bedrag",
+          "regeltype"
+        ],
+        "properties": {
+          "bedrag": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "btw_code_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "grootboekrekening_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "netto_ref": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "omschrijving": {
+            "type": "string"
+          },
+          "regeltype": {
+            "$ref": "#/components/schemas/Regeltype"
+          }
+        }
+      },
+      "CreateBoekjaarInput": {
+        "type": "object",
+        "required": [
+          "naam",
+          "start_datum",
+          "eind_datum"
+        ],
+        "properties": {
+          "eind_datum": {
+            "type": "string",
+            "format": "date"
+          },
+          "naam": {
+            "type": "string"
+          },
+          "start_datum": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "CreateBtwCodeInput": {
+        "type": "object",
+        "required": [
+          "code",
+          "omschrijving",
+          "percentage",
+          "soort"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "input_rekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "omschrijving": {
+            "type": "string"
+          },
+          "output_rekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "pct_aftrek": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "percentage": {
+            "type": "string"
+          },
+          "soort": {
+            "$ref": "#/components/schemas/BtwSoort"
+          }
+        }
+      },
+      "CreateDagboekInput": {
+        "type": "object",
+        "required": [
+          "code",
+          "naam",
+          "dagboek_type"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "dagboek_type": {
+            "$ref": "#/components/schemas/DagboekType"
+          },
+          "grootboekrekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "iban": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "naam": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateGrootboekrekeningInput": {
+        "type": "object",
+        "required": [
+          "code",
+          "naam",
+          "rekening_type",
+          "categorie"
+        ],
+        "properties": {
+          "categorie": {
+            "$ref": "#/components/schemas/RekeningCategorie"
+          },
+          "code": {
+            "type": "string"
+          },
+          "default_btw_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "naam": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "rekening_type": {
+            "$ref": "#/components/schemas/RekeningType"
+          },
+          "rgs_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DagboekResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "administratie_id",
+          "code",
+          "naam",
+          "dagboek_type",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "administratie_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dagboek_type": {
+            "$ref": "#/components/schemas/DagboekType"
+          },
+          "grootboekrekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "iban": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "naam": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DagboekType": {
+        "type": "string",
+        "enum": [
+          "bank",
+          "kas",
+          "verkoop",
+          "inkoop",
+          "memoriaal",
+          "openingsbalans"
+        ]
+      },
+      "DagboekWerkStatus": {
+        "type": "object",
+        "description": "Per-dagboek work-status counts for the current boekjaar.",
+        "required": [
+          "dagboek_id",
+          "onverwerkt",
+          "te_bevestigen"
+        ],
+        "properties": {
+          "dagboek_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "onverwerkt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Boekingen that still use the bankimport holding account (need manual booking)."
+          },
+          "te_bevestigen": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Auto-booked entries that need human confirmation."
+          }
+        }
+      },
+      "GrootboekMutatie": {
+        "type": "object",
+        "required": [
+          "regel_id",
+          "boeking_id",
+          "dagboek_id",
+          "datum",
+          "dagboek_code",
+          "dagboek_naam",
+          "boeking_omschrijving",
+          "regel_omschrijving",
+          "bedrag"
+        ],
+        "properties": {
+          "bedrag": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "boeking_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "boeking_omschrijving": {
+            "type": "string"
+          },
+          "dagboek_code": {
+            "type": "string"
+          },
+          "dagboek_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dagboek_naam": {
+            "type": "string"
+          },
+          "datum": {
+            "type": "string"
+          },
+          "regel_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regel_omschrijving": {
+            "type": "string"
+          }
+        }
+      },
+      "GrootboekrekeningMetSaldoResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "administratie_id",
+          "code",
+          "naam",
+          "rekening_type",
+          "categorie",
+          "actief",
+          "created_at",
+          "updated_at",
+          "aantal_transacties",
+          "saldo"
+        ],
+        "properties": {
+          "aantal_transacties": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of boekingsregels in the given boekjaar."
+          },
+          "actief": {
+            "type": "boolean"
+          },
+          "administratie_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "categorie": {
+            "$ref": "#/components/schemas/RekeningCategorie"
+          },
+          "code": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "default_btw_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "naam": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "rekening_type": {
+            "$ref": "#/components/schemas/RekeningType"
+          },
+          "rgs_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "saldo": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Net balance in euro cents (positive = debet, negative = credit)."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GrootboekrekeningResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "administratie_id",
+          "code",
+          "naam",
+          "rekening_type",
+          "categorie",
+          "actief",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "actief": {
+            "type": "boolean"
+          },
+          "administratie_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "categorie": {
+            "$ref": "#/components/schemas/RekeningCategorie"
+          },
+          "code": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "default_btw_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "naam": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "rekening_type": {
+            "$ref": "#/components/schemas/RekeningType"
+          },
+          "rgs_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ImportFormaat": {
+        "type": "string",
+        "enum": [
+          "mt940",
+          "camt053"
+        ]
+      },
+      "ImportResult": {
+        "type": "object",
+        "required": [
+          "imported",
+          "duplicates_skipped",
+          "zero_bedrag_skipped",
+          "boekjaar_niet_gevonden_skipped",
+          "auto_geboekt",
+          "unmatched_ibans"
+        ],
+        "properties": {
+          "auto_geboekt": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "boekjaar_niet_gevonden_skipped": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "duplicates_skipped": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "imported": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "parse_warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Parse warnings from the bank statement file (e.g. malformed transaction lines)."
+          },
+          "unmatched_ibans": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "zero_bedrag_skipped": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ImportUploadForm": {
+        "type": "object",
+        "description": "Form data for bank statement upload. Send `file` as a file field and\noptionally `allow_duplicates=true` to re-import transactions already present.",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "allow_duplicates": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set to \"true\" to re-import transactions already present (default: false)"
+          },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "Bank statement file (MT940 or CAMT.053 XML)",
+            "contentMediaType": "application/octet-stream"
+          }
+        }
+      },
+      "ListQuery": {
+        "type": "object",
+        "required": [
+          "boekjaar_id"
+        ],
+        "properties": {
+          "boekjaar_id": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "gebruikersnaam",
+          "wachtwoord"
+        ],
+        "properties": {
+          "gebruikersnaam": {
+            "type": "string",
+            "description": "Username / gebruikersnaam"
+          },
+          "wachtwoord": {
+            "type": "string",
+            "description": "Password / wachtwoord"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": [
+          "token",
+          "gebruikersnaam",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp when this token expires."
+          },
+          "gebruikersnaam": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "MatchSuggestion": {
+        "type": "object",
+        "required": [
+          "contra_rekening_id",
+          "contra_rekening_code",
+          "contra_rekening_naam",
+          "confidence",
+          "reason"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "contra_rekening_code": {
+            "type": "string"
+          },
+          "contra_rekening_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contra_rekening_naam": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "Regeltype": {
+        "type": "string",
+        "enum": [
+          "netto",
+          "btw_output",
+          "btw_input"
+        ]
+      },
+      "RekeningCategorie": {
+        "type": "string",
+        "enum": [
+          "balans",
+          "winstverlies"
+        ]
+      },
+      "RekeningType": {
+        "type": "string",
+        "enum": [
+          "activa",
+          "passiva",
+          "kosten",
+          "opbrengsten",
+          "bijzonder"
+        ]
+      },
+      "RubriekBedragen": {
+        "type": "object",
+        "required": [
+          "grondslag",
+          "btw"
+        ],
+        "properties": {
+          "btw": {
+            "type": "string"
+          },
+          "grondslag": {
+            "type": "string"
+          }
+        }
+      },
+      "SuggestRequest": {
+        "type": "object",
+        "required": [
+          "omschrijving"
+        ],
+        "properties": {
+          "omschrijving": {
+            "type": "string",
+            "description": "Transaction description to match against prior boekingen"
+          },
+          "tegenpartij_iban": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tegenpartij_naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateAdministratieInput": {
+        "type": "object",
+        "description": "API input for updating an administratie",
+        "properties": {
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "adres": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "beschrijving": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "btw_nummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "huidig_boekjaar_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "kvk_nummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateAutoBookingRuleInput": {
+        "type": "object",
+        "description": "Partial-update input for PATCH /regels/:id.\nAll fields are optional; absent fields leave the current value unchanged.\nNullable fields use `Option<Option<T>>` so that explicit `null` in JSON\nclears the field, while omission leaves it untouched.",
+        "properties": {
+          "actie_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AutoBookingActieType"
+              }
+            ]
+          },
+          "actief": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "btw_code_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "iban_eigen": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "iban_tegenpartij": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lines": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CreateAutoBookingRuleLineInput"
+            }
+          },
+          "naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "omschrijving_regex": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prioriteit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "tegenrekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateBoekingInput": {
+        "type": "object",
+        "properties": {
+          "auto_geboekt": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "datum": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "gecontroleerd": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "omschrijving": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regels": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CreateBoekingsregelInput"
+            }
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BoekingStatus"
+              }
+            ]
+          },
+          "stuknummer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tegenpartij_iban": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tegenpartij_naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateBoekjaarInput": {
+        "type": "object",
+        "properties": {
+          "eind_datum": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start_datum": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "UpdateBtwCodeInput": {
+        "type": "object",
+        "properties": {
+          "actief": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "input_rekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "omschrijving": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "output_rekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "pct_aftrek": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "percentage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "soort": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BtwSoort"
+              }
+            ]
+          }
+        }
+      },
+      "UpdateDagboekInput": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dagboek_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DagboekType"
+              }
+            ]
+          },
+          "grootboekrekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "iban": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateGrootboekrekeningInput": {
+        "type": "object",
+        "properties": {
+          "actief": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "categorie": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RekeningCategorie"
+              }
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "default_btw_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "naam": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "rekening_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RekeningType"
+              }
+            ]
+          },
+          "rgs_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "VacuumResult": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "WinstVerliesRegel": {
+        "type": "object",
+        "required": [
+          "code",
+          "naam",
+          "bedrag"
+        ],
+        "properties": {
+          "bedrag": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "naam": {
+            "type": "string"
+          }
+        }
+      },
+      "WinstVerliesReport": {
+        "type": "object",
+        "required": [
+          "boekjaar_naam",
+          "opbrengsten",
+          "kosten",
+          "bijzonder",
+          "totaal_opbrengsten",
+          "totaal_kosten",
+          "totaal_bijzonder",
+          "netto_resultaat"
+        ],
+        "properties": {
+          "bijzonder": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WinstVerliesRegel"
+            }
+          },
+          "boekjaar_naam": {
+            "type": "string"
+          },
+          "kosten": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WinstVerliesRegel"
+            }
+          },
+          "netto_resultaat": {
+            "type": "string"
+          },
+          "opbrengsten": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WinstVerliesRegel"
+            }
+          },
+          "totaal_bijzonder": {
+            "type": "string"
+          },
+          "totaal_kosten": {
+            "type": "string"
+          },
+          "totaal_opbrengsten": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

@@ -11,7 +11,6 @@ from mboek.models._enums import BoekingStatus, Regeltype
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.models.boekingen import NewBoekingsregel
 
 
 @dataclass

@@ -78,21 +78,28 @@ def test_delete(mocked_responses, client):
     client.administraties.delete(1)  # should not raise
 
 
-def test_find_by_naam_found(mocked_responses, client):
+def test_list_filters(mocked_responses, client):
+    other = {**ADMINISTRATIE, "id": 2, "naam": "Other BV"}
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties", json=[ADMINISTRATIE, other]
+    )
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties", json=[ADMINISTRATIE, other]
+    )
+    by_name = client.administraties.list(name="Test BV")
+    assert len(by_name) == 1
+    assert by_name[0].id == 1
+
+    by_id = client.administraties.list(id=2)
+    assert len(by_id) == 1
+    assert by_id[0].naam == "Other BV"
+
+
+def test_list_filters_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties", json=[ADMINISTRATIE]
     )
-    result = client.administraties.find_by_naam("Test BV")
-    assert result is not None
-    assert result.id == 1
-
-
-def test_find_by_naam_not_found(mocked_responses, client):
-    mocked_responses.add(
-        responses.GET, f"{BASE_URL}/api/administraties", json=[ADMINISTRATIE]
-    )
-    result = client.administraties.find_by_naam("Nonexistent")
-    assert result is None
+    assert client.administraties.list(name="Nonexistent") == []
 
 
 def test_administratie_scope_by_id(client):
@@ -100,7 +107,7 @@ def test_administratie_scope_by_id(client):
     scope = client.administratie(1)
     assert scope.admin_id == 1
 
-    scope = client.administratie(admin_id=1)
+    scope = client.administratie(id=1)
     assert scope.admin_id == 1
 
 
@@ -123,6 +130,20 @@ def test_administratie_scope_by_name_not_found(mocked_responses, client):
         assert False
     except NotFoundError as e:
         assert "Nonexistent BV" in str(e)
+
+
+def test_administratie_scope_by_name_requires_single_match(mocked_responses, client):
+    duplicate = {**ADMINISTRATIE, "id": 2}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties",
+        json=[ADMINISTRATIE, duplicate],
+    )
+    try:
+        client.administratie(name="Test BV")
+        assert False
+    except ValueError as e:
+        assert "Test BV" in str(e)
 
 
 def test_administratie_scope_missing_args(client):
