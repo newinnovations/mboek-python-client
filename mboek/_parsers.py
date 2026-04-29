@@ -18,10 +18,7 @@ from mboek.models._enums import (
 )
 from mboek.models.administraties import Administratie
 from mboek.models.auth import AuthToken
-from mboek.models.auto_booking_rules import (
-    AutoBookingRuleLine,
-    AutoBookingRule,
-)
+from mboek.models.auto_booking_rules import AutoBookingRule, AutoBookingRuleLine
 from mboek.models.boekingen import Boeking, Boekingsregel
 from mboek.models.boekjaren import Boekjaar
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen

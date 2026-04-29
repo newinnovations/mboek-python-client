@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 from mboek._parsers import parse_dagboek, parse_werkstatus
-from mboek.models.dagboeken import (
-    Dagboek,
-    DagboekWerkStatus,
-)
 from mboek.models._enums import DagboekType
+from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.resources._base import BaseResource
 
 
