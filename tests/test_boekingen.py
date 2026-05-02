@@ -32,6 +32,14 @@ def test_list(mocked_responses, client):
     assert len(items) == 1
     assert items[0].datum == date(2024, 1, 15)
     assert len(items[0].regels) == 2
+    boeking_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(f"{BASE_URL}/api/dagboeken/20/boekingen")
+    ]
+    assert "boekjaar_id=10" in boeking_calls[-1].request.url
+    assert "limit=1000" in boeking_calls[-1].request.url
+    assert "offset=0" in boeking_calls[-1].request.url
 
 
 def test_list_filters(mocked_responses, client):

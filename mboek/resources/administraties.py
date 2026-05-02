@@ -18,20 +18,37 @@ class AdministratiesResource(BaseResource):
     """
 
     def list(
-        self, *, id: int | None = None, name: str | None = None
+        self,
+        *,
+        id: int | None = None,
+        name: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> builtins.list[Administratie]:
         """Return administraties owned by the authenticated user.
 
         All filters are exact matches and are combined with ``AND`` semantics.
+        When ``limit`` and ``offset`` are omitted, all backend pages are fetched
+        automatically before client-side filtering is applied.
 
         Returns:
             List sorted alphabetically by name.
         """
-        items = [parse_administratie(d) for d in self._get("/api/administraties")]
+        filtered = id is not None or name is not None
+        items = [
+            parse_administratie(d)
+            for d in self._get_paginated(
+                "/api/administraties",
+                limit=None if filtered else limit,
+                offset=None if filtered else offset,
+            )
+        ]
         if id is not None:
             items = [item for item in items if item.id == id]
         if name is not None:
             items = [item for item in items if item.naam == name]
+        if filtered:
+            return self._slice_items(items, limit=limit, offset=offset)
         return items
 
     def get(self, id: int) -> Administratie:

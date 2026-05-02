@@ -16,6 +16,13 @@ def test_list(mocked_responses, client):
     assert len(items) == 1
     assert items[0].id == 1
     assert items[0].naam == "Test BV"
+    admin_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(f"{BASE_URL}/api/administraties")
+    ]
+    assert "limit=1000" in admin_calls[-1].request.url
+    assert "offset=0" in admin_calls[-1].request.url
 
 
 def test_get(mocked_responses, client):
@@ -117,6 +124,28 @@ def test_administratie_scope_by_name(mocked_responses, client):
     )
     scope = client.administratie(name="Test BV")
     assert scope.admin_id == 1
+
+
+def test_administratie_scope_by_name_auto_paginates(mocked_responses, client):
+    first_page = [
+        {**ADMINISTRATIE, "id": i + 1, "naam": f"Admin {i + 1}"} for i in range(1000)
+    ]
+    target = {**ADMINISTRATIE, "id": 1001, "naam": "Target BV"}
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties", json=first_page
+    )
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/administraties", json=[target])
+
+    scope = client.administratie(name="Target BV")
+
+    assert scope.admin_id == 1001
+    admin_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(f"{BASE_URL}/api/administraties")
+    ]
+    assert len(admin_calls) == 2
+    assert "offset=1000" in admin_calls[1].request.url
 
 
 def test_administratie_scope_by_name_not_found(mocked_responses, client):

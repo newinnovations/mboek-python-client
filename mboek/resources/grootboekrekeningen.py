@@ -42,31 +42,43 @@ class GrootboekrekeningenResource(BaseResource):
         name: str | None = None,
         code: str | None = None,
         refresh: bool = False,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> builtins.list[Grootboekrekening]:
         """Return grootboekrekeningen for the administratie.
 
-        Results are cached on the client for the lifetime of the session (keyed
-        by admin ID).  Call ``list(refresh=True)`` or :py:meth:`clear_cache` to
-        force a fresh fetch. All filters are exact matches and are combined with
-        ``AND`` semantics.
+        The full collection is cached on the client for the lifetime of the
+        session (keyed by admin ID). Call ``list(refresh=True)`` or
+        :py:meth:`clear_cache` to force a fresh fetch. All filters are exact
+        matches and are combined with ``AND`` semantics. When ``limit`` and
+        ``offset`` are omitted, all backend pages are fetched automatically
+        before client-side filtering is applied.
 
         Args:
             refresh: When ``True``, bypass the cache and fetch from the API.
+            limit: Maximum number of accounts to return from the filtered result.
+            offset: Number of accounts to skip from the filtered result.
 
         Returns:
             List sorted by code ascending.
         """
         cache = self._client._gbr_cache
-        if not refresh and self._admin_id in cache:
+        filtered = id is not None or name is not None or code is not None
+        use_full_collection = filtered or (limit is None and offset is None)
+
+        if use_full_collection and not refresh and self._admin_id in cache:
             items = cache[self._admin_id]
         else:
             items = [
                 parse_grootboekrekening(d, client=self._client)
-                for d in self._get(
-                    f"/api/administraties/{self._admin_id}/grootboekrekeningen"
+                for d in self._get_paginated(
+                    f"/api/administraties/{self._admin_id}/grootboekrekeningen",
+                    limit=None if use_full_collection else limit,
+                    offset=None if use_full_collection else offset,
                 )
             ]
-            cache[self._admin_id] = items
+            if use_full_collection:
+                cache[self._admin_id] = items
 
         if id is not None:
             items = [item for item in items if item.id == id]
@@ -74,6 +86,8 @@ class GrootboekrekeningenResource(BaseResource):
             items = [item for item in items if item.naam == name]
         if code is not None:
             items = [item for item in items if item.code == code]
+        if filtered:
+            return self._slice_items(items, limit=limit, offset=offset)
         return items
 
     def get(self, id: int) -> Grootboekrekening:
@@ -199,7 +213,13 @@ class GrootboekrekeningenResource(BaseResource):
         """
         self._post(f"/api/administraties/{self._admin_id}/grootboekrekeningen/seed-rgs")
 
-    def met_saldo(self, boekjaar_id: int) -> builtins.list[Grootboekrekening]:
+    def met_saldo(
+        self,
+        boekjaar_id: int,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> builtins.list[Grootboekrekening]:
         """Return all grootboekrekeningen enriched with transaction count and balance.
 
         Includes accounts with zero transactions in the boekjaar (with zeros).
@@ -207,6 +227,9 @@ class GrootboekrekeningenResource(BaseResource):
 
         Args:
             boekjaar_id: Fiscal year to aggregate over.
+            limit: Maximum number of rekeningen to return. When omitted, all
+                backend pages are fetched automatically.
+            offset: Number of rekeningen to skip before collecting results.
 
         Returns:
             One entry per rekening, sorted by code.
@@ -215,12 +238,21 @@ class GrootboekrekeningenResource(BaseResource):
             parse_grootboekrekening_met_saldo(
                 d, client=self._client, boekjaar_id=boekjaar_id
             )
-            for d in self._get(
-                f"/api/administraties/{self._admin_id}/grootboekrekeningen/met-saldo/{boekjaar_id}"
+            for d in self._get_paginated(
+                f"/api/administraties/{self._admin_id}/grootboekrekeningen/met-saldo/{boekjaar_id}",
+                limit=limit,
+                offset=offset,
             )
         ]
 
-    def mutaties(self, id: int, boekjaar_id: int) -> builtins.list[GrootboekMutatie]:
+    def mutaties(
+        self,
+        id: int,
+        boekjaar_id: int,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> builtins.list[GrootboekMutatie]:
         """Return the full mutation ledger for a single rekening.
 
         Returns every boekingsregel with its date, dagboek, journal entry
@@ -229,20 +261,25 @@ class GrootboekrekeningenResource(BaseResource):
         Args:
             id: Grootboekrekening ID.
             boekjaar_id: Fiscal year to query.
+            limit: Maximum number of mutaties to return. When omitted, all
+                backend pages are fetched automatically.
+            offset: Number of mutaties to skip before collecting results.
 
         Returns:
             List of mutations ordered by date and ID.
         """
         return [
             parse_grootboek_mutatie(d)
-            for d in self._get(
-                f"/api/administraties/{self._admin_id}/rekening/{id}/mutaties",
+            for d in self._get_paginated(
+                f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}/mutaties",
                 params={"boekjaar_id": boekjaar_id},
+                limit=limit,
+                offset=offset,
             )
         ]
 
     def clear_cache(self) -> None:
-        """Remove the cached grootboekrekening list for this administratie.
+        """Remove the cached full grootboekrekening list for this administratie.
 
         The next call to :py:meth:`list` will fetch fresh data from the API.
         """

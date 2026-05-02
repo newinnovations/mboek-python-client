@@ -239,8 +239,15 @@ class Grootboekrekening:
 
     # ── Scoped methods ────────────────────────────────────────────────────────
 
-    def mutaties(self) -> "list[GrootboekMutatie]":
+    def mutaties(
+        self, *, limit: int | None = None, offset: int | None = None
+    ) -> "list[GrootboekMutatie]":
         """Return the full mutation ledger for this rekening in the scoped boekjaar.
+
+        Args:
+            limit: Maximum number of mutaties to return. When omitted, all
+                backend pages are fetched automatically.
+            offset: Number of mutaties to skip before collecting results.
 
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No boekjaar scope or
@@ -259,7 +266,7 @@ class Grootboekrekening:
 
         return GrootboekrekeningenResource(
             self._client, self.administratie_id
-        ).mutaties(self.id, self._boekjaar_id)
+        ).mutaties(self.id, self._boekjaar_id, limit=limit, offset=offset)
 
     # ── Dunder helpers ────────────────────────────────────────────────────────
 

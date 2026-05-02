@@ -21,23 +21,37 @@ class BoekjarenResource(BaseResource):
         self._admin_id = admin_id
 
     def list(
-        self, *, id: int | None = None, name: str | None = None
+        self,
+        *,
+        id: int | None = None,
+        name: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> builtins.list[Boekjaar]:
         """Return boekjaren for the administratie.
 
         All filters are exact matches and are combined with ``AND`` semantics.
+        When ``limit`` and ``offset`` are omitted, all backend pages are fetched
+        automatically before client-side filtering is applied.
 
         Returns:
             List sorted by start date ascending.
         """
+        filtered = id is not None or name is not None
         items = [
             parse_boekjaar(d, client=self._client)
-            for d in self._get(f"/api/administraties/{self._admin_id}/boekjaren")
+            for d in self._get_paginated(
+                f"/api/administraties/{self._admin_id}/boekjaren",
+                limit=None if filtered else limit,
+                offset=None if filtered else offset,
+            )
         ]
         if id is not None:
             items = [item for item in items if item.id == id]
         if name is not None:
             items = [item for item in items if item.naam == name]
+        if filtered:
+            return self._slice_items(items, limit=limit, offset=offset)
         return items
 
     def get(self, id: int) -> Boekjaar:
@@ -104,7 +118,7 @@ class BoekjarenResource(BaseResource):
         )
 
     def delete(self, id: int) -> None:
-        """Permanently delete a boekjaar and all its boekingen.
+        """Permanently delete a boekjaar, all its boekingen, and related BTW aangiften.
 
         .. warning::
             Irreversible.

@@ -18,6 +18,17 @@ def test_list(mocked_responses, client):
     assert len(items) == 1
     assert items[0].code == "1220"
     assert items[0].rekening_type == RekeningType.ACTIVA
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(
+            f"{BASE_URL}/api/administraties/1/grootboekrekeningen"
+        )
+        and "met-saldo" not in c.request.url
+        and "mutaties" not in c.request.url
+    ]
+    assert "limit=1000" in gbr_calls[-1].request.url
+    assert "offset=0" in gbr_calls[-1].request.url
 
 
 def test_get(mocked_responses, client):
@@ -64,6 +75,9 @@ def test_met_saldo(mocked_responses, client):
     )
     items = client.administratie(1).grootboekrekeningen.met_saldo(10)
     assert items[0].saldo == 1000  # 100000 cents → €1000.00
+    saldo_calls = [c for c in mocked_responses.calls if "met-saldo" in c.request.url]
+    assert "limit=1000" in saldo_calls[-1].request.url
+    assert "offset=0" in saldo_calls[-1].request.url
 
 
 def test_mutaties(mocked_responses, client):
@@ -80,13 +94,56 @@ def test_mutaties(mocked_responses, client):
     }
     mocked_responses.add(
         responses.GET,
-        f"{BASE_URL}/api/administraties/1/rekening/30/mutaties",
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30/mutaties",
         json=[mutatie],
     )
     items = client.administratie(1).grootboekrekeningen.mutaties(30, 10)
     from decimal import Decimal
 
     assert items[0].bedrag == Decimal("-100.00")
+    mutatie_calls = [c for c in mocked_responses.calls if "mutaties" in c.request.url]
+    assert "boekjaar_id=10" in mutatie_calls[-1].request.url
+    assert "limit=1000" in mutatie_calls[-1].request.url
+    assert "offset=0" in mutatie_calls[-1].request.url
+
+
+def test_list_filters_auto_paginate(mocked_responses, client):
+    first_page = [
+        {
+            **GROOTBOEKREKENING,
+            "id": i + 1,
+            "code": f"{i:04d}",
+            "naam": f"Rekening {i + 1}",
+        }
+        for i in range(1000)
+    ]
+    target = {**GROOTBOEKREKENING, "id": 2001, "code": "9999", "naam": "Target"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=first_page,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[target],
+    )
+
+    items = client.administratie(1).grootboekrekeningen.list(code="9999", refresh=True)
+
+    assert len(items) == 1
+    assert items[0].id == 2001
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(
+            f"{BASE_URL}/api/administraties/1/grootboekrekeningen"
+        )
+        and "met-saldo" not in c.request.url
+        and "mutaties" not in c.request.url
+    ]
+    assert len(gbr_calls) == 2
+    assert "offset=1000" in gbr_calls[1].request.url
 
 
 def test_list_filters(mocked_responses, client):

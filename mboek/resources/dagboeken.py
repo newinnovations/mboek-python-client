@@ -34,18 +34,27 @@ class DagboekenResource(BaseResource):
         id: int | None = None,
         name: str | None = None,
         code: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> builtins.list[Dagboek]:
         """Return dagboeken for the administratie.
 
         All filters are exact matches and are combined with ``AND`` semantics.
         The ``code`` filter is case-insensitive.
+        When ``limit`` and ``offset`` are omitted, all backend pages are fetched
+        automatically before client-side filtering is applied.
 
         Returns:
             List sorted by code ascending.
         """
+        filtered = id is not None or name is not None or code is not None
         items = [
             parse_dagboek(d, client=self._client)
-            for d in self._get(f"/api/administraties/{self._admin_id}/dagboeken")
+            for d in self._get_paginated(
+                f"/api/administraties/{self._admin_id}/dagboeken",
+                limit=None if filtered else limit,
+                offset=None if filtered else offset,
+            )
         ]
         if id is not None:
             items = [item for item in items if item.id == id]
@@ -54,6 +63,8 @@ class DagboekenResource(BaseResource):
         if code is not None:
             code_upper = code.upper()
             items = [item for item in items if item.code.upper() == code_upper]
+        if filtered:
+            return self._slice_items(items, limit=limit, offset=offset)
         return items
 
     def get(self, id: int) -> Dagboek:
@@ -204,7 +215,11 @@ class DagboekenResource(BaseResource):
         self._delete(f"/api/administraties/{self._admin_id}/dagboeken/{id}")
 
     def werkstatus(
-        self, boekjaar_id: int | None = None
+        self,
+        boekjaar_id: int | None = None,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> builtins.list[DagboekWerkStatus]:
         """Return per-dagboek work-status counts.
 
@@ -214,18 +229,20 @@ class DagboekenResource(BaseResource):
         Args:
             boekjaar_id: Fiscal year to query. Defaults to the administratie's
                 ``huidig_boekjaar_id`` when omitted.
+            limit: Maximum number of dagboeken to return. When omitted, all
+                backend pages are fetched automatically.
+            offset: Number of dagboeken to skip before collecting results.
 
         Returns:
             One :py:class:`~mboek.models.dagboeken.DagboekWerkStatus` per
             dagboek that has non-zero counts.
         """
-        params: dict = {}
-        if boekjaar_id is not None:
-            params["boekjaar_id"] = boekjaar_id
         return [
             parse_werkstatus(d)
-            for d in self._get(
+            for d in self._get_paginated(
                 f"/api/administraties/{self._admin_id}/dagboeken/werkstatus",
-                params=params,
+                params={"boekjaar_id": boekjaar_id},
+                limit=limit,
+                offset=offset,
             )
         ]

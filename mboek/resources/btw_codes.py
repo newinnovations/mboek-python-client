@@ -37,25 +37,39 @@ class BtwCodesResource(BaseResource):
         self._admin_id = admin_id
 
     def list(
-        self, *, id: int | None = None, code: str | None = None
+        self,
+        *,
+        id: int | None = None,
+        code: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> builtins.list[BtwCode]:
         """Return BTW codes for the administratie.
 
         All filters are exact matches and are combined with ``AND`` semantics.
         The ``code`` filter is case-insensitive.
+        When ``limit`` and ``offset`` are omitted, all backend pages are fetched
+        automatically before client-side filtering is applied.
 
         Returns:
             List sorted by code ascending.
         """
+        filtered = id is not None or code is not None
         items = [
             parse_btw_code(d)
-            for d in self._get(f"/api/administraties/{self._admin_id}/btw-codes")
+            for d in self._get_paginated(
+                f"/api/administraties/{self._admin_id}/btw-codes",
+                limit=None if filtered else limit,
+                offset=None if filtered else offset,
+            )
         ]
         if id is not None:
             items = [item for item in items if item.id == id]
         if code is not None:
             code_upper = code.upper()
             items = [item for item in items if item.code.upper() == code_upper]
+        if filtered:
+            return self._slice_items(items, limit=limit, offset=offset)
         return items
 
     def get(self, id: int) -> BtwCode:

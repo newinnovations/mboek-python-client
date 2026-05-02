@@ -16,6 +16,28 @@
         ],
         "description": "Returns all administraties (company administrations) owned by the authenticated user, sorted alphabetically by name. Each user sees only their own administraties.",
         "operationId": "list",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of administraties to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of administraties to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "List of administraties owned by the current user",
@@ -306,6 +328,26 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of boekjaren to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of boekjaren to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -534,7 +576,7 @@
         "tags": [
           "boekjaren"
         ],
-        "description": "Permanently deletes a boekjaar and all its boekingen. This action is irreversible.",
+        "description": "Permanently deletes a boekjaar, all its boekingen, and all related BTW aangiften. This action is irreversible.",
         "operationId": "delete",
         "parameters": [
           {
@@ -1115,7 +1157,7 @@
             "description": "Not found"
           },
           "409": {
-            "description": "Boekjaar must be gesloten before vastleggen"
+            "description": "Boekjaar must be gesloten before vastleggen, or the aangifte is already definitief"
           }
         },
         "security": [
@@ -1141,6 +1183,26 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of BTW codes to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of BTW codes to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -1451,6 +1513,26 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of dagboeken to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of dagboeken to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -1562,6 +1644,26 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of dagboeken to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of dagboeken to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -2057,6 +2159,26 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of grootboekrekeningen to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of grootboekrekeningen to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -2168,6 +2290,26 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of grootboekrekeningen to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of grootboekrekeningen to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -2409,6 +2551,93 @@
         ]
       }
     },
+    "/api/administraties/{admin_id}/grootboekrekeningen/{id}/mutaties": {
+      "get": {
+        "tags": [
+          "grootboekrekeningen"
+        ],
+        "description": "Returns the full mutation ledger for a single grootboekrekening within a boekjaar: every boekingsregel with its date, dagboek code/name, journal entry description, line description, and amount (positive = debet, negative = credit). Ordered by date and id.",
+        "operationId": "mutaties",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Grootboekrekening ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "boekjaar_id",
+            "in": "query",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of mutaties to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of mutaties to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of mutations for this rekening in the given boekjaar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GrootboekMutatie"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/administraties/{admin_id}/import": {
       "post": {
         "tags": [
@@ -2620,6 +2849,26 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of rules to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of rules to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -2820,73 +3069,6 @@
         ]
       }
     },
-    "/api/administraties/{admin_id}/rekening/{id}/mutaties": {
-      "get": {
-        "tags": [
-          "grootboekrekeningen"
-        ],
-        "description": "Returns the full mutation ledger for a single grootboekrekening within a boekjaar: every boekingsregel with its date, dagboek code/name, journal entry description, line description, and amount (positive = debet, negative = credit). Ordered by date and id.",
-        "operationId": "mutaties",
-        "parameters": [
-          {
-            "name": "admin_id",
-            "in": "path",
-            "description": "Administratie ID",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Grootboekrekening ID",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "boekjaar_id",
-            "in": "query",
-            "description": "Boekjaar ID",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of mutations for this rekening in the given boekjaar",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GrootboekMutatie"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
     "/api/administraties/{id}": {
       "get": {
         "tags": [
@@ -3057,6 +3239,9 @@
           },
           "401": {
             "description": "Invalid credentials"
+          },
+          "422": {
+            "description": "Validation error"
           },
           "429": {
             "description": "Rate limit exceeded"
@@ -3286,6 +3471,26 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of boekingen to return (default 1000, max 1000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of boekingen to skip before returning results (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -3959,9 +4164,17 @@
             "type": "string"
           },
           "status": {
-            "type": "string"
+            "$ref": "#/components/schemas/BtwAangifteStatus"
           }
         }
+      },
+      "BtwAangifteStatus": {
+        "type": "string",
+        "enum": [
+          "niet_berekend",
+          "concept",
+          "definitief"
+        ]
       },
       "BtwBerekening": {
         "type": "object",
@@ -4077,12 +4290,10 @@
             "format": "int32"
           },
           "pct_aftrek": {
-            "type": "number",
-            "format": "double"
+            "type": "string"
           },
           "percentage": {
-            "type": "number",
-            "format": "double"
+            "type": "string"
           },
           "soort": {
             "$ref": "#/components/schemas/BtwSoort"
@@ -5214,7 +5425,8 @@
             ],
             "format": "date"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "UpdateBtwCodeInput": {
         "type": "object",

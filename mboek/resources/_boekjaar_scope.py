@@ -40,11 +40,15 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         id: int | None = None,
         item: str | int | None = None,
         description: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> builtins.list["Boeking"]:
         """Return boekingen for this dagboek within the fiscal year.
 
         All filters are exact matches and are combined with ``AND`` semantics.
         ``item`` matches ``stuknummer``.
+        When ``limit`` and ``offset`` are omitted, all backend pages are fetched
+        automatically before client-side filtering is applied.
 
         Each boeking is returned together with all its boekingsregels.
 
@@ -53,12 +57,14 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         """
         from mboek._parsers import parse_boeking_met_regels
 
+        filtered = id is not None or item is not None or description is not None
         items = [
             parse_boeking_met_regels(d, client=self._client)
-            for d in self._client._request(
-                "GET",
+            for d in self._get_paginated(
                 f"/api/dagboeken/{self._dagboek_id}/boekingen",
                 params={"boekjaar_id": self._boekjaar_id},
+                limit=None if filtered else limit,
+                offset=None if filtered else offset,
             )
         ]
         if id is not None:
@@ -68,6 +74,8 @@ class BoekjaarScopedBoekingenResource(BaseResource):
             items = [entry for entry in items if entry.stuknummer == item_value]
         if description is not None:
             items = [entry for entry in items if entry.omschrijving == description]
+        if filtered:
+            return self._slice_items(items, limit=limit, offset=offset)
         return items
 
     def create(

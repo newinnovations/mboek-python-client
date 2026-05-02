@@ -88,7 +88,7 @@ class MboekClient:
         self._export_import = None
         self._maintenance = None
 
-        # Per-admin grootboekrekening list cache (keyed by admin_id).
+        # Per-admin cache of the full grootboekrekening collection.
         # Populated by GrootboekrekeningenResource.list() and cleared via clear_cache().
         self._gbr_cache: dict[int, list] = {}
 

@@ -19,6 +19,13 @@ def test_list(mocked_responses, client):
     assert items[0].code == "V21"
     assert items[0].percentage == Decimal("21")
     assert items[0].pct_aftrek == Decimal("100")
+    btw_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(f"{BASE_URL}/api/administraties/1/btw-codes")
+    ]
+    assert "limit=1000" in btw_calls[-1].request.url
+    assert "offset=0" in btw_calls[-1].request.url
 
 
 def test_get(mocked_responses, client):

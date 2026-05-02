@@ -19,6 +19,13 @@ def test_list(mocked_responses, client):
     assert len(items) == 1
     assert items[0].naam == "2024"
     assert items[0].status == BoekjaarStatus.OPEN
+    boekjaar_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(f"{BASE_URL}/api/administraties/1/boekjaren")
+    ]
+    assert "limit=1000" in boekjaar_calls[-1].request.url
+    assert "offset=0" in boekjaar_calls[-1].request.url
 
 
 def test_get(mocked_responses, client):

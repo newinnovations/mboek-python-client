@@ -119,8 +119,15 @@ class Boekjaar:
 
     # ── Scoped methods ────────────────────────────────────────────────────────
 
-    def grootboekrekeningen(self) -> "list[Grootboekrekening]":
+    def grootboekrekeningen(
+        self, *, limit: int | None = None, offset: int | None = None
+    ) -> "list[Grootboekrekening]":
         """Return all grootboekrekeningen for this boekjaar, enriched with balance.
+
+        Args:
+            limit: Maximum number of rekeningen to return. When omitted, all
+                backend pages are fetched automatically.
+            offset: Number of rekeningen to skip before collecting results.
 
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No client reference.
@@ -129,7 +136,9 @@ class Boekjaar:
         from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
 
         return GrootboekrekeningenResource(client, self.administratie_id).met_saldo(
-            self.id
+            self.id,
+            limit=limit,
+            offset=offset,
         )
 
     def grootboekrekening(self, *, code: str) -> "Grootboekrekening":

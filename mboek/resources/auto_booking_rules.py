@@ -37,15 +37,24 @@ class AutoBookingRulesResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def list(self) -> builtins.list[AutoBookingRule]:
+    def list(
+        self, *, limit: int | None = None, offset: int | None = None
+    ) -> builtins.list[AutoBookingRule]:
         """Return all automatic booking rules for the administratie.
+
+        When ``limit`` and ``offset`` are omitted, all backend pages are fetched
+        automatically.
 
         Returns:
             List sorted by priority ascending, then name.
         """
         return [
             parse_auto_booking_rule(d)
-            for d in self._get(f"/api/administraties/{self._admin_id}/regels")
+            for d in self._get_paginated(
+                f"/api/administraties/{self._admin_id}/regels",
+                limit=limit,
+                offset=offset,
+            )
         ]
 
     def create(

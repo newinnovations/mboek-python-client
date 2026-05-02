@@ -17,6 +17,13 @@ def test_list(mocked_responses, client):
     assert len(items) == 1
     assert items[0].code == "BANK"
     assert items[0].dagboek_type == DagboekType.BANK
+    dagboek_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(f"{BASE_URL}/api/administraties/1/dagboeken")
+    ]
+    assert "limit=1000" in dagboek_calls[-1].request.url
+    assert "offset=0" in dagboek_calls[-1].request.url
 
 
 def test_get(mocked_responses, client):
@@ -48,6 +55,16 @@ def test_werkstatus(mocked_responses, client):
     items = client.administratie(1).dagboeken.werkstatus(boekjaar_id=10)
     assert items[0].dagboek_id == 20
     assert items[0].onverwerkt == 3
+    werkstatus_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(
+            f"{BASE_URL}/api/administraties/1/dagboeken/werkstatus"
+        )
+    ]
+    assert "boekjaar_id=10" in werkstatus_calls[-1].request.url
+    assert "limit=1000" in werkstatus_calls[-1].request.url
+    assert "offset=0" in werkstatus_calls[-1].request.url
 
 
 def test_delete(mocked_responses, client):

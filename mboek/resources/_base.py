@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from mboek._client import MboekClient
 
 T = TypeVar("T")
+MAX_PAGE_SIZE = 1000
 
 
 class BaseResource:
@@ -38,6 +39,77 @@ class BaseResource:
         self, path: str, *, files: dict, data: dict | None = None
     ) -> Any:
         return self._client._request("POST", path, files=files, data=data)
+
+    @staticmethod
+    def _slice_items(
+        items: list[T], *, limit: int | None = None, offset: int | None = None
+    ) -> list[T]:
+        """Return a client-side slice after validating ``limit`` and ``offset``."""
+        if limit is not None and limit < 0:
+            raise ValueError("limit must be >= 0")
+        if offset is not None and offset < 0:
+            raise ValueError("offset must be >= 0")
+
+        start = offset or 0
+        if limit is None:
+            return items[start:]
+        return items[start : start + limit]
+
+    def _get_paginated(
+        self,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int = MAX_PAGE_SIZE,
+    ) -> list[Any]:
+        """Fetch a paginated list endpoint until the requested slice is complete.
+
+        When ``limit`` is omitted, all remaining pages are fetched starting at
+        ``offset``. When ``limit`` is provided, the method keeps requesting
+        pages until the requested number of items has been collected.
+        """
+        if page_size <= 0:
+            raise ValueError("page_size must be > 0")
+        if limit is not None and limit < 0:
+            raise ValueError("limit must be >= 0")
+        if offset is not None and offset < 0:
+            raise ValueError("offset must be >= 0")
+        if limit == 0:
+            return []
+
+        base_params = {
+            key: value for key, value in (params or {}).items() if value is not None
+        }
+        next_offset = offset or 0
+        remaining = limit
+        items: list[Any] = []
+
+        while True:
+            chunk_limit = page_size if remaining is None else min(remaining, page_size)
+            page_params = dict(base_params)
+            page_params["limit"] = chunk_limit
+            page_params["offset"] = next_offset
+
+            page = self._get(path, params=page_params)
+            if not isinstance(page, list):
+                raise TypeError("Expected paginated endpoint to return a list")
+
+            items.extend(page)
+            received = len(page)
+
+            if remaining is not None:
+                remaining -= received
+                if remaining <= 0:
+                    break
+
+            if received < chunk_limit:
+                break
+
+            next_offset += received
+
+        return items
 
     @staticmethod
     def _require_single_match(

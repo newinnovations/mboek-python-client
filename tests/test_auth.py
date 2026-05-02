@@ -5,7 +5,7 @@ from __future__ import annotations
 import responses
 
 from mboek import MboekClient
-from mboek._exceptions import AuthError, RateLimitError
+from mboek._exceptions import AuthError, RateLimitError, ValidationError
 
 BASE_URL = "http://localhost:3000"
 
@@ -61,6 +61,21 @@ def test_login_rate_limited(mocked_responses):
         assert False, "Expected RateLimitError"
     except RateLimitError as e:
         assert e.status_code == 429
+
+
+def test_login_validation_error(mocked_responses):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/auth/login",
+        json={"error": "Validation error"},
+        status=422,
+    )
+    client = MboekClient(BASE_URL)
+    try:
+        client.login("", "")
+        assert False, "Expected ValidationError"
+    except ValidationError as e:
+        assert e.status_code == 422
 
 
 def test_me(mocked_responses, client):

@@ -58,6 +58,14 @@ class BtwSoort(str, Enum):
     VERLEGD_NL = "verlegd_nl"
 
 
+class BtwAangifteStatus(str, Enum):
+    """Status of a quarterly BTW-aangifte."""
+
+    NIET_BEREKEND = "niet_berekend"
+    CONCEPT = "concept"
+    DEFINITIEF = "definitief"
+
+
 class BoekingStatus(str, Enum):
     """Status of a boeking (journal entry)."""
 

@@ -10,6 +10,7 @@ from mboek.models._enums import (
     AutoBookingBedragType,
     BoekingStatus,
     BoekjaarStatus,
+    BtwAangifteStatus,
     BtwSoort,
     DagboekType,
     Regeltype,
@@ -284,7 +285,7 @@ def parse_btw_aangifte(d: dict) -> BtwAangifte:
         periode_eind=_require_date(d["periode_eind"]),
         berekening=parse_btw_berekening(d["berekening"]),
         r5g=Decimal(str(d["r5g"])),
-        status=d["status"],
+        status=BtwAangifteStatus(d["status"]),
     )
 
 

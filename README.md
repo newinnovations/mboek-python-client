@@ -175,6 +175,10 @@ Common filters are `id=`, `name=`, and `code=` when those fields exist.
 Scoped `boekingen.list()` also supports `item=` (for `stuknummer`) and
 `description=` (for `omschrijving`).
 
+List-style methods now auto-paginate through backend pages by default, so the
+high-level client still returns complete collections unless you explicitly pass
+`limit=` and/or `offset=` to request a slice.
+
 ```python
 a = client.administratie(1)
 
@@ -195,6 +199,10 @@ btw = a.btw_codes.list(code="v21")[0]    # matches "V21"
 # Filter scoped boekingen by boekstuknummer or description
 boekingen = a.boekjaar(name="2024").dagboek(code="BANK").boekingen.list(item="INV-42")
 boekingen = a.boekjaar(name="2024").dagboek(code="BANK").boekingen.list(description="Factuur 42")
+
+# Request an explicit slice instead of the full collection
+eerste_100 = a.dagboeken.list(limit=100)
+volgende_100 = a.dagboeken.list(limit=100, offset=100)
 ```
 
 The scope factory methods also accept a `name` (or `code`) keyword as a

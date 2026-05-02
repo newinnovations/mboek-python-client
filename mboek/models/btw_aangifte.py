@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+from mboek.models._enums import BtwAangifteStatus
+
 
 @dataclass
 class RubriekBedragen:
@@ -73,7 +75,8 @@ class BtwAangifte:
         periode_eind: Last day of the quarter.
         berekening: Full per-rubriek breakdown.
         r5g: Net payable amount (positive = te betalen, negative = te ontvangen).
-        status: ``concept`` (can be recalculated) or ``definitief`` (locked).
+        status: ``niet_berekend``, ``concept`` (can be recalculated), or
+            ``definitief`` (locked).
     """
 
     id: int
@@ -84,4 +87,4 @@ class BtwAangifte:
     periode_eind: date
     berekening: BtwBerekening
     r5g: Decimal
-    status: str
+    status: BtwAangifteStatus
