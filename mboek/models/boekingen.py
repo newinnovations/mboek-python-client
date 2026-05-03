@@ -24,8 +24,9 @@ class Boekingsregel:
         omschrijving: Line description.
         bedrag: Amount in euros (positive = debet, negative = credit).
         btw_code_id: Optional BTW code applied to this line.
-        regeltype: ``netto`` for the base amount, ``btw`` for the VAT component.
-        netto_id: For BTW lines, the ID of the associated netto line.
+        regeltype: ``netto`` for the base amount, ``btw_output`` or
+            ``btw_input`` for the VAT component.
+        netto_id: For VAT lines, the ID of the associated netto line.
         created_at: Creation timestamp (UTC).
     """
 
@@ -223,8 +224,8 @@ class NewBoekingsregel:
         grootboekrekening_naam: Account name — alternative to ``grootboekrekening_id``.
         grootboekrekening_code: Account code — alternative to ``grootboekrekening_id``.
         btw_code_id: Optional BTW code.
-        regeltype: ``netto`` (default) or ``btw``.
-        netto_ref: For BTW lines, the index (0-based) of the corresponding netto
+        regeltype: ``netto`` (default), ``btw_output``, or ``btw_input``.
+        netto_ref: For VAT lines, the index (0-based) of the corresponding netto
             line in the same ``regels`` list.
     """
 

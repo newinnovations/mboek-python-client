@@ -34,6 +34,23 @@ def test_get(mocked_responses, client):
     assert item.naam == "Bankboek"
 
 
+def test_get_supports_beginbalans_type(mocked_responses, client):
+    dagboek = {
+        **DAGBOEK,
+        "id": 21,
+        "code": "BB",
+        "naam": "Beginbalans",
+        "dagboek_type": "beginbalans",
+    }
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/21", json=dagboek
+    )
+
+    item = client.administratie(1).dagboeken.get(21)
+
+    assert item.dagboek_type == DagboekType.BEGINBALANS
+
+
 def test_create(mocked_responses, client):
     mocked_responses.add(
         responses.POST,

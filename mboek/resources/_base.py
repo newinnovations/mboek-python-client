@@ -26,8 +26,18 @@ class BaseResource:
     def _get(self, path: str, *, params: dict | None = None) -> Any:
         return self._client._request("GET", path, params=params)
 
-    def _post(self, path: str, *, json: Any = None, params: dict | None = None) -> Any:
-        return self._client._request("POST", path, json=json, params=params)
+    def _post(
+        self,
+        path: str,
+        *,
+        json: Any = None,
+        params: dict | None = None,
+        data: Any = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        return self._client._request(
+            "POST", path, json=json, params=params, data=data, headers=headers
+        )
 
     def _patch(self, path: str, *, json: Any = None) -> Any:
         return self._client._request("PATCH", path, json=json)
@@ -35,9 +45,7 @@ class BaseResource:
     def _delete(self, path: str) -> None:
         self._client._request("DELETE", path)
 
-    def _post_multipart(
-        self, path: str, *, files: dict, data: dict | None = None
-    ) -> Any:
+    def _post_multipart(self, path: str, *, files: dict, data: Any = None) -> Any:
         return self._client._request("POST", path, files=files, data=data)
 
     @staticmethod

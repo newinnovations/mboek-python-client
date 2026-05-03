@@ -187,6 +187,7 @@ def parse_grootboek_mutatie(d: dict) -> GrootboekMutatie:
         regel_id=d["regel_id"],
         boeking_id=d["boeking_id"],
         dagboek_id=d["dagboek_id"],
+        dagboek_type=DagboekType(d["dagboek_type"]),
         datum=d["datum"],
         dagboek_code=d["dagboek_code"],
         dagboek_naam=d["dagboek_naam"],

@@ -36,6 +36,17 @@ def test_get(mocked_responses, client):
     assert item.soort == BtwSoort.VERKOPEN_NL_HOOG
 
 
+def test_get_supports_expanded_btw_soort_values(mocked_responses, client):
+    btw_code = {**BTW_CODE, "id": 51, "code": "VEU", "soort": "verkopen_eu_zakelijk"}
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/btw-codes/51", json=btw_code
+    )
+
+    item = client.administratie(1).btw_codes.get(51)
+
+    assert item.soort == BtwSoort.VERKOPEN_EU_ZAKELIJK
+
+
 def test_create(mocked_responses, client):
     mocked_responses.add(
         responses.POST,

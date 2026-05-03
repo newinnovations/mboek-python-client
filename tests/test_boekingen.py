@@ -8,8 +8,16 @@ from decimal import Decimal
 import pytest
 import responses
 
-from mboek import NewBoekingsregel
-from tests.conftest import BASE_URL, BOEKING, BOEKJAAR, DAGBOEK, GROOTBOEKREKENING
+from mboek import NewBoekingsregel, Regeltype
+from tests.conftest import (
+    BASE_URL,
+    BOEKING,
+    BOEKING_REGEL,
+    BOEKING_REGEL2,
+    BOEKJAAR,
+    DAGBOEK,
+    GROOTBOEKREKENING,
+)
 
 
 def test_list(mocked_responses, client):
@@ -147,6 +155,47 @@ def test_boeking_bedrag_parsed_from_cents(mocked_responses, client):
     assert item.regels[0].bedrag == Decimal("-100.00")
     # BOEKING_REGEL2 has bedrag = 10000 cents → €100.00
     assert item.regels[1].bedrag == Decimal("100.00")
+
+
+def test_boeking_supports_new_regeltypes(mocked_responses, client):
+    boeking = {
+        **BOEKING,
+        "regels": [
+            {
+                **BOEKING_REGEL,
+                "id": 201,
+                "regeltype": "btw_input",
+                "netto_id": 102,
+            },
+            {
+                **BOEKING_REGEL2,
+                "id": 202,
+                "regeltype": "btw_output",
+                "netto_id": 101,
+            },
+        ],
+    }
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=boeking)
+
+    item = client.boekingen.get(100)
+
+    assert item.regels[0].regeltype == Regeltype.BTW_INPUT
+    assert item.regels[1].regeltype == Regeltype.BTW_OUTPUT
+
+
+def test_create_serialises_new_regeltype_values():
+    regel = NewBoekingsregel(
+        grootboekrekening_id=1,
+        omschrijving="BTW",
+        bedrag=Decimal("2.10"),
+        regeltype=Regeltype.BTW_INPUT,
+        netto_ref=0,
+    )
+
+    d = regel.to_dict()
+
+    assert d["regeltype"] == "btw_input"
+    assert d["netto_ref"] == 0
 
 
 # ── NewBoekingsregel validation ───────────────────────────────────────────────

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import responses
 
-from mboek.models._enums import RekeningCategorie, RekeningType
+from mboek.models._enums import DagboekType, RekeningCategorie, RekeningType
 from tests.conftest import BASE_URL, GROOTBOEKREKENING
 
 
@@ -85,6 +85,7 @@ def test_mutaties(mocked_responses, client):
         "regel_id": 1,
         "boeking_id": 100,
         "dagboek_id": 20,
+        "dagboek_type": "beginbalans",
         "datum": "2024-01-15",
         "dagboek_code": "BANK",
         "dagboek_naam": "Bankboek",
@@ -101,6 +102,7 @@ def test_mutaties(mocked_responses, client):
     from decimal import Decimal
 
     assert items[0].bedrag == Decimal("-100.00")
+    assert items[0].dagboek_type == DagboekType.BEGINBALANS
     mutatie_calls = [c for c in mocked_responses.calls if "mutaties" in c.request.url]
     assert "boekjaar_id=10" in mutatie_calls[-1].request.url
     assert "limit=1000" in mutatie_calls[-1].request.url

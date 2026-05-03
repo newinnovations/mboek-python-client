@@ -57,7 +57,7 @@ Resources are accessed through a scoped hierarchy that mirrors the domain model:
 MboekClient
 ├── administraties            ← cross-administration resources
 ├── boekingen                 ← get / update / delete by ID
-├── export_import             ← import_administratie
+├── export_import             ← import_administratie / import_administratie_xaf
 ├── maintenance               ← database vacuum
 └── administratie(id|name=)  →  AdministratieScope
     ├── boekjaren             ← fiscal years (CRUD + open/close)
@@ -66,7 +66,7 @@ MboekClient
     ├── btw_codes             ← VAT codes (CRUD)
     ├── auto_booking_rules    ← automatic booking rules (CRUD)
     ├── import_               ← bank statement upload
-    ├── export_import         ← full export / boekjaar export / import
+    ├── export_import         ← JSON export/import + XAF export/import
     ├── dagboek(id|name=|code=)  →  Dagboek  (rich domain object, no boekjaar scope)
     │   ├── naam, code, dagboek_type, …  ← always available
     │   ├── rerun_regels()
@@ -276,7 +276,7 @@ regels = [
         grootboekrekening_id=btw_vorderen_id,
         omschrijving="BTW",
         bedrag=Decimal("21.00"),     # debit VAT receivable
-        regeltype=Regeltype.BTW,
+        regeltype=Regeltype.BTW_INPUT,
         netto_ref=1,                 # index of the netto regel above
     ),
 ]
@@ -396,6 +396,7 @@ print(f"Imported {result.imported} transactions, skipped {result.skipped} duplic
 
 ```python
 import json
+from pathlib import Path
 
 a = client.administratie(admin_id)
 
@@ -410,7 +411,30 @@ bj_payload = a.export_import.export_boekjaar(boekjaar_id)
 # Restore a full backup into a new administration
 with open("backup.json") as f:
     payload = json.load(f)
-client.export_import.import_administratie(payload)
+result = client.export_import.import_administratie(payload, overwrite=True)
+print(result["administratie_id"], result["boekingen_imported"])
+
+# Export the full administration as Auditfile Financieel (XAF)
+admin_xaf = a.export_import.export_administratie_xaf()
+Path("administratie.xaf").write_text(admin_xaf, encoding="utf-8")
+
+# Export a single boekjaar as Auditfile Financieel (XAF)
+xaf_xml = a.export_import.export_boekjaar_xaf(boekjaar_id)
+Path("boekjaar-2024.xaf").write_text(xaf_xml, encoding="utf-8")
+
+# Import a XAF file into an existing administration
+result = a.export_import.import_boekjaar_xaf(
+    Path("boekjaar-2024.xaf"),
+    create_missing=True,
+)
+print(result["boekjaar_id"], result["boekingen_imported"])
+
+# Or create a brand-new administration directly from a XAF file
+client.export_import.import_administratie_xaf(
+    Path("boekjaar-2024.xaf"),
+    overwrite=True,
+    create_missing=True,
+)
 ```
 
 ## Automatic booking rules

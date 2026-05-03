@@ -183,8 +183,11 @@ class MboekClient:
     def export_import(self):
         """Top-level export/import resource (:py:class:`~mboek.resources.export_import.ExportImportResource`).
 
-        Only contains :py:meth:`~mboek.resources.export_import.ExportImportResource.import_administratie`.
-        All other export/import operations are available via
+        Contains
+        :py:meth:`~mboek.resources.export_import.ExportImportResource.import_administratie`
+        and
+        :py:meth:`~mboek.resources.export_import.ExportImportResource.import_administratie_xaf`.
+        All export operations and boekjaar-scoped imports are available via
         :py:attr:`~mboek.resources._admin_scope.AdministratieScope.export_import`.
         """
         if self._export_import is None:
@@ -256,9 +259,10 @@ class MboekClient:
         json: Any = None,
         params: dict | None = None,
         files: dict | None = None,
-        data: dict | None = None,
+        data: Any = None,
+        headers: dict[str, str] | None = None,
     ) -> Any:
-        """Send an authenticated HTTP request and return the parsed JSON body.
+        """Send an authenticated HTTP request and return the parsed response body.
 
         Raises appropriate :py:exc:`~mboek._exceptions.MboekError` subclasses
         based on the response status code.
@@ -271,6 +275,7 @@ class MboekClient:
             params=params,
             files=files,
             data=data,
+            headers=headers,
             timeout=self._timeout,
         )
         return self._handle_response(resp)
@@ -299,7 +304,19 @@ class MboekClient:
         """Raise typed exceptions for error responses, return body for 2xx."""
         if resp.status_code in (200, 201):
             if resp.content:
-                return resp.json()
+                content_type = resp.headers.get("Content-Type", "")
+                media_type = content_type.split(";", 1)[0].strip().lower()
+                if media_type == "application/json" or media_type.endswith("+json"):
+                    return resp.json()
+                if media_type.startswith("text/") or media_type in {
+                    "application/xml",
+                    "text/xml",
+                }:
+                    return resp.text
+                try:
+                    return resp.json()
+                except ValueError:
+                    return resp.content
             return None
         if resp.status_code == 204:
             return None

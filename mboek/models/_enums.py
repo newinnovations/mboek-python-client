@@ -34,16 +34,18 @@ class DagboekType(str, Enum):
 
     BANK = "bank"
     KAS = "kas"
-    INKOOP = "inkoop"
     VERKOOP = "verkoop"
+    INKOOP = "inkoop"
     MEMORIAAL = "memoriaal"
+    BEGINBALANS = "beginbalans"
 
 
 class Regeltype(str, Enum):
     """Type of a boekingsregel (journal entry line)."""
 
     NETTO = "netto"
-    BTW = "btw"
+    BTW_OUTPUT = "btw_output"
+    BTW_INPUT = "btw_input"
 
 
 class BtwSoort(str, Enum):
@@ -51,11 +53,17 @@ class BtwSoort(str, Enum):
 
     VERKOPEN_NL_HOOG = "verkopen_nl_hoog"
     VERKOPEN_NL_LAAG = "verkopen_nl_laag"
+    VERKOPEN_NL_OVERIG = "verkopen_nl_overig"
     VERKOPEN_NL_NUL = "verkopen_nl_nul"
-    INKOPEN_NL = "inkopen_nl"
-    INKOPEN_EU = "inkopen_eu"
-    INKOPEN_INT = "inkopen_int"
+    VERKOPEN_NL_VERLEGD = "verkopen_nl_verlegd"
+    VERKOPEN_INT = "verkopen_int"
+    VERKOPEN_EU_ZAKELIJK = "verkopen_eu_zakelijk"
+    VERKOPEN_EU_PARTICULIER = "verkopen_eu_particulier"
+    PRIVEGEBRUIK = "privegebruik"
     VERLEGD_NL = "verlegd_nl"
+    INKOPEN_INT = "inkopen_int"
+    INKOPEN_EU = "inkopen_eu"
+    INKOPEN_NL = "inkopen_nl"
 
 
 class BtwAangifteStatus(str, Enum):

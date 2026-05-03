@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "mboek API",
-    "description": "REST API for the mboek (bookkeeping) application.\n\n**Authentication**: All endpoints except `/api/auth/login` require a Bearer JWT token. Obtain a token via `POST /api/auth/login` and pass it in the `Authorization: Bearer <token>` header.\n\n**Known inconsistencies**:\n- Boekingen are listed/created under `/api/dagboeken/{id}/boekingen` but read/updated/deleted at `/api/boekingen/{id}`\n- `/api/vacuum` has no admin-only guard\n- `/api/administraties/import` must be registered before `/{id}` to avoid path collision",
+    "description": "REST API for the mboek (bookkeeping) application.\n\n**Authentication**: All endpoints except `/api/auth/login` require authentication. Browser clients use the HttpOnly session cookie set by `POST /api/auth/login`; non-browser clients can pass the returned JWT in the `Authorization: Bearer <token>` header.\n\n**Known inconsistencies**:\n- Boekingen are listed/created under `/api/dagboeken/{id}/boekingen` but read/updated/deleted at `/api/boekingen/{id}`\n- `/api/vacuum` has no admin-only guard\n- `/api/administraties/import` must be registered before `/{id}` to avoid path collision",
     "license": {
       "name": ""
     },
@@ -137,7 +137,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "description": "Dummy schemas for export-import response bodies.",
                   "required": [
                     "administratie_id",
                     "naam",
@@ -174,6 +173,91 @@
           },
           "422": {
             "description": "Validation error (wrong type or missing fields)"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/import/xaf": {
+      "post": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Imports an Auditfile Financieel (XAF) file and creates a new administratie with one boekjaar. XAF is jaar-gebaseerd; use the JSON import/export for full multi-year backups.",
+        "operationId": "import_administratie_xaf",
+        "parameters": [
+          {
+            "name": "overwrite",
+            "in": "query",
+            "description": "If true, overwrite an existing administratie with the same name",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "create_missing",
+            "in": "query",
+            "description": "If true, synthesize missing grootboekrekeningen and BTW-codes referenced by the Auditfile",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Auditfile Financieel XML",
+          "content": {
+            "application/xml": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Import result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "administratie_id",
+                    "naam",
+                    "boekingen_imported"
+                  ],
+                  "properties": {
+                    "administratie_id": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "boekingen_imported": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 0
+                    },
+                    "naam": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Administratie name already exists"
+          },
+          "422": {
+            "description": "Validation error"
           }
         },
         "security": [
@@ -516,6 +600,95 @@
         ]
       }
     },
+    "/api/administraties/{admin_id}/boekjaren/import/xaf": {
+      "post": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Imports an Auditfile Financieel (XAF) file into an existing administratie. In strict mode, all referenced dagboeken, grootboekrekeningen, and BTW-codes must already exist and match the target administratie. With `create_missing=true`, missing references are created first.",
+        "operationId": "import_boekjaar_xaf",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "create_missing",
+            "in": "query",
+            "description": "If true, create missing dagboeken, grootboekrekeningen, and BTW-codes before importing the boekjaar",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Auditfile Financieel XML",
+          "content": {
+            "application/xml": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Boekjaar imported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "boekjaar_id",
+                    "naam",
+                    "boekingen_imported"
+                  ],
+                  "properties": {
+                    "boekingen_imported": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 0
+                    },
+                    "boekjaar_id": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "naam": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Boekjaar already exists"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/administraties/{admin_id}/boekjaren/{id}": {
       "get": {
         "tags": [
@@ -691,7 +864,7 @@
         "tags": [
           "boekjaren"
         ],
-        "description": "Atomically transitions a boekjaar from status `open` to `gesloten`. A closed boekjaar can no longer receive new boekingen. This is a prerequisite for finalising BTW aangiften (`vastleggen`). Returns 409 if the boekjaar is already gesloten.",
+        "description": "Atomically transitions a boekjaar from status `open` to `gesloten`. A closed boekjaar can no longer receive new boekingen or BTW-aangifte wijzigingen. Returns 409 if the boekjaar is already gesloten.",
         "operationId": "afsluiten",
         "parameters": [
           {
@@ -780,6 +953,59 @@
             "description": "Boekjaar export as JSON file download",
             "content": {
               "application/json": {}
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/boekjaren/{id}/export/xaf": {
+      "get": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Exports a single boekjaar as Auditfile Financieel (XAF), including the administratie master data needed to import that boekjaar into another application.",
+        "operationId": "export_boekjaar_xaf",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Boekjaar ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Boekjaar export as XAF file download",
+            "content": {
+              "application/xml": {}
             }
           },
           "401": {
@@ -981,7 +1207,7 @@
         "tags": [
           "btw-aangifte"
         ],
-        "description": "Calculates (or recalculates) the VAT return for a specific quarter. Aggregates all BTW-coded boekingsregels in the quarter's date range and maps them to the standard Dutch VAT return fields (1a through 5g). Creates a new record or updates an existing one; result has status `concept`. Returns 409 if the aangifte is already `definitief` (use delete + recalculate instead).",
+        "description": "Calculates (or recalculates) the VAT return for a specific quarter. Aggregates all BTW-coded boekingsregels in the quarter's date range and maps them to the standard Dutch VAT return fields (1a through 5g). Creates a new record or updates an existing one; result has status `concept`. Only open boekjaren can be changed. Returns 409 if the boekjaar is gesloten or if the aangifte is already `definitief` (use delete + recalculate instead).",
         "operationId": "berekenen",
         "parameters": [
           {
@@ -1026,7 +1252,7 @@
             "description": "Boekjaar not found"
           },
           "409": {
-            "description": "Cannot recalculate a definitieve aangifte"
+            "description": "Cannot change a aangifte in a gesloten boekjaar or recalculate a definitieve aangifte"
           }
         },
         "security": [
@@ -1041,7 +1267,7 @@
         "tags": [
           "btw-aangifte"
         ],
-        "description": "Deletes a BTW aangifte record. Only concept-status aangiften can be deleted. Returns 409 if the aangifte is definitief.",
+        "description": "Deletes a BTW aangifte record. Only concept-status aangiften in open boekjaren can be deleted. Returns 409 if the boekjaar is gesloten or the aangifte is definitief.",
         "operationId": "delete",
         "parameters": [
           {
@@ -1097,7 +1323,7 @@
             "description": "Forbidden"
           },
           "409": {
-            "description": "Definitieve aangifte cannot be deleted"
+            "description": "Boekjaar is gesloten or the definitieve aangifte cannot be deleted"
           }
         },
         "security": [
@@ -1112,7 +1338,7 @@
         "tags": [
           "btw-aangifte"
         ],
-        "description": "Locks a concept BTW aangifte as definitief (final). Requires the boekjaar to be gesloten first — you cannot finalise a VAT return for an open fiscal year. Once definitief, the aangifte cannot be recalculated and the boekjaar cannot be heropened.",
+        "description": "Locks a concept BTW aangifte as definitief (final). BTW aangiften can only be changed while the boekjaar is open; a gesloten boekjaar makes berekenen, vastleggen, and verwijderen read-only. Once definitief, the aangifte cannot be recalculated or deleted.",
         "operationId": "vastleggen",
         "parameters": [
           {
@@ -1157,7 +1383,7 @@
             "description": "Not found"
           },
           "409": {
-            "description": "Boekjaar must be gesloten before vastleggen, or the aangifte is already definitief"
+            "description": "Boekjaar is gesloten or the aangifte is already definitief"
           }
         },
         "security": [
@@ -2142,6 +2368,52 @@
         ]
       }
     },
+    "/api/administraties/{admin_id}/export/xaf": {
+      "get": {
+        "tags": [
+          "export-import"
+        ],
+        "description": "Exports a single-boekjaar administratie as Auditfile Financieel (XAF). This endpoint only supports administraties with exactly one boekjaar; use the JSON export for full multi-year backups.",
+        "operationId": "export_administratie_xaf",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Administratie export as XAF file download",
+            "content": {
+              "application/xml": {}
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Administratie not found"
+          },
+          "422": {
+            "description": "Administratie has zero or multiple boekjaren"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/administraties/{admin_id}/grootboekrekeningen": {
       "get": {
         "tags": [
@@ -2556,7 +2828,7 @@
         "tags": [
           "grootboekrekeningen"
         ],
-        "description": "Returns the full mutation ledger for a single grootboekrekening within a boekjaar: every boekingsregel with its date, dagboek code/name, journal entry description, line description, and amount (positive = debet, negative = credit). Ordered by date and id.",
+        "description": "Returns the full mutation ledger for a single grootboekrekening within a boekjaar: every boekingsregel with its date, dagboek code/name/type, journal entry description, line description, and amount (positive = debet, negative = credit). Ordered by date and id.",
         "operationId": "mutaties",
         "parameters": [
           {
@@ -3214,7 +3486,7 @@
         "tags": [
           "auth"
         ],
-        "description": "Authenticates a user with username and password. Returns a signed JWT bearer token. Argon2id password hashing is always run regardless of whether the user exists, preventing username enumeration via timing attacks.",
+        "description": "Authenticates a user with username and password. Sets an HttpOnly session cookie for browser clients and also returns a signed JWT bearer token for non-browser API clients. Argon2id password hashing is always run regardless of whether the user exists, preventing username enumeration via timing attacks.",
         "operationId": "login",
         "requestBody": {
           "content": {
@@ -3254,7 +3526,7 @@
         "tags": [
           "auth"
         ],
-        "description": "Revokes the current JWT token server-side. The token remains syntactically valid but is rejected by all protected endpoints until it expires naturally.",
+        "description": "Revokes the current JWT token server-side. The token remains syntactically valid but is rejected by all protected endpoints until it expires naturally. The HttpOnly session cookie is also cleared for browser clients.",
         "operationId": "logout",
         "responses": {
           "204": {
@@ -3276,7 +3548,7 @@
         "tags": [
           "auth"
         ],
-        "description": "Returns the username and subject claim from the current bearer token. Useful for verifying a token is still valid and retrieving the logged-in username.",
+        "description": "Returns the username and subject claim from the current authenticated session, whether provided by bearer token or HttpOnly session cookie.",
         "operationId": "me",
         "responses": {
           "200": {
@@ -3633,6 +3905,13 @@
               "string",
               "null"
             ]
+          },
+          "bankimport_rekening_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           },
           "beschrijving": {
             "type": [
@@ -4765,7 +5044,7 @@
           "verkoop",
           "inkoop",
           "memoriaal",
-          "openingsbalans"
+          "beginbalans"
         ]
       },
       "DagboekWerkStatus": {
@@ -4799,6 +5078,7 @@
           "regel_id",
           "boeking_id",
           "dagboek_id",
+          "dagboek_type",
           "datum",
           "dagboek_code",
           "dagboek_naam",
@@ -4827,6 +5107,9 @@
           },
           "dagboek_naam": {
             "type": "string"
+          },
+          "dagboek_type": {
+            "$ref": "#/components/schemas/DagboekType"
           },
           "datum": {
             "type": "string"
@@ -5112,7 +5395,8 @@
             "type": "string"
           },
           "token": {
-            "type": "string"
+            "type": "string",
+            "description": "Bearer token for non-browser API clients."
           }
         }
       },

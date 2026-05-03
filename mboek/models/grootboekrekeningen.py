@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from mboek.models._enums import RekeningCategorie, RekeningType
+from mboek.models._enums import DagboekType, RekeningCategorie, RekeningType
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
@@ -291,6 +291,7 @@ class GrootboekMutatie:
         regel_id: ID of the boekingsregel.
         boeking_id: ID of the parent boeking.
         dagboek_id: ID of the dagboek.
+        dagboek_type: Type of the dagboek.
         datum: Booking date.
         dagboek_code: Short code of the dagboek (e.g. ``"BANK"``).
         dagboek_naam: Name of the dagboek.
@@ -302,6 +303,7 @@ class GrootboekMutatie:
     regel_id: int
     boeking_id: int
     dagboek_id: int
+    dagboek_type: DagboekType
     datum: str
     dagboek_code: str
     dagboek_naam: str
