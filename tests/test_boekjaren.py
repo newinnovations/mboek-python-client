@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
 import responses
 
-from mboek._exceptions import ConflictError, NotFoundError
+from mboek._exceptions import ConflictError, NotFoundError, ScopeError
 from mboek.models._enums import BoekjaarStatus
 from tests.conftest import BASE_URL, BOEKJAAR, DAGBOEK, GROOTBOEKREKENING
 
@@ -68,11 +69,9 @@ def test_afsluiten_already_closed(mocked_responses, client):
         json={"error": "Already closed"},
         status=409,
     )
-    try:
+    with pytest.raises(ConflictError) as exc_info:
         client.administratie(1).boekjaren.afsluiten(10)
-        assert False
-    except ConflictError as e:
-        assert e.status_code == 409
+    assert exc_info.value.status_code == 409
 
 
 def test_heropenen(mocked_responses, client):
@@ -155,16 +154,12 @@ def test_boekjaar_scope_by_name(mocked_responses, client):
 
 
 def test_boekjaar_scope_by_name_not_found(mocked_responses, client):
-    from mboek._exceptions import NotFoundError
-
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren", json=[BOEKJAAR]
     )
-    try:
+    with pytest.raises(NotFoundError) as exc_info:
         client.administratie(1).boekjaar(name="2099")
-        assert False
-    except NotFoundError as e:
-        assert "2099" in str(e)
+    assert "2099" in str(exc_info.value)
 
 
 def test_boekjaar_scope_by_name_requires_single_match(mocked_responses, client):
@@ -174,27 +169,18 @@ def test_boekjaar_scope_by_name_requires_single_match(mocked_responses, client):
         f"{BASE_URL}/api/administraties/1/boekjaren",
         json=[BOEKJAAR, duplicate],
     )
-    try:
+    with pytest.raises(ValueError, match="2024"):
         client.administratie(1).boekjaar(name="2024")
-        assert False
-    except ValueError as e:
-        assert "2024" in str(e)
 
 
 def test_boekjaar_scope_missing_args(client):
-    try:
+    with pytest.raises(ValueError):
         client.administratie(1).boekjaar()
-        assert False
-    except ValueError:
-        pass
 
 
 def test_boekjaar_scope_ambiguous_args(client):
-    try:
+    with pytest.raises(ValueError):
         client.administratie(1).boekjaar(10, name="2024")
-        assert False
-    except ValueError:
-        pass
 
 
 MET_SALDO = [{"rekening": GROOTBOEKREKENING, "aantal_transacties": 3, "saldo": 400000}]
@@ -245,11 +231,9 @@ def test_boekjaar_scope_grootboekrekening_not_found(mocked_responses, client):
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
         json=MET_SALDO,
     )
-    try:
+    with pytest.raises(NotFoundError) as exc_info:
         client.administratie(1).boekjaar(10).grootboekrekening(code="9999")
-        assert False
-    except NotFoundError as e:
-        assert "9999" in str(e)
+    assert "9999" in str(exc_info.value)
 
 
 def test_boekjaar_scope_dagboeken(mocked_responses, client):
@@ -281,50 +265,30 @@ def test_boekjaar_scope_dagboeken(mocked_responses, client):
 
 def test_boekjaar_reports_scope_error():
     """Boekjaar without client raises ScopeError when accessing reports."""
-    from mboek._exceptions import ScopeError
-
     bj = client_free_boekjaar()
-    try:
+    with pytest.raises(ScopeError):
         _ = bj.reports
-        assert False
-    except ScopeError:
-        pass
 
 
 def test_boekjaar_btw_aangifte_scope_error():
     """Boekjaar without client raises ScopeError when accessing btw_aangifte."""
-    from mboek._exceptions import ScopeError
-
     bj = client_free_boekjaar()
-    try:
+    with pytest.raises(ScopeError):
         _ = bj.btw_aangifte
-        assert False
-    except ScopeError:
-        pass
 
 
 def test_boekjaar_grootboekrekeningen_scope_error():
     """Boekjaar without client raises ScopeError when calling grootboekrekeningen()."""
-    from mboek._exceptions import ScopeError
-
     bj = client_free_boekjaar()
-    try:
+    with pytest.raises(ScopeError):
         bj.grootboekrekeningen()
-        assert False
-    except ScopeError:
-        pass
 
 
 def test_boekjaar_dagboeken_scope_error():
     """Boekjaar without client raises ScopeError when calling dagboeken()."""
-    from mboek._exceptions import ScopeError
-
     bj = client_free_boekjaar()
-    try:
+    with pytest.raises(ScopeError):
         bj.dagboeken()
-        assert False
-    except ScopeError:
-        pass
 
 
 def test_boekjaar_dagboek_via_scope(mocked_responses, client):

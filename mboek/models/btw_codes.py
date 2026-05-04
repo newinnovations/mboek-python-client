@@ -40,3 +40,11 @@ class BtwCode:
     actief: bool
     created_at: datetime
     updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if self.percentage < 0:
+            raise ValueError(f"percentage must be >= 0, got {self.percentage}")
+        if not (0 <= self.pct_aftrek <= 100):
+            raise ValueError(
+                f"pct_aftrek must be between 0 and 100, got {self.pct_aftrek}"
+            )

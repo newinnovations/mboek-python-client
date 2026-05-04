@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from io import StringIO
+from io import BytesIO, StringIO
 
+import pytest
 import responses
 
+from mboek._exceptions import MboekError, NotFoundError, ValidationError
 from tests.conftest import BASE_URL
 
 ADMIN_IMPORT_RESULT = {
@@ -109,3 +111,105 @@ def test_export_boekjaar_xaf(mocked_responses, client):
     xml = client.administratie(1).export_import.export_boekjaar_xaf(10)
 
     assert xml == XAF_XML
+
+
+# ── Failure path tests ────────────────────────────────────────────────────────
+
+
+def test_import_administratie_server_error(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/import",
+        json={"error": "Internal server error"},
+        status=500,
+    )
+    with pytest.raises(MboekError) as exc_info:
+        client.export_import.import_administratie({"type": "administratie"})
+    assert exc_info.value.status_code == 500
+
+
+def test_import_administratie_validation_error(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/import",
+        json={"error": "Validation failed"},
+        status=422,
+    )
+    with pytest.raises(ValidationError) as exc_info:
+        client.export_import.import_administratie({"type": "bad"})
+    assert exc_info.value.status_code == 422
+
+
+def test_import_administratie_xaf_not_found(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/import/xaf",
+        json={"error": "Not found"},
+        status=404,
+    )
+    with pytest.raises(NotFoundError):
+        client.export_import.import_administratie_xaf(XAF_XML)
+
+
+def test_import_administratie_xaf_from_bytes_stream(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/import/xaf",
+        json=ADMIN_IMPORT_RESULT,
+    )
+    result = client.export_import.import_administratie_xaf(
+        BytesIO(XAF_XML.encode()), overwrite=False
+    )
+    call = mocked_responses.calls[-1]
+    assert result["administratie_id"] == 7
+    assert call.request.headers["Content-Type"] == "application/xml"
+    assert _request_body(call) == XAF_XML
+
+
+def test_import_administratie_xaf_overwrite_and_create_missing(mocked_responses, client):
+    """Both overwrite and create_missing can be set independently."""
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/import/xaf",
+        json=ADMIN_IMPORT_RESULT,
+    )
+    client.export_import.import_administratie_xaf(
+        XAF_XML, overwrite=True, create_missing=True
+    )
+    url = mocked_responses.calls[-1].request.url
+    assert "overwrite=true" in url
+    assert "create_missing=true" in url
+
+
+def test_export_administratie_xaf_server_error(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/export/xaf",
+        json={"error": "Server error"},
+        status=500,
+    )
+    with pytest.raises(MboekError) as exc_info:
+        client.administratie(1).export_import.export_administratie_xaf()
+    assert exc_info.value.status_code == 500
+
+
+def test_export_boeking(mocked_responses, client):
+    boeking_payload = {"id": 100, "type": "boeking", "regels": []}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekingen/100/export",
+        json=boeking_payload,
+    )
+    result = client.administratie(1).export_import.export_boeking(100)
+    assert result["id"] == 100
+
+
+def test_import_boekjaar_xaf_validation_error(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekjaren/import/xaf",
+        json={"error": "Validation failed"},
+        status=422,
+    )
+    with pytest.raises(ValidationError):
+        client.administratie(1).export_import.import_boekjaar_xaf(XAF_XML)

@@ -203,25 +203,33 @@ class Boeking:
         not the ``grootboekrekening_naam`` or ``grootboekrekening_code``, so they
         are not fully interchangeable with regels from other sources (e.g. a
         different boeking or a user input form) without additional resolution.
+
+        Raises:
+            :py:exc:`ValueError`: A BTW regel references a netto_id that cannot
+                be resolved to an index in the current regels list.
         """
-        return [
-            NewBoekingsregel(
-                omschrijving=regel.omschrijving,
-                bedrag=regel.bedrag,
-                grootboekrekening_id=regel.grootboekrekening_id,
-                btw_code_id=regel.btw_code_id,
-                regeltype=regel.regeltype,
-                netto_ref=next(
-                    (
-                        idx
-                        for idx, r in enumerate(self.regels)
-                        if r.id == regel.netto_id
-                    ),
-                    None,
-                ),  # determine netto_ref by matching netto_id to the index of the corresponding netto regel
+        id_to_index = {r.id: idx for idx, r in enumerate(self.regels)}
+        result: list[NewBoekingsregel] = []
+        for regel in self.regels:
+            netto_ref: int | None = None
+            if regel.netto_id is not None:
+                netto_ref = id_to_index.get(regel.netto_id)
+                if netto_ref is None:
+                    raise ValueError(
+                        f"Regel {regel.id} references netto_id {regel.netto_id} "
+                        "which does not exist in the current regels list"
+                    )
+            result.append(
+                NewBoekingsregel(
+                    omschrijving=regel.omschrijving,
+                    bedrag=regel.bedrag,
+                    grootboekrekening_id=regel.grootboekrekening_id,
+                    btw_code_id=regel.btw_code_id,
+                    regeltype=regel.regeltype,
+                    netto_ref=netto_ref,
+                )
             )
-            for regel in self.regels
-        ]
+        return result
 
     # ── Dunder helpers ────────────────────────────────────────────────────────
 
@@ -285,6 +293,13 @@ class NewBoekingsregel:
             raise ValueError(
                 "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
             )
+        if (
+            self.regeltype in (Regeltype.BTW_OUTPUT, Regeltype.BTW_INPUT)
+            and self.netto_ref is None
+        ):
+            raise ValueError(
+                f"netto_ref is required when regeltype is {self.regeltype.value!r}"
+            )
 
     def to_dict(self) -> dict:
         if self.grootboekrekening_id is None:
@@ -292,10 +307,15 @@ class NewBoekingsregel:
                 "grootboekrekening_id is not yet resolved; the resource should have resolved "
                 "grootboekrekening_naam / grootboekrekening_code before calling to_dict()"
             )
+        from decimal import ROUND_DOWN, Decimal
+
+        quantized = self.bedrag.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+        if quantized != self.bedrag:
+            raise ValueError(f"bedrag {self.bedrag} has more than 2 decimal places")
         d: dict = {
             "grootboekrekening_id": self.grootboekrekening_id,
             "omschrijving": self.omschrijving,
-            "bedrag": int(self.bedrag * 100),  # convert euros → cents
+            "bedrag": int(quantized * 100),  # convert euros → cents
             "regeltype": self.regeltype.value,
         }
         if self.btw_code_id is not None:

@@ -14,6 +14,7 @@ from mboek._exceptions import (
 from mboek.models import (
     Administratie,
     AuthToken,
+    AutoBookingActieType,
     AutoBookingRule,
     AutoBookingRuleLine,
     BalansRegel,
@@ -68,6 +69,7 @@ __all__ = [
     "Dagboek",
     "Grootboekrekening",
     # models — enums / non-response types
+    "AutoBookingActieType",
     "BoekjaarStatus",
     "BalansRegel",
     "BalansReport",

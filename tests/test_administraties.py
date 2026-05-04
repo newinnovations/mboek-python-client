@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 import responses
 
 from mboek._exceptions import ForbiddenError, NotFoundError
@@ -40,11 +41,9 @@ def test_get_not_found(mocked_responses, client):
         json={"error": "Not found"},
         status=404,
     )
-    try:
+    with pytest.raises(NotFoundError) as exc_info:
         client.administraties.get(999)
-        assert False
-    except NotFoundError as e:
-        assert e.status_code == 404
+    assert exc_info.value.status_code == 404
 
 
 def test_get_forbidden(mocked_responses, client):
@@ -54,11 +53,8 @@ def test_get_forbidden(mocked_responses, client):
         json={"error": "Forbidden"},
         status=403,
     )
-    try:
+    with pytest.raises(ForbiddenError):
         client.administraties.get(2)
-        assert False
-    except ForbiddenError:
-        pass
 
 
 def test_create(mocked_responses, client):
@@ -154,11 +150,9 @@ def test_administratie_scope_by_name_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties", json=[ADMINISTRATIE]
     )
-    try:
+    with pytest.raises(NotFoundError) as exc_info:
         client.administratie(name="Nonexistent BV")
-        assert False
-    except NotFoundError as e:
-        assert "Nonexistent BV" in str(e)
+    assert "Nonexistent BV" in str(exc_info.value)
 
 
 def test_administratie_scope_by_name_requires_single_match(mocked_responses, client):
@@ -168,24 +162,15 @@ def test_administratie_scope_by_name_requires_single_match(mocked_responses, cli
         f"{BASE_URL}/api/administraties",
         json=[ADMINISTRATIE, duplicate],
     )
-    try:
+    with pytest.raises(ValueError, match="Test BV"):
         client.administratie(name="Test BV")
-        assert False
-    except ValueError as e:
-        assert "Test BV" in str(e)
 
 
 def test_administratie_scope_missing_args(client):
-    try:
+    with pytest.raises(ValueError):
         client.administratie()
-        assert False
-    except ValueError:
-        pass
 
 
 def test_administratie_scope_ambiguous_args(client):
-    try:
+    with pytest.raises(ValueError):
         client.administratie(1, name="Test BV")
-        assert False
-    except ValueError:
-        pass

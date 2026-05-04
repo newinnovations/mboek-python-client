@@ -8,6 +8,14 @@ if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.models.boekjaren import Boekjaar
     from mboek.models.dagboeken import Dagboek
+    from mboek.models.grootboekrekeningen import Grootboekrekening
+    from mboek.resources.auto_booking_rules import AutoBookingRulesResource
+    from mboek.resources.boekjaren import BoekjarenResource
+    from mboek.resources.btw_codes import BtwCodesResource
+    from mboek.resources.dagboeken import DagboekenResource
+    from mboek.resources.export_import import AdminExportImportResource
+    from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
+    from mboek.resources.import_ import ImportResource
 
 
 class AdministratieScope:
@@ -39,7 +47,7 @@ class AdministratieScope:
     # ── Child resources ───────────────────────────────────────────────────────
 
     @property
-    def boekjaren(self):
+    def boekjaren(self) -> "BoekjarenResource":
         """Boekjaren resource (:py:class:`~mboek.resources.boekjaren.BoekjarenResource`)."""
         if self._boekjaren is None:
             from mboek.resources.boekjaren import BoekjarenResource
@@ -48,7 +56,7 @@ class AdministratieScope:
         return self._boekjaren
 
     @property
-    def dagboeken(self):
+    def dagboeken(self) -> "DagboekenResource":
         """Dagboeken resource (:py:class:`~mboek.resources.dagboeken.DagboekenResource`)."""
         if self._dagboeken is None:
             from mboek.resources.dagboeken import DagboekenResource
@@ -57,7 +65,7 @@ class AdministratieScope:
         return self._dagboeken
 
     @property
-    def grootboekrekeningen(self):
+    def grootboekrekeningen(self) -> "GrootboekrekeningenResource":
         """Grootboekrekeningen resource (:py:class:`~mboek.resources.grootboekrekeningen.GrootboekrekeningenResource`)."""
         if self._grootboekrekeningen is None:
             from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
@@ -68,7 +76,7 @@ class AdministratieScope:
         return self._grootboekrekeningen
 
     @property
-    def btw_codes(self):
+    def btw_codes(self) -> "BtwCodesResource":
         """BTW codes resource (:py:class:`~mboek.resources.btw_codes.BtwCodesResource`)."""
         if self._btw_codes is None:
             from mboek.resources.btw_codes import BtwCodesResource
@@ -77,7 +85,7 @@ class AdministratieScope:
         return self._btw_codes
 
     @property
-    def auto_booking_rules(self):
+    def auto_booking_rules(self) -> "AutoBookingRulesResource":
         """Auto booking rules resource (:py:class:`~mboek.resources.auto_booking_rules.AutoBookingRulesResource`)."""
         if self._auto_booking_rules is None:
             from mboek.resources.auto_booking_rules import AutoBookingRulesResource
@@ -88,7 +96,7 @@ class AdministratieScope:
         return self._auto_booking_rules
 
     @property
-    def import_(self):
+    def import_(self) -> "ImportResource":
         """Bank import resource (:py:class:`~mboek.resources.import_.ImportResource`)."""
         if self._import_ is None:
             from mboek.resources.import_ import ImportResource
@@ -97,7 +105,7 @@ class AdministratieScope:
         return self._import_
 
     @property
-    def export_import(self):
+    def export_import(self) -> "AdminExportImportResource":
         """Export/import resource (:py:class:`~mboek.resources.export_import.AdminExportImportResource`)."""
         if self._export_import is None:
             from mboek.resources.export_import import AdminExportImportResource
@@ -257,7 +265,7 @@ class AdministratieScope:
                 "grootboekrekening() could not resolve grootboekrekening filters"
             )
         return self.grootboekrekeningen._require_single_match(
-            self.grootboekrekeningen.list(naam=naam),
+            self.grootboekrekeningen.list(name=naam),
             not_found_message=f"Grootboekrekening named '{naam}' not found",
             multiple_message=f"Multiple grootboekrekeningen named '{naam}' found",
         )

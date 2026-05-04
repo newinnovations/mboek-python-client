@@ -23,7 +23,8 @@ class MboekError(Exception):
 
     def __repr__(self) -> str:
         return (
-            f"{type(self).__name__}({self.args[0]!r}, status_code={self.status_code!r})"
+            f"{type(self).__name__}({self.args[0]!r},"
+            f" status_code={self.status_code!r}, detail={self.detail!r})"
         )
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -304,7 +304,7 @@ class GrootboekMutatie:
     boeking_id: int
     dagboek_id: int
     dagboek_type: DagboekType
-    datum: str
+    datum: date
     dagboek_code: str
     dagboek_naam: str
     boeking_omschrijving: str

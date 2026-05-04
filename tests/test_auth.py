@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import pytest
 import responses
 
 from mboek import MboekClient
 from mboek._exceptions import AuthError, RateLimitError, ValidationError
-
-BASE_URL = "http://localhost:3000"
+from tests.conftest import BASE_URL
 
 LOGIN_PAYLOAD = {
     "token": "my-jwt-token",
@@ -44,11 +44,9 @@ def test_login_invalid_credentials(mocked_responses):
         status=401,
     )
     client = MboekClient(BASE_URL)
-    try:
+    with pytest.raises(AuthError) as exc_info:
         client.login("bad", "creds")
-        assert False, "Expected AuthError"
-    except AuthError as e:
-        assert e.status_code == 401
+    assert exc_info.value.status_code == 401
 
 
 def test_login_rate_limited(mocked_responses):
@@ -56,11 +54,9 @@ def test_login_rate_limited(mocked_responses):
         responses.POST, f"{BASE_URL}/api/auth/login", json={}, status=429
     )
     client = MboekClient(BASE_URL)
-    try:
+    with pytest.raises(RateLimitError) as exc_info:
         client.login("admin", "pw")
-        assert False, "Expected RateLimitError"
-    except RateLimitError as e:
-        assert e.status_code == 429
+    assert exc_info.value.status_code == 429
 
 
 def test_login_validation_error(mocked_responses):
@@ -71,11 +67,9 @@ def test_login_validation_error(mocked_responses):
         status=422,
     )
     client = MboekClient(BASE_URL)
-    try:
+    with pytest.raises(ValidationError) as exc_info:
         client.login("", "")
-        assert False, "Expected ValidationError"
-    except ValidationError as e:
-        assert e.status_code == 422
+    assert exc_info.value.status_code == 422
 
 
 def test_me(mocked_responses, client):
@@ -146,3 +140,47 @@ def test_default_url_without_env_var(monkeypatch):
     monkeypatch.delenv("MBOEK_PASSWORD", raising=False)
     client = MboekClient()
     assert client._base_url == "http://localhost:3000"
+
+
+def test_partial_env_username_only_no_login(mocked_responses, monkeypatch):
+    """Only MBOEK_USERNAME set (no password) → no login attempted."""
+    monkeypatch.setenv("MBOEK_URL", BASE_URL)
+    monkeypatch.setenv("MBOEK_USERNAME", "admin")
+    monkeypatch.delenv("MBOEK_PASSWORD", raising=False)
+    client = MboekClient()
+    assert client.token is None
+
+
+def test_partial_env_password_only_no_login(mocked_responses, monkeypatch):
+    """Only MBOEK_PASSWORD set (no username) → no login attempted."""
+    monkeypatch.setenv("MBOEK_URL", BASE_URL)
+    monkeypatch.delenv("MBOEK_USERNAME", raising=False)
+    monkeypatch.setenv("MBOEK_PASSWORD", "secret")
+    client = MboekClient()
+    assert client.token is None
+
+
+def test_no_credentials_no_login(monkeypatch):
+    """No env vars and no args → no login, token stays None."""
+    monkeypatch.delenv("MBOEK_URL", raising=False)
+    monkeypatch.delenv("MBOEK_USERNAME", raising=False)
+    monkeypatch.delenv("MBOEK_PASSWORD", raising=False)
+    client = MboekClient()
+    assert client.token is None
+
+
+def test_explicit_credentials_override_env_body(mocked_responses, monkeypatch):
+    """Explicit credentials are used even when env vars have different values."""
+    import json as _json
+
+    monkeypatch.setenv("MBOEK_URL", "http://env-host:9999")
+    monkeypatch.setenv("MBOEK_USERNAME", "env-user")
+    monkeypatch.setenv("MBOEK_PASSWORD", "env-pass")
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
+    client = MboekClient(BASE_URL, "admin", "secret")
+    assert client._base_url == BASE_URL
+    assert client.token == "my-jwt-token"
+    body = _json.loads(mocked_responses.calls[-1].request.body)
+    assert body["gebruikersnaam"] == "admin"

@@ -58,7 +58,8 @@ class ImportResource(BaseResource):
                         files={"file": (fname, fh)},
                     )
                 )
-        fname = filename or getattr(file, "name", "statement.940")
+        raw_name = getattr(file, "name", "statement.940")
+        fname = filename or Path(raw_name).name
         return parse_import_result(
             self._post_multipart(
                 f"/api/administraties/{self._admin_id}/import",

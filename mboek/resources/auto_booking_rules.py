@@ -5,10 +5,9 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING
 
-from mboek._parsers import parse_auto_booking_rule, parse_boeking_met_regels
+from mboek._parsers import parse_auto_booking_rule
 from mboek.models._enums import AutoBookingActieType
 from mboek.models.auto_booking_rules import AutoBookingRule
-from mboek.models.boekingen import Boeking
 from mboek.resources._base import BaseResource
 
 if TYPE_CHECKING:
@@ -176,18 +175,18 @@ class AutoBookingRulesResource(BaseResource):
         """
         self._delete(f"/api/administraties/{self._admin_id}/regels/{rule_id}")
 
-    def apply_to_boeking(self, boeking_id: int) -> Boeking | None:
+    def apply_to_boeking(self, boeking_id: int) -> bool:
         """Apply the first matching rule to a single boeking.
 
         Args:
             boeking_id: Boeking ID.
 
         Returns:
-            The updated boeking, or ``None`` if no rule matched.
+            ``True`` if a rule matched and was applied, ``False`` otherwise.
         """
         data = self._post(
             f"/api/administraties/{self._admin_id}/boekingen/{boeking_id}/apply-rules"
         )
-        if data:
-            return parse_boeking_met_regels(data)
-        return None
+        if isinstance(data, dict):
+            return bool(data.get("matched", False))
+        return False

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -17,6 +17,14 @@ from mboek._exceptions import (
     ValidationError,
 )
 from mboek.models.auth import AuthToken
+
+if TYPE_CHECKING:
+    from mboek.models.grootboekrekeningen import Grootboekrekening
+    from mboek.resources._admin_scope import AdministratieScope
+    from mboek.resources.administraties import AdministratiesResource
+    from mboek.resources.boekingen import BoekingenResource
+    from mboek.resources.export_import import ExportImportResource
+    from mboek.resources.maintenance import MaintenanceResource
 
 
 class MboekClient:
@@ -83,14 +91,14 @@ class MboekClient:
         self._login_response: AuthToken | None = None
 
         # Lazily-initialised resource managers
-        self._administraties = None
-        self._boekingen = None
-        self._export_import = None
-        self._maintenance = None
+        self._administraties: AdministratiesResource | None = None
+        self._boekingen: BoekingenResource | None = None
+        self._export_import: ExportImportResource | None = None
+        self._maintenance: MaintenanceResource | None = None
 
         # Per-admin cache of the full grootboekrekening collection.
         # Populated by GrootboekrekeningenResource.list() and cleared via clear_cache().
-        self._gbr_cache: dict[int, list] = {}
+        self._gbr_cache: dict[int, list[Grootboekrekening]] = {}
 
         if resolved_username is not None and resolved_password is not None:
             self.login(resolved_username, resolved_password)
@@ -135,9 +143,11 @@ class MboekClient:
         Raises:
             :py:class:`~mboek._exceptions.AuthError`: Not authenticated.
         """
-        self.auth.logout()
-        self._token = None
-        self._session.headers.pop("Authorization", None)
+        try:
+            self.auth.logout()
+        finally:
+            self._token = None
+            self._session.headers.pop("Authorization", None)
 
     @property
     def token(self) -> str | None:
@@ -304,40 +314,41 @@ class MboekClient:
     @staticmethod
     def _handle_response(resp: requests.Response) -> Any:
         """Raise typed exceptions for error responses, return body for 2xx."""
-        if resp.status_code in (200, 201):
-            if resp.content:
-                content_type = resp.headers.get("Content-Type", "")
-                media_type = content_type.split(";", 1)[0].strip().lower()
-                if media_type == "application/json" or media_type.endswith("+json"):
-                    return resp.json()
-                if media_type.startswith("text/") or media_type in {
-                    "application/xml",
-                    "text/xml",
-                }:
-                    return resp.text
-                try:
-                    return resp.json()
-                except ValueError:
-                    return resp.content
-            return None
-        if resp.status_code == 204:
-            return None
+        status = int(resp.status_code or 0)
+        if 200 <= status < 300:
+            if not resp.content:
+                return None
+            content_type = resp.headers.get("Content-Type", "")
+            media_type = content_type.split(";", 1)[0].strip().lower()
+            if media_type == "application/json" or media_type.endswith("+json"):
+                return resp.json()
+            if media_type.startswith("text/") or media_type in {
+                "application/xml",
+                "text/xml",
+            }:
+                return resp.text
+            try:
+                return resp.json()
+            except ValueError:
+                return resp.content
 
         # Try to extract a detail message from the response body.
         detail: Any = None
         try:
             detail = resp.json()
-        except Exception:
+        except ValueError:
             detail = resp.text or None
 
-        msg = f"HTTP {resp.status_code}"
+        msg = f"HTTP {status}"
         if detail:
             if isinstance(detail, dict):
-                msg = detail.get("error", detail.get("message", str(detail)))
+                msg = detail.get(
+                    "detail",
+                    detail.get("error", detail.get("message", str(detail))),
+                )
             else:
-                msg = str(detail)
+                msg = resp.text or f"HTTP {status}"
 
-        status = resp.status_code
         if status == 401:
             raise AuthError(msg, status_code=status, detail=detail)
         if status == 403:

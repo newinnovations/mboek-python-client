@@ -1,4 +1,17 @@
-"""Model types for the mBoek API client."""
+"""Model types for the mBoek API client.
+
+Design note — class styles
+--------------------------
+Most value objects in this package use ``@dataclass`` for brevity.
+A small number of *rich domain objects* (``Boeking``, ``Dagboek``,
+``Grootboekrekening``, ``Boekjaar``) are written as plain classes.
+These objects carry optional scope context (a client reference and
+scope IDs) that unlocks lazy-fetch behaviour and instance-level
+operations (``delete()``, ``update()``, ``with_boekjaar()``, etc.).
+The manual class style gives full control over ``__init__`` signature,
+default handling, and internal caching, which is harder to express
+cleanly with ``@dataclass``.
+"""
 
 from mboek.models._enums import (
     AutoBookingActieType,

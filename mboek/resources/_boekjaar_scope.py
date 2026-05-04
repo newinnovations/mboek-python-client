@@ -132,7 +132,6 @@ class BoekjaarScopedBoekingenResource(BaseResource):
             "datum": datum.isoformat(),
             "omschrijving": omschrijving,
             "regels": [r.to_dict() for r in regels],
-            "boekjaar_id": self._boekjaar_id,
         }
         if stuknummer is not None:
             data["stuknummer"] = stuknummer

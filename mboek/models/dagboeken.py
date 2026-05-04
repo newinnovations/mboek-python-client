@@ -198,11 +198,22 @@ class Dagboek:
             return [parse_boeking_met_regels(d, client=self._client) for d in data]
         return []
 
-    def suggest(self, boeking_id: int) -> "list[MatchSuggestion]":
-        """Get contra-account suggestions for an unprocessed boeking.
+    def suggest(
+        self,
+        omschrijving: str,
+        *,
+        tegenpartij_iban: "str | None" = None,
+        tegenpartij_naam: "str | None" = None,
+    ) -> "list[MatchSuggestion]":
+        """Get contra-account suggestions for a bank transaction description.
+
+        Looks up previously used contra-accounts for similar transactions in
+        this dagboek and ranks them by frequency of use.
 
         Args:
-            boeking_id: Boeking ID to get suggestions for.
+            omschrijving: Transaction description to match against prior boekingen.
+            tegenpartij_iban: Optional counterparty IBAN to refine matching.
+            tegenpartij_naam: Optional counterparty name to refine matching.
 
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No client reference.
@@ -213,10 +224,16 @@ class Dagboek:
             raise ScopeError("suggest() requires a client reference.")
         from mboek._parsers import parse_match_suggestion
 
+        body: dict = {"omschrijving": omschrijving}
+        if tegenpartij_iban is not None:
+            body["tegenpartij_iban"] = tegenpartij_iban
+        if tegenpartij_naam is not None:
+            body["tegenpartij_naam"] = tegenpartij_naam
+
         data = self._client._request(
             "POST",
             f"/api/administraties/{self.administratie_id}/dagboeken/{self.id}/suggest",
-            json={"boeking_id": boeking_id},
+            json=body,
         )
         if isinstance(data, list):
             return [parse_match_suggestion(d) for d in data]

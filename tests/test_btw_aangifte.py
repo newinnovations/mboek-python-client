@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
+import pytest
 import responses
 
 from mboek import BtwAangifteStatus
+from mboek._exceptions import MboekError
 from tests.conftest import BASE_URL, BOEKJAAR
 
 BTW_AANGIFTE = {
@@ -51,3 +55,104 @@ def test_list_parses_status_enum(mocked_responses, client):
 
     assert len(items) == 1
     assert items[0].status == BtwAangifteStatus.CONCEPT
+
+
+def test_list_parses_berekening_fields(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften",
+        json=[BTW_AANGIFTE],
+    )
+
+    item = client.administratie(1).boekjaar(10).btw_aangifte.list()[0]
+
+    b = item.berekening
+    assert b.r1a.grondslag == Decimal("100.00")
+    assert b.r1a.btw == Decimal("21.00")
+    assert b.r1b.grondslag == Decimal("0.00")
+    assert b.r1b.btw == Decimal("0.00")
+    assert b.r5a == Decimal("21")
+    assert b.r5b == Decimal("0")
+    assert b.r5g == Decimal("21")
+    assert item.r5g == Decimal("21")
+
+
+def test_list_parses_period_dates(mocked_responses, client):
+    from datetime import date
+
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften",
+        json=[BTW_AANGIFTE],
+    )
+
+    item = client.administratie(1).boekjaar(10).btw_aangifte.list()[0]
+
+    assert item.kwartaal == 1
+    assert item.periode_start == date(2024, 1, 1)
+    assert item.periode_eind == date(2024, 3, 31)
+    assert item.administratie_id == 1
+    assert item.boekjaar_id == 10
+
+
+def test_list_empty(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften",
+        json=[],
+    )
+
+    items = client.administratie(1).boekjaar(10).btw_aangifte.list()
+
+    assert items == []
+
+
+def test_list_server_error(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften",
+        json={"error": "Internal server error"},
+        status=500,
+    )
+
+    with pytest.raises(MboekError) as exc_info:
+        client.administratie(1).boekjaar(10).btw_aangifte.list()
+    assert exc_info.value.status_code == 500
+
+
+def test_list_unauthorized(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften",
+        json={"error": "Unauthorized"},
+        status=401,
+    )
+
+    with pytest.raises(MboekError) as exc_info:
+        client.administratie(1).boekjaar(10).btw_aangifte.list()
+    assert exc_info.value.status_code == 401

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import responses
 
+from mboek._exceptions import NotFoundError, ScopeError
 from mboek.models._enums import DagboekType
 from tests.conftest import BASE_URL, DAGBOEK, GROOTBOEKREKENING
 
@@ -163,18 +164,13 @@ def test_dagboek_scope_by_code(mocked_responses, client):
     scope = client.administratie(1).dagboek(code="bank")  # case-insensitive
     assert scope.id == 20
 
-
 def test_dagboek_scope_by_name_not_found(mocked_responses, client):
-    from mboek._exceptions import NotFoundError
-
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
-    try:
+    with pytest.raises(NotFoundError) as exc_info:
         client.administratie(1).dagboek(name="Onbekend")
-        assert False
-    except NotFoundError as e:
-        assert "Onbekend" in str(e)
+    assert "Onbekend" in str(exc_info.value)
 
 
 def test_dagboek_scope_by_name_requires_single_match(mocked_responses, client):
@@ -184,32 +180,22 @@ def test_dagboek_scope_by_name_requires_single_match(mocked_responses, client):
         f"{BASE_URL}/api/administraties/1/dagboeken",
         json=[DAGBOEK, duplicate],
     )
-    try:
+    with pytest.raises(ValueError, match="Bankboek"):
         client.administratie(1).dagboek(name="Bankboek")
-        assert False
-    except ValueError as e:
-        assert "Bankboek" in str(e)
 
 
 def test_dagboek_scope_by_code_not_found(mocked_responses, client):
-    from mboek._exceptions import NotFoundError
-
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
-    try:
+    with pytest.raises(NotFoundError) as exc_info:
         client.administratie(1).dagboek(code="KAS")
-        assert False
-    except NotFoundError as e:
-        assert "KAS" in str(e)
+    assert "KAS" in str(exc_info.value)
 
 
 def test_dagboek_scope_missing_args(client):
-    try:
+    with pytest.raises(ValueError):
         client.administratie(1).dagboek()
-        assert False
-    except ValueError:
-        pass
 
 
 def test_boekjaar_dagboek_scope_by_name(mocked_responses, client):
@@ -241,7 +227,6 @@ def test_boekjaar_dagboek_scope_by_code(mocked_responses, client):
 
 
 def test_boekjaar_dagboek_scope_by_name_not_found(mocked_responses, client):
-    from mboek._exceptions import NotFoundError
     from tests.conftest import BOEKJAAR
 
     mocked_responses.add(
@@ -250,11 +235,8 @@ def test_boekjaar_dagboek_scope_by_name_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
     )
-    try:
+    with pytest.raises(NotFoundError):
         client.administratie(1).boekjaar(10).dagboek(name="Onbekend")
-        assert False
-    except NotFoundError:
-        pass
 
 
 def test_boekjaar_dagboek_scope_by_name_requires_single_match(mocked_responses, client):
@@ -269,11 +251,8 @@ def test_boekjaar_dagboek_scope_by_name_requires_single_match(mocked_responses, 
         f"{BASE_URL}/api/administraties/1/dagboeken",
         json=[DAGBOEK, duplicate],
     )
-    try:
+    with pytest.raises(ValueError, match="Bankboek"):
         client.administratie(1).boekjaar(10).dagboek(name="Bankboek")
-        assert False
-    except ValueError as e:
-        assert "Bankboek" in str(e)
 
 
 # ── New names & naam/code resolution ─────────────────────────────────────────
@@ -396,23 +375,67 @@ def test_with_boekjaar_name_requires_single_match(mocked_responses, client):
         json=[BOEKJAAR, duplicate],
     )
     dagboek = client.administratie(1).dagboek(20)
-    try:
+    with pytest.raises(ValueError, match="2024"):
         dagboek.with_boekjaar(name="2024")
-        assert False
-    except ValueError as e:
-        assert "2024" in str(e)
 
 
 def test_boekingen_scope_error(mocked_responses, client):
     """Accessing boekingen without a boekjaar scope raises ScopeError."""
-    from mboek._exceptions import ScopeError
-
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
     )
     d = client.administratie(1).dagboek(20)
-    try:
+    with pytest.raises(ScopeError):
         _ = d.boekingen
-        assert False
-    except ScopeError:
-        pass
+
+
+# ── s11: Account name/code resolution error tests ────────────────────────────
+
+
+def test_create_dagboek_unknown_rekening_naam_raises(mocked_responses, client):
+    """create() with an unknown grootboekrekening_naam raises NotFoundError."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    with pytest.raises(NotFoundError, match="Onbekend"):
+        client.administratie(1).dagboeken.create(
+            code="BANK",
+            naam="Bankboek",
+            dagboek_type=DagboekType.BANK,
+            grootboekrekening_naam="Onbekend",
+        )
+
+
+def test_create_dagboek_unknown_rekening_code_raises(mocked_responses, client):
+    """create() with an unknown grootboekrekening_code raises NotFoundError."""
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    with pytest.raises(NotFoundError, match="9999"):
+        client.administratie(1).dagboeken.create(
+            code="BANK",
+            naam="Bankboek",
+            dagboek_type=DagboekType.BANK,
+            grootboekrekening_code="9999",
+        )
+
+
+def test_create_dagboek_ambiguous_rekening_naam_raises(mocked_responses, client):
+    """create() with an ambiguous grootboekrekening_naam raises ValueError."""
+    duplicate = {**GROOTBOEKREKENING, "id": 31}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING, duplicate],
+    )
+    with pytest.raises(ValueError, match="Bank"):
+        client.administratie(1).dagboeken.create(
+            code="BANK",
+            naam="Bankboek",
+            dagboek_type=DagboekType.BANK,
+            grootboekrekening_naam="Bank",
+        )

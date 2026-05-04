@@ -43,3 +43,9 @@ class MatchSuggestion:
     btw_code_id: int | None
     btw_code: str | None
     confidence: Decimal
+
+    def __post_init__(self) -> None:
+        if not (0 <= self.confidence <= 1):
+            raise ValueError(
+                f"confidence must be between 0 and 1, got {self.confidence}"
+            )

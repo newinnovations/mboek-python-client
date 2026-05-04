@@ -4,4 +4,5 @@ __pycache__/
 .venv/
 .ruff_cache/
 dist/
+attic/
 doc/get-openapi.sh

@@ -113,6 +113,8 @@ class NewAutoBookingRuleLine:
             raise ValueError(
                 "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
             )
+        if self.bedrag_type == AutoBookingBedragType.VAST and self.bedrag is None:
+            raise ValueError("bedrag is required when bedrag_type is 'vast'")
 
     def to_dict(self) -> dict:
         if self.grootboekrekening_id is None:
@@ -129,5 +131,10 @@ class NewAutoBookingRuleLine:
         if self.omschrijving is not None:
             d["omschrijving"] = self.omschrijving
         if self.bedrag is not None:
-            d["bedrag"] = str(self.bedrag)
+            from decimal import ROUND_DOWN, Decimal
+
+            quantized = self.bedrag.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            if quantized != self.bedrag:
+                raise ValueError(f"bedrag {self.bedrag} has more than 2 decimal places")
+            d["bedrag"] = str(quantized)
         return d

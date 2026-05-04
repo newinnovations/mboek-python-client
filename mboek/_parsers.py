@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from mboek.models._enums import (
@@ -76,10 +76,13 @@ def _require_cents(v: int | None) -> Decimal:
 
 
 def parse_login(d: dict) -> AuthToken:
+    for key in ("token", "gebruikersnaam", "expires_at"):
+        if key not in d:
+            raise ValueError(f"Login response missing required key: {key!r}")
     return AuthToken(
         token=d["token"],
         gebruikersnaam=d["gebruikersnaam"],
-        expires_at=datetime.fromtimestamp(d["expires_at"]),
+        expires_at=datetime.fromtimestamp(d["expires_at"], tz=timezone.utc),
     )
 
 
@@ -188,7 +191,7 @@ def parse_grootboek_mutatie(d: dict) -> GrootboekMutatie:
         boeking_id=d["boeking_id"],
         dagboek_id=d["dagboek_id"],
         dagboek_type=DagboekType(d["dagboek_type"]),
-        datum=d["datum"],
+        datum=_require_date(d["datum"]),
         dagboek_code=d["dagboek_code"],
         dagboek_naam=d["dagboek_naam"],
         boeking_omschrijving=d["boeking_omschrijving"],

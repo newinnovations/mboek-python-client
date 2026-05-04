@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import responses
 
 from mboek.models._enums import DagboekType, RekeningCategorie, RekeningType
@@ -74,7 +76,7 @@ def test_met_saldo(mocked_responses, client):
         json=data,
     )
     items = client.administratie(1).grootboekrekeningen.met_saldo(10)
-    assert items[0].saldo == 1000  # 100000 cents → €1000.00
+    assert items[0].saldo == Decimal("1000.00")  # 100000 cents → €1000.00
     saldo_calls = [c for c in mocked_responses.calls if "met-saldo" in c.request.url]
     assert "limit=1000" in saldo_calls[-1].request.url
     assert "offset=0" in saldo_calls[-1].request.url

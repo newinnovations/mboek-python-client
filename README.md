@@ -253,6 +253,10 @@ print("Saldo 4000:", rekening.saldo)
 
 All boekingsregels must balance (`sum(bedrag) == 0`).
 Amounts are in **euros** — the library converts to/from cents automatically.
+`bedrag` must have at most 2 decimal places; `Decimal("1.005")` raises `ValueError`.
+
+BTW lines (`regeltype=Regeltype.BTW_INPUT` or `BTW_OUTPUT`) **must** include a
+`netto_ref` pointing to the index (0-based) of the corresponding netto regel.
 
 ```python
 from decimal import Decimal
@@ -440,13 +444,13 @@ client.export_import.import_administratie_xaf(
 ## Automatic booking rules
 
 ```python
-from mboek.models._enums import ActieType
+from mboek import AutoBookingActieType
 
 a = client.administratie(admin_id)
 
 rule = a.auto_booking_rules.create(
     naam="Hosting Duitsland",
-    actie_type=ActieType.ENKEL,
+    actie_type=AutoBookingActieType.ENKEL,
     tegenpartij_iban_patroon="DE75512308000000060004",
     lines=[...],
 )
