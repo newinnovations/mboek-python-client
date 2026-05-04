@@ -207,7 +207,9 @@ class MboekClient:
 
     # ── Scoped access ─────────────────────────────────────────────────────────
 
-    def administratie(self, id: int | None = None, *, name: str | None = None):
+    def administratie(
+        self, id: int | None = None, *, name: str | None = None
+    ) -> "AdministratieScope":
         """Return an :py:class:`~mboek.resources._admin_scope.AdministratieScope`.
 
         Pass either the numeric ``id`` (no HTTP call) or a ``name`` to

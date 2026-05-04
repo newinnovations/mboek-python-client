@@ -8,7 +8,7 @@ import responses
 
 from mboek._exceptions import ConflictError, NotFoundError
 from mboek.models._enums import BoekjaarStatus
-from tests.conftest import BASE_URL, BOEKJAAR, GROOTBOEKREKENING
+from tests.conftest import BASE_URL, BOEKJAAR, DAGBOEK, GROOTBOEKREKENING
 
 
 def test_list(mocked_responses, client):
@@ -252,6 +252,30 @@ def test_boekjaar_scope_grootboekrekening_not_found(mocked_responses, client):
         assert "9999" in str(e)
 
 
+def test_boekjaar_scope_dagboeken(mocked_responses, client):
+    other = {
+        **DAGBOEK,
+        "id": 21,
+        "code": "KAS",
+        "naam": "Kasboek",
+        "dagboek_type": "kas",
+    }
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken",
+        json=[DAGBOEK, other],
+    )
+    items = client.administratie(1).boekjaar(10).dagboeken(code="bank")
+    assert len(items) == 1
+    dagboek = items[0]
+    assert dagboek.id == 20
+    assert dagboek.naam == "Bankboek"
+    assert dagboek._boekjaar_id == 10
+
+
 # ── Scope error tests ──────────────────────────────────────────────────────────
 
 
@@ -286,6 +310,18 @@ def test_boekjaar_grootboekrekeningen_scope_error():
     bj = client_free_boekjaar()
     try:
         bj.grootboekrekeningen()
+        assert False
+    except ScopeError:
+        pass
+
+
+def test_boekjaar_dagboeken_scope_error():
+    """Boekjaar without client raises ScopeError when calling dagboeken()."""
+    from mboek._exceptions import ScopeError
+
+    bj = client_free_boekjaar()
+    try:
+        bj.dagboeken()
         assert False
     except ScopeError:
         pass

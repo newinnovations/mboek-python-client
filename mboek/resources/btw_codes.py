@@ -41,6 +41,7 @@ class BtwCodesResource(BaseResource):
         *,
         id: int | None = None,
         code: str | None = None,
+        soort: BtwSoort | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> builtins.list[BtwCode]:
@@ -54,7 +55,7 @@ class BtwCodesResource(BaseResource):
         Returns:
             List sorted by code ascending.
         """
-        filtered = id is not None or code is not None
+        filtered = id is not None or code is not None or soort is not None
         items = [
             parse_btw_code(d)
             for d in self._get_paginated(
@@ -68,6 +69,8 @@ class BtwCodesResource(BaseResource):
         if code is not None:
             code_upper = code.upper()
             items = [item for item in items if item.code.upper() == code_upper]
+        if soort is not None:
+            items = [item for item in items if item.soort == soort]
         if filtered:
             return self._slice_items(items, limit=limit, offset=offset)
         return items

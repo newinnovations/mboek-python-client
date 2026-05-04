@@ -18,13 +18,14 @@ class Boekjaar:
 
     This is a *rich domain object*: it always carries all data attributes and
     optionally holds a client reference that unlocks scope-specific operations
-    such as :py:attr:`reports`, :py:attr:`btw_aangifte`, and
-    :py:meth:`dagboek`.
+    such as :py:attr:`reports`, :py:attr:`btw_aangifte`,
+    :py:meth:`dagboeken`, and :py:meth:`dagboek`.
 
     Obtain a fully-scoped instance via the admin scope helper::
 
         boekjaar = client.administratie(1).boekjaar(name="2024")
         boekjaar.reports.balans()
+        boekjaar.dagboeken(code="BANK")[0].boekingen.list()
         boekjaar.dagboek(code="BANK").boekingen.list()
 
     A ``Boekjaar`` obtained from :py:meth:`~mboek.resources.boekjaren.BoekjarenResource.list`
@@ -158,6 +159,42 @@ class Boekjaar:
             raise NotFoundError(f"Grootboekrekening with code '{code}' not found")
         return found
 
+    def dagboeken(
+        self,
+        *,
+        id: int | None = None,
+        name: str | None = None,
+        code: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> "list[Dagboek]":
+        """Return dagboeken for this boekjaar, each scoped to it.
+
+        All filters are exact matches and are combined with ``AND`` semantics.
+        The ``code`` filter is case-insensitive.
+
+        Args:
+            limit: Maximum number of dagboeken to return. When omitted, all
+                backend pages are fetched automatically.
+            offset: Number of dagboeken to skip before collecting results.
+
+        Raises:
+            :py:class:`~mboek._exceptions.ScopeError`: No client reference.
+        """
+        client = self._require_client("dagboeken()")
+        from mboek.resources.dagboeken import DagboekenResource
+
+        return [
+            dagboek.with_boekjaar(id=self.id)
+            for dagboek in DagboekenResource(client, self.administratie_id).list(
+                id=id,
+                name=name,
+                code=code,
+                limit=limit,
+                offset=offset,
+            )
+        ]
+
     def dagboek(
         self,
         id: int | None = None,
@@ -188,10 +225,10 @@ class Boekjaar:
 
         dagboeken = DagboekenResource(client, self.administratie_id)
         if id is not None:
-            found = dagboeken.get(id)
+            found = dagboeken.get(id).with_boekjaar(id=self.id)
         elif name is not None:
             found = dagboeken._require_single_match(
-                dagboeken.list(name=name),
+                self.dagboeken(name=name),
                 not_found_message=f"Dagboek '{name}' not found",
                 multiple_message=f"Multiple dagboeken named '{name}' found",
             )
@@ -199,11 +236,11 @@ class Boekjaar:
             if code is None:
                 raise AssertionError("dagboek() could not resolve dagboek filters")
             found = dagboeken._require_single_match(
-                dagboeken.list(code=code),
+                self.dagboeken(code=code),
                 not_found_message=f"Dagboek with code '{code}' not found",
                 multiple_message=f"Multiple dagboeken with code '{code}' found",
             )
-        return found.with_boekjaar(id=self.id)
+        return found
 
     # ── Dunder helpers ────────────────────────────────────────────────────────
 

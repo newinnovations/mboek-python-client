@@ -35,12 +35,11 @@ with MboekClient("http://localhost:3000", "admin", "geheim") as client:
     bj = a.boekjaar(boekjaar.id)
     # or by name:  bj = a.boekjaar(name=boekjaar.naam)
 
-    # List journals
-    dagboeken = a.dagboeken.list()
-    bank = next(d for d in dagboeken if d.dagboek_type.value == "bank")
+    # List boekjaar-scoped journals
+    bank = bj.dagboeken(code="BANK")[0]
 
     # List journal entries for the bank dagboek in this boekjaar
-    entries = bj.dagboek(bank.id).boekingen.list()
+    entries = bank.boekingen.list()
     for entry in entries[:5]:
         print(f"  {entry.boeking.datum}  {entry.boeking.omschrijving}")
 
@@ -80,6 +79,7 @@ MboekClient
         ├── btw_aangifte              ← quarterly VAT returns
         ├── grootboekrekeningen()     ← all accounts with balance for this year
         ├── grootboekrekening(code=)  ← single account with balance, by code
+        ├── dagboeken()               ← all journals scoped to this year
         └── dagboek(id|name=|code=)  →  Dagboek  (boekjaar-scoped)
             └── boekingen     ← list / create
 ```

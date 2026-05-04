@@ -208,3 +208,56 @@ class AdministratieScope:
             not_found_message=f"Dagboek with code '{code}' not found",
             multiple_message=f"Multiple dagboeken with code '{code}' found",
         )
+
+    # ── Grootboekrekening scope ───────────────────────────────────────────────
+
+    def grootboekrekening(
+        self,
+        id: int | None = None,
+        *,
+        code: str | None = None,
+        naam: str | None = None,
+    ) -> "Grootboekrekening":
+        """Return a :py:class:`~mboek.models.grootboekrekeningen.Grootboekrekening` for this administratie.
+
+        Pass the numeric ``id`` (one HTTP call to fetch data), a ``code``, or a ``naam`` to look up by exact code or name::
+
+            rekening = admin.grootboekrekening(30)
+            rekening = admin.grootboekrekening(code="1200")
+            rekening = admin.grootboekrekening(naam="Bank")
+
+        The returned :py:class:`~mboek.models.grootboekrekeningen.Grootboekrekening` is fully-populated and carries a client
+        reference, so scope-specific methods (``transacties``, etc.) work directly on it.
+
+        Args:
+            id: Grootboekrekening ID. Makes one GET request to fetch data.
+            code: Exact grootboekrekening code, e.g. ``"1200"`` (case-sensitive). Performs a list lookup.
+            naam: Exact grootboekrekening name, e.g. ``"Bank"`` (case-sensitive). Performs a list lookup.
+
+        Raises:
+            :py:class:`~mboek._exceptions.NotFoundError`: ``code`` or ``naam``
+                given but no matching grootboekrekening found.
+            :py:exc:`ValueError`: None or more than one of the arguments
+                provided.
+        """
+        provided = sum(x is not None for x in [id, code, naam])
+        if provided != 1:
+            raise ValueError("Provide exactly one of: id, code, naam")
+        if id is not None:
+            return self.grootboekrekeningen.get(id)
+        if code is not None:
+            found = self.grootboekrekeningen._require_single_match(
+                self.grootboekrekeningen.list(code=code),
+                not_found_message=f"Grootboekrekening with code '{code}' not found",
+                multiple_message=f"Multiple grootboekrekeningen with code '{code}' found",
+            )
+            return found
+        if naam is None:
+            raise AssertionError(
+                "grootboekrekening() could not resolve grootboekrekening filters"
+            )
+        return self.grootboekrekeningen._require_single_match(
+            self.grootboekrekeningen.list(naam=naam),
+            not_found_message=f"Grootboekrekening named '{naam}' not found",
+            multiple_message=f"Multiple grootboekrekeningen named '{naam}' found",
+        )

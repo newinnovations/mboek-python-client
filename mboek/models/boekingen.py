@@ -193,6 +193,36 @@ class Boeking:
             regels=regels,
         )
 
+    def regels_as_new(self) -> list[NewBoekingsregel]:
+        """Return the regels of this boeking as a list of :py:class:`NewBoekingsregel`.
+
+        This is useful for passing the existing regels to :py:meth:`update()` or
+        for creating a new boeking with the same regels.
+
+        Note that the returned regels have their ``grootboekrekening_id`` set but
+        not the ``grootboekrekening_naam`` or ``grootboekrekening_code``, so they
+        are not fully interchangeable with regels from other sources (e.g. a
+        different boeking or a user input form) without additional resolution.
+        """
+        return [
+            NewBoekingsregel(
+                omschrijving=regel.omschrijving,
+                bedrag=regel.bedrag,
+                grootboekrekening_id=regel.grootboekrekening_id,
+                btw_code_id=regel.btw_code_id,
+                regeltype=regel.regeltype,
+                netto_ref=next(
+                    (
+                        idx
+                        for idx, r in enumerate(self.regels)
+                        if r.id == regel.netto_id
+                    ),
+                    None,
+                ),  # determine netto_ref by matching netto_id to the index of the corresponding netto regel
+            )
+            for regel in self.regels
+        ]
+
     # ── Dunder helpers ────────────────────────────────────────────────────────
 
     def __repr__(self) -> str:
