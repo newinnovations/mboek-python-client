@@ -270,6 +270,132 @@ def test_list_filters_use_cache(mocked_responses, client):
     assert len(gbr_calls) == 1
 
 
+def test_create_invalidates_cache(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=GROOTBOEKREKENING,
+        status=201,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+
+    gbr = client.administratie(1).grootboekrekeningen
+    gbr.list()
+    gbr.create(
+        code="1220",
+        naam="Bank",
+        rekening_type=RekeningType.ACTIVA,
+        categorie=RekeningCategorie.BALANS,
+    )
+    gbr.list()
+
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
+    ]
+    assert len(gbr_calls) == 3
+
+
+def test_update_invalidates_cache(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    mocked_responses.add(
+        responses.PATCH,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+
+    gbr = client.administratie(1).grootboekrekeningen
+    gbr.list()
+    gbr.update(30, naam="Bank")
+    gbr.list()
+
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
+    ]
+    assert len(gbr_calls) == 3
+
+
+def test_delete_invalidates_cache(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    mocked_responses.add(
+        responses.DELETE,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        status=204,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+
+    gbr = client.administratie(1).grootboekrekeningen
+    gbr.list()
+    gbr.delete(30)
+    gbr.list()
+
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
+    ]
+    assert len(gbr_calls) == 3
+
+
+def test_seed_rgs_invalidates_cache(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/seed-rgs",
+        status=204,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+
+    gbr = client.administratie(1).grootboekrekeningen
+    gbr.list()
+    gbr.seed_rgs()
+    gbr.list()
+
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if "grootboekrekeningen" in c.request.url and "met-saldo" not in c.request.url
+    ]
+    assert len(gbr_calls) == 3
+
+
 # ── Unified domain object tests ───────────────────────────────────────────────
 
 

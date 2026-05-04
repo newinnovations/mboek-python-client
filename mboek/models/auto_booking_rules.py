@@ -17,7 +17,7 @@ class AutoBookingRuleLine:
         id: Unique database identifier.
         rule_id: ID of the parent rule.
         volgorde: Sort order within the rule.
-        grootboekrekening_id: The contra account to book to.
+        tegenrekening_id: The contra account to book to.
         btw_code_id: Optional BTW code to apply.
         omschrijving: Optional line description override.
         bedrag_type: ``vast`` (fixed amount) or ``rest`` (remainder).
@@ -27,7 +27,7 @@ class AutoBookingRuleLine:
     id: int
     rule_id: int
     volgorde: int
-    grootboekrekening_id: int
+    tegenrekening_id: int
     btw_code_id: int | None
     omschrijving: str | None
     bedrag_type: AutoBookingBedragType
@@ -48,9 +48,11 @@ class AutoBookingRule:
         prioriteit: Sort priority (lower = evaluated first).
         actief: Whether the rule is enabled.
         actie_type: ``enkel`` (single contra account) or ``splits`` (multiple accounts).
-        eigen_iban_patroon: Regex matched against the dagboek's own IBAN.
-        tegenpartij_iban_patroon: Regex matched against the counterparty IBAN.
-        omschrijving_patroon: Regex matched against the transaction description.
+        btw_code_id: Optional BTW code for simple ``enkel`` rules.
+        iban_eigen: Regex matched against the dagboek's own IBAN.
+        iban_tegenpartij: Regex matched against the counterparty IBAN.
+        omschrijving_regex: Regex matched against the transaction description.
+        tegenrekening_id: Optional contra account for simple ``enkel`` rules.
         lines: The action lines to execute when the rule matches.
         created_at: Creation timestamp (UTC).
         updated_at: Last-update timestamp (UTC).
@@ -62,9 +64,11 @@ class AutoBookingRule:
     prioriteit: int
     actief: bool
     actie_type: AutoBookingActieType
-    eigen_iban_patroon: str | None
-    tegenpartij_iban_patroon: str | None
-    omschrijving_patroon: str | None
+    btw_code_id: int | None
+    iban_eigen: str | None
+    iban_tegenpartij: str | None
+    omschrijving_regex: str | None
+    tegenrekening_id: int | None
     lines: list[AutoBookingRuleLine]
     created_at: datetime
     updated_at: datetime
@@ -74,24 +78,24 @@ class AutoBookingRule:
 class NewAutoBookingRuleLine:
     """A line for a new or updated automatic booking rule.
 
-    Exactly one of ``grootboekrekening_id``, ``grootboekrekening_naam``, or
-    ``grootboekrekening_code`` must be provided.  When a name or code is
+    Exactly one of ``tegenrekening_id``, ``tegenrekening_naam``, or
+    ``tegenrekening_code`` must be provided.  When a name or code is
     supplied the resource layer resolves it to an ID before sending the request.
 
     Attributes:
         bedrag_type: ``vast`` or ``rest``.
-        grootboekrekening_id: Contra account (numeric ID).
-        grootboekrekening_naam: Account name — alternative to ``grootboekrekening_id``.
-        grootboekrekening_code: Account code — alternative to ``grootboekrekening_id``.
+        tegenrekening_id: Contra account (numeric ID).
+        tegenrekening_naam: Account name — alternative to ``tegenrekening_id``.
+        tegenrekening_code: Account code — alternative to ``tegenrekening_id``.
         btw_code_id: Optional BTW code.
         omschrijving: Optional description override.
         bedrag: Fixed amount in euros (required when ``bedrag_type == "vast"``).
     """
 
     bedrag_type: AutoBookingBedragType = AutoBookingBedragType.REST
-    grootboekrekening_id: int | None = None
-    grootboekrekening_naam: str | None = None
-    grootboekrekening_code: str | None = None
+    tegenrekening_id: int | None = None
+    tegenrekening_naam: str | None = None
+    tegenrekening_code: str | None = None
     btw_code_id: int | None = None
     omschrijving: str | None = None
     bedrag: Decimal | None = None
@@ -100,30 +104,30 @@ class NewAutoBookingRuleLine:
         provided = sum(
             x is not None
             for x in [
-                self.grootboekrekening_id,
-                self.grootboekrekening_naam,
-                self.grootboekrekening_code,
+                self.tegenrekening_id,
+                self.tegenrekening_naam,
+                self.tegenrekening_code,
             ]
         )
         if provided == 0:
             raise ValueError(
-                "Provide exactly one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
+                "Provide exactly one of: tegenrekening_id, tegenrekening_naam, tegenrekening_code"
             )
         if provided > 1:
             raise ValueError(
-                "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
+                "Provide only one of: tegenrekening_id, tegenrekening_naam, tegenrekening_code"
             )
         if self.bedrag_type == AutoBookingBedragType.VAST and self.bedrag is None:
             raise ValueError("bedrag is required when bedrag_type is 'vast'")
 
     def to_dict(self) -> dict:
-        if self.grootboekrekening_id is None:
+        if self.tegenrekening_id is None:
             raise ValueError(
-                "grootboekrekening_id is not yet resolved; the resource should have resolved "
-                "grootboekrekening_naam / grootboekrekening_code before calling to_dict()"
+                "tegenrekening_id is not yet resolved; the resource should have resolved "
+                "tegenrekening_naam / tegenrekening_code before calling to_dict()"
             )
         d: dict = {
-            "grootboekrekening_id": self.grootboekrekening_id,
+            "tegenrekening_id": self.tegenrekening_id,
             "bedrag_type": self.bedrag_type.value,
         }
         if self.btw_code_id is not None:

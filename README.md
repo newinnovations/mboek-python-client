@@ -69,8 +69,8 @@ MboekClient
     ├── dagboek(id|name=|code=)  →  Dagboek  (rich domain object, no boekjaar scope)
     │   ├── naam, code, dagboek_type, …  ← always available
     │   ├── rerun_regels()
-    │   ├── suggest(boeking_id)
-    │   ├── import_boekingen(boekingen)
+    │   ├── suggest(omschrijving, ...)
+    │   ├── import_boekingen(boekingen, boekjaar_id=...)
     │   └── with_boekjaar(id=|name=)  →  Dagboek  (boekjaar-scoped)
     │       └── boekingen     ← list / create
     └── boekjaar(id|name=)  →  Boekjaar  (rich domain object)
@@ -338,7 +338,8 @@ for entry in entries:
 (all optional): `datum`, `omschrijving`, `stuknummer`, `status`,
 `tegenpartij_naam`, `tegenpartij_iban`, `gecontroleerd`, `auto_geboekt`, and
 `regels` (full replacement set of boekingsregels).  It returns a fresh
-`Boeking` with the updated data.
+`Boeking` with the updated data. Pass `None` explicitly to clear a nullable
+field; omit a keyword to leave it unchanged.
 
 `delete()` permanently removes the boeking and all its boekingsregels.
 
@@ -451,13 +452,28 @@ a = client.administratie(admin_id)
 rule = a.auto_booking_rules.create(
     naam="Hosting Duitsland",
     actie_type=AutoBookingActieType.ENKEL,
-    tegenpartij_iban_patroon="DE75512308000000060004",
-    lines=[...],
+    iban_tegenpartij="DE75512308000000060004",
+    tegenrekening_code="4000",
 )
 
-# Re-apply all rules to unprocessed entries in a dagboek (year-agnostic)
+# Ask the backend for matching contra-accounts
+suggestions = a.dagboek(bank_dagboek_id).suggest(
+    "SEPA INCASSO HOSTING GMBH",
+    tegenpartij_naam="Hosting GmbH",
+)
+print(suggestions[0].contra_rekening_code, suggestions[0].confidence, suggestions[0].reason)
+
+# Import exported boekingen into a dagboek + boekjaar
+result = a.dagboek(bank_dagboek_id).import_boekingen(
+    exported_boekingen,
+    boekjaar_id=boekjaar_id,
+)
+print(result.dagboek_id, result.boekingen_imported)
+
+# Re-apply all rules to unprocessed entries in a dagboek (year-agnostic).
+# The method returns the number of updated boekingen.
 updated = a.dagboek(bank_dagboek_id).rerun_regels()
-print(f"Auto-booked {len(updated)} entries")
+print(f"Auto-booked {updated} entries")
 ```
 
 ## Reports
@@ -500,10 +516,14 @@ except NotFoundError:
 All HTTP exceptions expose:
 
 - `e.status_code` — HTTP status code
-- `e.detail` — parsed response body (dict or str)
+- `e.detail` — parsed response body, response text, or the underlying transport/parsing error
 
 `ScopeError` (a subclass of `ValueError`) is raised when a scope-dependent
 method is called without the required scope context and has no `status_code`.
+
+`MboekError` is also the base class for transport failures and malformed JSON
+responses, so `except MboekError` is the catch-all for client-side request /
+response failures.
 
 ## Dutch accounting glossary
 

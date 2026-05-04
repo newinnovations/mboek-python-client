@@ -6,6 +6,7 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 from mboek._parsers import parse_boeking_met_regels
+from mboek._unset import UNSET, UnsetType
 from mboek.models._enums import BoekingStatus
 from mboek.models.boekingen import Boeking
 from mboek.resources._base import BaseResource
@@ -48,21 +49,23 @@ class BoekingenResource(BaseResource):
         self,
         id: int,
         *,
-        datum: date | None = None,
-        omschrijving: str | None = None,
-        stuknummer: str | None = None,
-        status: BoekingStatus | None = None,
-        tegenpartij_naam: str | None = None,
-        tegenpartij_iban: str | None = None,
-        gecontroleerd: bool | None = None,
-        auto_geboekt: bool | None = None,
-        regels: "list[NewBoekingsregel] | None" = None,
+        datum: date | None | UnsetType = UNSET,
+        omschrijving: str | None | UnsetType = UNSET,
+        stuknummer: str | None | UnsetType = UNSET,
+        status: BoekingStatus | None | UnsetType = UNSET,
+        tegenpartij_naam: str | None | UnsetType = UNSET,
+        tegenpartij_iban: str | None | UnsetType = UNSET,
+        gecontroleerd: bool | None | UnsetType = UNSET,
+        auto_geboekt: bool | None | UnsetType = UNSET,
+        regels: "list[NewBoekingsregel] | None | UnsetType" = UNSET,
     ) -> Boeking:
         """Update a boeking's header fields and optionally replace all regels.
 
         If ``regels`` is provided the existing regels are deleted and the new
         set is inserted atomically. Manually editing regels automatically
         clears the ``auto_geboekt`` and ``gecontroleerd`` flags.
+        Pass ``None`` explicitly to clear a nullable field; omit a keyword to
+        leave it unchanged.
 
         Args:
             id: Boeking ID.
@@ -80,24 +83,19 @@ class BoekingenResource(BaseResource):
             The updated boeking.
         """
         data: dict = {}
-        if datum is not None:
-            data["datum"] = datum.isoformat()
-        if omschrijving is not None:
-            data["omschrijving"] = omschrijving
-        if stuknummer is not None:
-            data["stuknummer"] = stuknummer
-        if status is not None:
-            data["status"] = status.value
-        if tegenpartij_naam is not None:
-            data["tegenpartij_naam"] = tegenpartij_naam
-        if tegenpartij_iban is not None:
-            data["tegenpartij_iban"] = tegenpartij_iban
-        if gecontroleerd is not None:
-            data["gecontroleerd"] = gecontroleerd
-        if auto_geboekt is not None:
-            data["auto_geboekt"] = auto_geboekt
-        if regels is not None:
-            data["regels"] = [r.to_dict() for r in regels]
+        self._set_patch_date(data, "datum", datum)
+        self._set_patch_value(data, "omschrijving", omschrijving)
+        self._set_patch_value(data, "stuknummer", stuknummer)
+        self._set_patch_enum(data, "status", status)
+        self._set_patch_value(data, "tegenpartij_naam", tegenpartij_naam)
+        self._set_patch_value(data, "tegenpartij_iban", tegenpartij_iban)
+        self._set_patch_value(data, "gecontroleerd", gecontroleerd)
+        self._set_patch_value(data, "auto_geboekt", auto_geboekt)
+        if not isinstance(regels, UnsetType):
+            if regels is None:
+                data["regels"] = None
+            else:
+                data["regels"] = [r.to_dict() for r in regels]
         return parse_boeking_met_regels(
             self._patch(f"/api/boekingen/{id}", json=data), client=self._client
         )

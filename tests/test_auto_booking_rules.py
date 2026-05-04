@@ -19,15 +19,17 @@ AUTO_BOOKING_RULE = {
     "prioriteit": 10,
     "actief": True,
     "actie_type": "enkel",
-    "eigen_iban_patroon": None,
-    "tegenpartij_iban_patroon": None,
-    "omschrijving_patroon": "KOSTEN",
+    "btw_code_id": None,
+    "iban_eigen": None,
+    "iban_tegenpartij": None,
+    "omschrijving_regex": "KOSTEN",
+    "tegenrekening_id": 30,
     "lines": [
         {
             "id": 1,
             "rule_id": 70,
             "volgorde": 1,
-            "grootboekrekening_id": 30,
+            "tegenrekening_id": 30,
             "btw_code_id": None,
             "omschrijving": "Bank costs",
             "bedrag_type": "rest",
@@ -81,12 +83,13 @@ def test_list_parses_all_fields(mocked_responses, client):
     assert rule.prioriteit == 10
     assert rule.actief is True
     assert rule.actie_type == AutoBookingActieType.ENKEL
-    assert rule.omschrijving_patroon == "KOSTEN"
-    assert rule.eigen_iban_patroon is None
-    assert rule.tegenpartij_iban_patroon is None
+    assert rule.omschrijving_regex == "KOSTEN"
+    assert rule.iban_eigen is None
+    assert rule.iban_tegenpartij is None
+    assert rule.tegenrekening_id == 30
     assert len(rule.lines) == 1
     line = rule.lines[0]
-    assert line.grootboekrekening_id == 30
+    assert line.tegenrekening_id == 30
     assert line.bedrag_type == AutoBookingBedragType.REST
     assert line.bedrag is None
 
@@ -99,14 +102,14 @@ def test_create(mocked_responses, client):
         status=201,
     )
     line = NewAutoBookingRuleLine(
-        grootboekrekening_id=30, bedrag_type=AutoBookingBedragType.REST
+        tegenrekening_id=30, bedrag_type=AutoBookingBedragType.REST
     )
     rule = client.administratie(1).auto_booking_rules.create(
         naam="Bank costs",
         actie_type=AutoBookingActieType.ENKEL,
         lines=[line],
         prioriteit=10,
-        omschrijving_patroon="KOSTEN",
+        omschrijving_regex="KOSTEN",
     )
     assert rule.id == 70
     assert rule.naam == "Bank costs"
@@ -114,8 +117,8 @@ def test_create(mocked_responses, client):
     assert body["naam"] == "Bank costs"
     assert body["actie_type"] == "enkel"
     assert body["prioriteit"] == 10
-    assert body["omschrijving_patroon"] == "KOSTEN"
-    assert body["lines"][0]["grootboekrekening_id"] == 30
+    assert body["omschrijving_regex"] == "KOSTEN"
+    assert body["lines"][0]["tegenrekening_id"] == 30
 
 
 def test_create_with_rekening_naam_resolves_id(mocked_responses, client):
@@ -131,7 +134,7 @@ def test_create_with_rekening_naam_resolves_id(mocked_responses, client):
         status=201,
     )
     line = NewAutoBookingRuleLine(
-        grootboekrekening_naam="Bank", bedrag_type=AutoBookingBedragType.REST
+        tegenrekening_naam="Bank", bedrag_type=AutoBookingBedragType.REST
     )
     rule = client.administratie(1).auto_booking_rules.create(
         naam="Bank costs",
@@ -140,24 +143,54 @@ def test_create_with_rekening_naam_resolves_id(mocked_responses, client):
     )
     assert rule.id == 70
     body = json.loads(mocked_responses.calls[-1].request.body)
-    assert body["lines"][0]["grootboekrekening_id"] == 30
+    assert body["lines"][0]["tegenrekening_id"] == 30
+
+
+def test_create_simple_enkel_rule_without_lines(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/regels",
+        json=AUTO_BOOKING_RULE,
+        status=201,
+    )
+
+    rule = client.administratie(1).auto_booking_rules.create(
+        naam="Bank costs",
+        actie_type=AutoBookingActieType.ENKEL,
+        tegenrekening_id=30,
+        btw_code_id=50,
+        iban_tegenpartij="DE75512308000000060004",
+    )
+
+    assert rule.id == 70
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body["tegenrekening_id"] == 30
+    assert body["btw_code_id"] == 50
+    assert body["iban_tegenpartij"] == "DE75512308000000060004"
+    assert "lines" not in body
 
 
 def test_update(mocked_responses, client):
-    updated = {**AUTO_BOOKING_RULE, "naam": "Updated name", "prioriteit": 5}
+    updated = {
+        **AUTO_BOOKING_RULE,
+        "naam": "Updated name",
+        "prioriteit": 5,
+        "omschrijving_regex": "UPDATED",
+    }
     mocked_responses.add(
         responses.PATCH,
         f"{BASE_URL}/api/administraties/1/regels/70",
         json=updated,
     )
     rule = client.administratie(1).auto_booking_rules.update(
-        70, naam="Updated name", prioriteit=5
+        70, naam="Updated name", prioriteit=5, omschrijving_regex="UPDATED"
     )
     assert rule.naam == "Updated name"
     assert rule.prioriteit == 5
     body = json.loads(mocked_responses.calls[-1].request.body)
     assert body["naam"] == "Updated name"
     assert body["prioriteit"] == 5
+    assert body["omschrijving_regex"] == "UPDATED"
 
 
 def test_update_not_found(mocked_responses, client):

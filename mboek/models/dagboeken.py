@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from mboek._exceptions import MboekError
 from mboek.models._enums import DagboekType
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.models.boekingen import Boeking
-    from mboek.models.export_import import MatchSuggestion
+    from mboek.models.export_import import BoekingenImportResult, MatchSuggestion
 
 
 class Dagboek:
@@ -151,6 +151,57 @@ class Dagboek:
 
     # ── Scoped operations ─────────────────────────────────────────────────────
 
+    def _require_client(self, operation: str) -> "MboekClient":
+        from mboek._exceptions import ScopeError
+
+        if self._client is None:
+            raise ScopeError(f"{operation} requires a client reference.")
+        return self._client
+
+    def _resolve_import_boekjaar_id(
+        self,
+        *,
+        boekjaar_id: int | None = None,
+        boekjaar_name: str | None = None,
+    ) -> int:
+        from mboek._exceptions import ScopeError
+        from mboek.resources.boekjaren import BoekjarenResource
+
+        provided = sum(x is not None for x in [boekjaar_id, boekjaar_name])
+        if provided > 1:
+            raise ValueError("Provide only one of: boekjaar_id, boekjaar_name")
+        if boekjaar_id is not None:
+            return boekjaar_id
+        if boekjaar_name is not None:
+            client = self._require_client("import_boekingen()")
+            boekjaren = BoekjarenResource(client, self.administratie_id)
+            found = boekjaren._require_single_match(
+                boekjaren.list(name=boekjaar_name),
+                not_found_message=f"Boekjaar '{boekjaar_name}' not found",
+                multiple_message=f"Multiple boekjaren named '{boekjaar_name}' found",
+            )
+            return found.id
+        if self._boekjaar_id is None:
+            raise ScopeError(
+                "import_boekingen() requires a boekjaar scope or an explicit "
+                "boekjaar_id/boekjaar_name."
+            )
+        return self._boekjaar_id
+
+    @staticmethod
+    def _require_list_response(data: Any, *, operation: str) -> list[dict]:
+        if not isinstance(data, list):
+            raise MboekError(f"{operation} expected a JSON array response", detail=data)
+        return data
+
+    @staticmethod
+    def _require_dict_response(data: Any, *, operation: str) -> dict[str, Any]:
+        if not isinstance(data, dict):
+            raise MboekError(
+                f"{operation} expected a JSON object response", detail=data
+            )
+        return data
+
     @property
     def boekingen(self):
         """Scoped boekingen resource for this dagboek and boekjaar.
@@ -178,25 +229,25 @@ class Dagboek:
             self._client, self.administratie_id, self._boekjaar_id, self.id
         )
 
-    def rerun_regels(self) -> "list[Boeking]":
+    def rerun_regels(self) -> int:
         """Re-apply all active auto-booking rules to unprocessed boekingen.
 
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No client reference.
         """
-        from mboek._exceptions import ScopeError
-
-        if self._client is None:
-            raise ScopeError("rerun_regels() requires a client reference.")
-        from mboek._parsers import parse_boeking_met_regels
-
-        data = self._client._request(
+        client = self._require_client("rerun_regels()")
+        data = client._request(
             "POST",
             f"/api/administraties/{self.administratie_id}/dagboeken/{self.id}/rerun-regels",
         )
-        if isinstance(data, list):
-            return [parse_boeking_met_regels(d, client=self._client) for d in data]
-        return []
+        payload = self._require_dict_response(data, operation="rerun_regels()")
+        updated = payload.get("updated")
+        if not isinstance(updated, int):
+            raise MboekError(
+                "rerun_regels() expected an integer 'updated' field",
+                detail=payload,
+            )
+        return updated
 
     def suggest(
         self,
@@ -218,10 +269,7 @@ class Dagboek:
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No client reference.
         """
-        from mboek._exceptions import ScopeError
-
-        if self._client is None:
-            raise ScopeError("suggest() requires a client reference.")
+        client = self._require_client("suggest()")
         from mboek._parsers import parse_match_suggestion
 
         body: dict = {"omschrijving": omschrijving}
@@ -230,38 +278,59 @@ class Dagboek:
         if tegenpartij_naam is not None:
             body["tegenpartij_naam"] = tegenpartij_naam
 
-        data = self._client._request(
+        data = client._request(
             "POST",
             f"/api/administraties/{self.administratie_id}/dagboeken/{self.id}/suggest",
             json=body,
         )
-        if isinstance(data, list):
-            return [parse_match_suggestion(d) for d in data]
-        return []
+        payload = self._require_list_response(data, operation="suggest()")
+        try:
+            return [parse_match_suggestion(d) for d in payload]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MboekError(
+                "suggest() returned an unexpected response payload",
+                detail=payload,
+            ) from exc
 
-    def import_boekingen(self, boekingen: list[dict]) -> "list[Boeking]":
+    def import_boekingen(
+        self,
+        boekingen: list[dict],
+        *,
+        boekjaar_id: int | None = None,
+        boekjaar_name: str | None = None,
+    ) -> "BoekingenImportResult":
         """Import a list of exported boekingen into this dagboek.
 
         Args:
             boekingen: List of boeking payloads.
+            boekjaar_id: Target boekjaar ID. When omitted, the current
+                boekjaar scope is used.
+            boekjaar_name: Target boekjaar name. Requires a client reference.
 
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No client reference.
         """
-        from mboek._exceptions import ScopeError
+        client = self._require_client("import_boekingen()")
+        from mboek._parsers import parse_boekingen_import_result
 
-        if self._client is None:
-            raise ScopeError("import_boekingen() requires a client reference.")
-        from mboek._parsers import parse_boeking_met_regels
-
-        data = self._client._request(
+        resolved_boekjaar_id = self._resolve_import_boekjaar_id(
+            boekjaar_id=boekjaar_id,
+            boekjaar_name=boekjaar_name,
+        )
+        data = client._request(
             "POST",
             f"/api/administraties/{self.administratie_id}/dagboeken/{self.id}/boekingen/import",
-            json=boekingen,
+            params={"boekjaar_id": resolved_boekjaar_id},
+            json={"boekingen": boekingen},
         )
-        if isinstance(data, list):
-            return [parse_boeking_met_regels(d, client=self._client) for d in data]
-        return []
+        payload = self._require_dict_response(data, operation="import_boekingen()")
+        try:
+            return parse_boekingen_import_result(payload)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MboekError(
+                "import_boekingen() returned an unexpected response payload",
+                detail=payload,
+            ) from exc
 
     # ── Dunder helpers ────────────────────────────────────────────────────────
 

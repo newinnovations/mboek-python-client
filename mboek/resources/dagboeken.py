@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 
 from mboek._parsers import parse_dagboek, parse_werkstatus
+from mboek._unset import UNSET, UnsetType
 from mboek.models._enums import DagboekType
 from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.resources._base import BaseResource
@@ -116,14 +117,12 @@ class DagboekenResource(BaseResource):
             raise ValueError(
                 "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
             )
-        if grootboekrekening_id is None and (
-            grootboekrekening_naam or grootboekrekening_code
-        ):
-            grootboekrekening_id = self._resolve_rekening_id(
-                self._admin_id,
-                naam=grootboekrekening_naam,
-                code=grootboekrekening_code,
-            )
+        grootboekrekening_id = self._resolve_rekening_reference(
+            self._admin_id,
+            id_value=grootboekrekening_id,
+            name_value=grootboekrekening_naam,
+            code_value=grootboekrekening_code,
+        )
         data: dict = {
             "code": code,
             "naam": naam,
@@ -142,19 +141,21 @@ class DagboekenResource(BaseResource):
         self,
         id: int,
         *,
-        code: str | None = None,
-        naam: str | None = None,
-        dagboek_type: DagboekType | None = None,
-        grootboekrekening_id: int | None = None,
-        grootboekrekening_naam: str | None = None,
-        grootboekrekening_code: str | None = None,
-        iban: str | None = None,
+        code: str | None | UnsetType = UNSET,
+        naam: str | None | UnsetType = UNSET,
+        dagboek_type: DagboekType | None | UnsetType = UNSET,
+        grootboekrekening_id: int | None | UnsetType = UNSET,
+        grootboekrekening_naam: str | None | UnsetType = UNSET,
+        grootboekrekening_code: str | None | UnsetType = UNSET,
+        iban: str | None | UnsetType = UNSET,
     ) -> Dagboek:
         """Partially update a dagboek.
 
         At most one of ``grootboekrekening_id``, ``grootboekrekening_naam``, or
         ``grootboekrekening_code`` may be provided.  When a name or code is supplied
         the ID is resolved automatically.
+        Pass ``None`` explicitly to clear a nullable field; omit a keyword to
+        leave it unchanged.
 
         Args:
             id: Dagboek ID.
@@ -167,36 +168,37 @@ class DagboekenResource(BaseResource):
             iban: New IBAN.
         """
         provided = sum(
-            x is not None
+            x is not UNSET
             for x in [
                 grootboekrekening_id,
-                grootboekrekening_naam,
-                grootboekrekening_code,
+                (
+                    grootboekrekening_naam
+                    if grootboekrekening_naam is not None
+                    else UNSET
+                ),
+                (
+                    grootboekrekening_code
+                    if grootboekrekening_code is not None
+                    else UNSET
+                ),
             ]
         )
         if provided > 1:
             raise ValueError(
                 "Provide only one of: grootboekrekening_id, grootboekrekening_naam, grootboekrekening_code"
             )
-        if grootboekrekening_id is None and (
-            grootboekrekening_naam or grootboekrekening_code
-        ):
-            grootboekrekening_id = self._resolve_rekening_id(
-                self._admin_id,
-                naam=grootboekrekening_naam,
-                code=grootboekrekening_code,
-            )
+        grootboekrekening_id = self._resolve_rekening_reference_patch(
+            self._admin_id,
+            id_value=grootboekrekening_id,
+            name_value=grootboekrekening_naam,
+            code_value=grootboekrekening_code,
+        )
         data: dict = {}
-        if code is not None:
-            data["code"] = code
-        if naam is not None:
-            data["naam"] = naam
-        if dagboek_type is not None:
-            data["dagboek_type"] = dagboek_type.value
-        if grootboekrekening_id is not None:
-            data["grootboekrekening_id"] = grootboekrekening_id
-        if iban is not None:
-            data["iban"] = iban
+        self._set_patch_value(data, "code", code)
+        self._set_patch_value(data, "naam", naam)
+        self._set_patch_enum(data, "dagboek_type", dagboek_type)
+        self._set_patch_value(data, "grootboekrekening_id", grootboekrekening_id)
+        self._set_patch_value(data, "iban", iban)
         return parse_dagboek(
             self._patch(
                 f"/api/administraties/{self._admin_id}/dagboeken/{id}", json=data

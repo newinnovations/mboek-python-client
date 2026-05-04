@@ -25,7 +25,11 @@ from mboek.models.boekjaren import Boekjaar
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
 from mboek.models.btw_codes import BtwCode
 from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
-from mboek.models.export_import import ImportResult, MatchSuggestion
+from mboek.models.export_import import (
+    BoekingenImportResult,
+    ImportResult,
+    MatchSuggestion,
+)
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
 from mboek.models.reports import (
     BalansRegel,
@@ -298,7 +302,7 @@ def parse_auto_booking_rule_line(d: dict) -> AutoBookingRuleLine:
         id=d["id"],
         rule_id=d["rule_id"],
         volgorde=d["volgorde"],
-        grootboekrekening_id=d["grootboekrekening_id"],
+        tegenrekening_id=d["tegenrekening_id"],
         btw_code_id=d.get("btw_code_id"),
         omschrijving=d.get("omschrijving"),
         bedrag_type=AutoBookingBedragType(d["bedrag_type"]),
@@ -314,9 +318,11 @@ def parse_auto_booking_rule(d: dict) -> AutoBookingRule:
         prioriteit=d["prioriteit"],
         actief=d["actief"],
         actie_type=AutoBookingActieType(d["actie_type"]),
-        eigen_iban_patroon=d.get("eigen_iban_patroon"),
-        tegenpartij_iban_patroon=d.get("tegenpartij_iban_patroon"),
-        omschrijving_patroon=d.get("omschrijving_patroon"),
+        btw_code_id=d.get("btw_code_id"),
+        iban_eigen=d.get("iban_eigen"),
+        iban_tegenpartij=d.get("iban_tegenpartij"),
+        omschrijving_regex=d.get("omschrijving_regex"),
+        tegenrekening_id=d.get("tegenrekening_id"),
         lines=[parse_auto_booking_rule_line(ln) for ln in d.get("lines", [])],
         created_at=_require_dt(d["created_at"]),
         updated_at=_require_dt(d["updated_at"]),
@@ -373,12 +379,18 @@ def parse_import_result(d: dict) -> ImportResult:
     )
 
 
+def parse_boekingen_import_result(d: dict) -> BoekingenImportResult:
+    return BoekingenImportResult(
+        dagboek_id=d["dagboek_id"],
+        boekingen_imported=d["boekingen_imported"],
+    )
+
+
 def parse_match_suggestion(d: dict) -> MatchSuggestion:
     return MatchSuggestion(
-        grootboekrekening_id=d["grootboekrekening_id"],
-        code=d["code"],
-        naam=d["naam"],
-        btw_code_id=d.get("btw_code_id"),
-        btw_code=d.get("btw_code"),
-        confidence=Decimal(str(d.get("confidence", 0))),
+        contra_rekening_id=d["contra_rekening_id"],
+        contra_rekening_code=d["contra_rekening_code"],
+        contra_rekening_naam=d["contra_rekening_naam"],
+        confidence=d["confidence"],
+        reason=d["reason"],
     )

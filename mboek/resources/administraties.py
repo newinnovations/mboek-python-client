@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 
 from mboek._parsers import parse_administratie
+from mboek._unset import UNSET, UnsetType
 from mboek.models.administraties import Administratie
 from mboek.resources._base import BaseResource
 
@@ -99,15 +100,18 @@ class AdministratiesResource(BaseResource):
         self,
         id: int,
         *,
-        naam: str | None = None,
-        beschrijving: str | None = None,
-        kvk_nummer: str | None = None,
-        btw_nummer: str | None = None,
-        adres: str | None = None,
-        active: bool | None = None,
-        huidig_boekjaar_id: int | None = None,
+        naam: str | None | UnsetType = UNSET,
+        beschrijving: str | None | UnsetType = UNSET,
+        kvk_nummer: str | None | UnsetType = UNSET,
+        btw_nummer: str | None | UnsetType = UNSET,
+        adres: str | None | UnsetType = UNSET,
+        active: bool | None | UnsetType = UNSET,
+        huidig_boekjaar_id: int | None | UnsetType = UNSET,
     ) -> Administratie:
         """Partially update an administratie.
+
+        Pass ``None`` explicitly to clear a nullable field; omit a keyword to
+        leave it unchanged.
 
         Args:
             id: Administratie ID.
@@ -123,20 +127,13 @@ class AdministratiesResource(BaseResource):
             The updated administratie.
         """
         data: dict = {}
-        if naam is not None:
-            data["naam"] = naam
-        if beschrijving is not None:
-            data["beschrijving"] = beschrijving
-        if kvk_nummer is not None:
-            data["kvk_nummer"] = kvk_nummer
-        if btw_nummer is not None:
-            data["btw_nummer"] = btw_nummer
-        if adres is not None:
-            data["adres"] = adres
-        if active is not None:
-            data["active"] = active
-        if huidig_boekjaar_id is not None:
-            data["huidig_boekjaar_id"] = huidig_boekjaar_id
+        self._set_patch_value(data, "naam", naam)
+        self._set_patch_value(data, "beschrijving", beschrijving)
+        self._set_patch_value(data, "kvk_nummer", kvk_nummer)
+        self._set_patch_value(data, "btw_nummer", btw_nummer)
+        self._set_patch_value(data, "adres", adres)
+        self._set_patch_value(data, "active", active)
+        self._set_patch_value(data, "huidig_boekjaar_id", huidig_boekjaar_id)
         return parse_administratie(self._patch(f"/api/administraties/{id}", json=data))
 
     def delete(self, id: int) -> None:

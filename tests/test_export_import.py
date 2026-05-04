@@ -166,7 +166,9 @@ def test_import_administratie_xaf_from_bytes_stream(mocked_responses, client):
     assert _request_body(call) == XAF_XML
 
 
-def test_import_administratie_xaf_overwrite_and_create_missing(mocked_responses, client):
+def test_import_administratie_xaf_overwrite_and_create_missing(
+    mocked_responses, client
+):
     """Both overwrite and create_missing can be set independently."""
     mocked_responses.add(
         responses.POST,

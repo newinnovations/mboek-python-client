@@ -10,8 +10,9 @@ class MboekError(Exception):
 
     Attributes:
         status_code: HTTP status code returned by the server, or ``None`` for
-            network-level errors.
-        detail: Human-readable error message from the server response body.
+            transport-level failures.
+        detail: Parsed server response detail, raw response text, or the
+            underlying transport/parsing exception.
     """
 
     def __init__(

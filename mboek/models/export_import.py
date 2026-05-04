@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 
 
 @dataclass
@@ -22,6 +21,19 @@ class ImportResult:
 
 
 @dataclass
+class BoekingenImportResult:
+    """Result of importing exported boekingen into a dagboek.
+
+    Attributes:
+        dagboek_id: Target dagboek ID.
+        boekingen_imported: Number of boekingen inserted.
+    """
+
+    dagboek_id: int
+    boekingen_imported: int
+
+
+@dataclass
 class MatchSuggestion:
     """A suggested contra account for an unprocessed bank transaction.
 
@@ -29,23 +41,19 @@ class MatchSuggestion:
     to propose the most likely contra account.
 
     Attributes:
-        grootboekrekening_id: Suggested account ID.
-        code: Account code.
-        naam: Account name.
-        btw_code_id: Suggested BTW code (if any).
-        btw_code: Short BTW code string.
-        confidence: Confidence score (0–1).
+        contra_rekening_id: Suggested contra-account ID.
+        contra_rekening_code: Contra-account code.
+        contra_rekening_naam: Contra-account name.
+        confidence: Non-negative confidence score.
+        reason: Explanation of why the suggestion was returned.
     """
 
-    grootboekrekening_id: int
-    code: str
-    naam: str
-    btw_code_id: int | None
-    btw_code: str | None
-    confidence: Decimal
+    contra_rekening_id: int
+    contra_rekening_code: str
+    contra_rekening_naam: str
+    confidence: int
+    reason: str
 
     def __post_init__(self) -> None:
-        if not (0 <= self.confidence <= 1):
-            raise ValueError(
-                f"confidence must be between 0 and 1, got {self.confidence}"
-            )
+        if self.confidence < 0:
+            raise ValueError(f"confidence must be >= 0, got {self.confidence}")

@@ -7,6 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
+from mboek._unset import UNSET, UnsetType
 from mboek.models._enums import BoekingStatus, Regeltype
 
 if TYPE_CHECKING:
@@ -142,21 +143,23 @@ class Boeking:
     def update(
         self,
         *,
-        datum: date | None = None,
-        omschrijving: str | None = None,
-        stuknummer: str | None = None,
-        status: BoekingStatus | None = None,
-        tegenpartij_naam: str | None = None,
-        tegenpartij_iban: str | None = None,
-        gecontroleerd: bool | None = None,
-        auto_geboekt: bool | None = None,
-        regels: "list[NewBoekingsregel] | None" = None,
+        datum: date | None | UnsetType = UNSET,
+        omschrijving: str | None | UnsetType = UNSET,
+        stuknummer: str | None | UnsetType = UNSET,
+        status: BoekingStatus | None | UnsetType = UNSET,
+        tegenpartij_naam: str | None | UnsetType = UNSET,
+        tegenpartij_iban: str | None | UnsetType = UNSET,
+        gecontroleerd: bool | None | UnsetType = UNSET,
+        auto_geboekt: bool | None | UnsetType = UNSET,
+        regels: "list[NewBoekingsregel] | None | UnsetType" = UNSET,
     ) -> "Boeking":
         """Update this boeking's header fields and optionally replace all regels.
 
         If ``regels`` is provided the existing regels are deleted and the new
         set is inserted atomically. Manually editing regels automatically
         clears the ``auto_geboekt`` and ``gecontroleerd`` flags.
+        Pass ``None`` explicitly to clear a nullable field; omit a keyword to
+        leave it unchanged.
 
         Args:
             datum: New booking date.

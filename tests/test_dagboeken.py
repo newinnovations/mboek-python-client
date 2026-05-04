@@ -164,6 +164,7 @@ def test_dagboek_scope_by_code(mocked_responses, client):
     scope = client.administratie(1).dagboek(code="bank")  # case-insensitive
     assert scope.id == 20
 
+
 def test_dagboek_scope_by_name_not_found(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken", json=[DAGBOEK]
@@ -439,3 +440,72 @@ def test_create_dagboek_ambiguous_rekening_naam_raises(mocked_responses, client)
             dagboek_type=DagboekType.BANK,
             grootboekrekening_naam="Bank",
         )
+
+
+def test_rerun_regels_returns_updated_count(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20/rerun-regels",
+        json={"updated": 5},
+    )
+
+    updated = client.administratie(1).dagboek(20).rerun_regels()
+
+    assert updated == 5
+
+
+def test_suggest_parses_spec_fields(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20/suggest",
+        json=[
+            {
+                "contra_rekening_id": 30,
+                "contra_rekening_code": "1220",
+                "contra_rekening_naam": "Bank",
+                "confidence": 87,
+                "reason": "Matched on prior similar omschrijvingen",
+            }
+        ],
+    )
+
+    suggestions = client.administratie(1).dagboek(20).suggest("Bankkosten")
+
+    assert len(suggestions) == 1
+    assert suggestions[0].contra_rekening_id == 30
+    assert suggestions[0].contra_rekening_code == "1220"
+    assert suggestions[0].contra_rekening_naam == "Bank"
+    assert suggestions[0].confidence == 87
+    assert suggestions[0].reason == "Matched on prior similar omschrijvingen"
+
+
+def test_import_boekingen_accepts_explicit_boekjaar_id(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20/boekingen/import",
+        json={"dagboek_id": 20, "boekingen_imported": 2},
+    )
+
+    result = (
+        client.administratie(1)
+        .dagboek(20)
+        .import_boekingen(
+            [{"omschrijving": "Imported"}],
+            boekjaar_id=10,
+        )
+    )
+
+    assert result.dagboek_id == 20
+    assert result.boekingen_imported == 2
+    import_call = mocked_responses.calls[-1]
+    assert "boekjaar_id=10" in import_call.request.url
+    assert import_call.request.body == b'{"boekingen": [{"omschrijving": "Imported"}]}'

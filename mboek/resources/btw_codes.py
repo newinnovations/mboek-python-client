@@ -6,6 +6,7 @@ import builtins
 from decimal import Decimal
 
 from mboek._parsers import parse_btw_code
+from mboek._unset import UNSET, UnsetType
 from mboek.models._enums import BtwSoort
 from mboek.models.btw_codes import BtwCode
 from mboek.resources._base import BaseResource
@@ -127,16 +128,19 @@ class BtwCodesResource(BaseResource):
         self,
         id: int,
         *,
-        code: str | None = None,
-        omschrijving: str | None = None,
-        percentage: Decimal | None = None,
-        soort: BtwSoort | None = None,
-        output_rekening_id: int | None = None,
-        input_rekening_id: int | None = None,
-        pct_aftrek: Decimal | None = None,
-        actief: bool | None = None,
+        code: str | None | UnsetType = UNSET,
+        omschrijving: str | None | UnsetType = UNSET,
+        percentage: Decimal | None | UnsetType = UNSET,
+        soort: BtwSoort | None | UnsetType = UNSET,
+        output_rekening_id: int | None | UnsetType = UNSET,
+        input_rekening_id: int | None | UnsetType = UNSET,
+        pct_aftrek: Decimal | None | UnsetType = UNSET,
+        actief: bool | None | UnsetType = UNSET,
     ) -> BtwCode:
         """Partially update a BTW code.
+
+        Pass ``None`` explicitly to clear a nullable field; omit a keyword to
+        leave it unchanged.
 
         Args:
             id: BTW code ID.
@@ -150,22 +154,14 @@ class BtwCodesResource(BaseResource):
             actief: Enable or disable this code.
         """
         data: dict = {}
-        if code is not None:
-            data["code"] = code
-        if omschrijving is not None:
-            data["omschrijving"] = omschrijving
-        if percentage is not None:
-            data["percentage"] = str(percentage)
-        if soort is not None:
-            data["soort"] = soort.value
-        if output_rekening_id is not None:
-            data["output_rekening_id"] = output_rekening_id
-        if input_rekening_id is not None:
-            data["input_rekening_id"] = input_rekening_id
-        if pct_aftrek is not None:
-            data["pct_aftrek"] = str(pct_aftrek)
-        if actief is not None:
-            data["actief"] = actief
+        self._set_patch_value(data, "code", code)
+        self._set_patch_value(data, "omschrijving", omschrijving)
+        self._set_patch_decimal(data, "percentage", percentage)
+        self._set_patch_enum(data, "soort", soort)
+        self._set_patch_value(data, "output_rekening_id", output_rekening_id)
+        self._set_patch_value(data, "input_rekening_id", input_rekening_id)
+        self._set_patch_decimal(data, "pct_aftrek", pct_aftrek)
+        self._set_patch_value(data, "actief", actief)
         return parse_btw_code(
             self._patch(
                 f"/api/administraties/{self._admin_id}/btw-codes/{id}", json=data

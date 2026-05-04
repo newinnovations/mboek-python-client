@@ -109,12 +109,14 @@ class MboekClient:
         return self
 
     def __exit__(self, *_: object) -> None:
-        if self._token is not None:
-            try:
-                self.logout()
-            except MboekError:
-                pass
-        self._session.close()
+        try:
+            if self._token is not None:
+                try:
+                    self.logout()
+                except MboekError:
+                    pass
+        finally:
+            self._session.close()
 
     # ── Authentication ────────────────────────────────────────────────────────
 
@@ -280,16 +282,19 @@ class MboekClient:
         based on the response status code.
         """
         url = self._base_url + path
-        resp = self._session.request(
-            method,
-            url,
-            json=json,
-            params=params,
-            files=files,
-            data=data,
-            headers=headers,
-            timeout=self._timeout,
-        )
+        try:
+            resp = self._session.request(
+                method,
+                url,
+                json=json,
+                params=params,
+                files=files,
+                data=data,
+                headers=headers,
+                timeout=self._timeout,
+            )
+        except requests.RequestException as exc:
+            raise MboekError(f"Request failed: {exc}", detail=exc) from exc
         return self._handle_response(resp)
 
     def _request_no_auth(
@@ -302,13 +307,16 @@ class MboekClient:
     ) -> Any:
         """Send an unauthenticated request (used for the login endpoint)."""
         url = self._base_url + path
-        resp = requests.request(
-            method,
-            url,
-            json=json,
-            params=params,
-            timeout=self._timeout,
-        )
+        try:
+            resp = requests.request(
+                method,
+                url,
+                json=json,
+                params=params,
+                timeout=self._timeout,
+            )
+        except requests.RequestException as exc:
+            raise MboekError(f"Request failed: {exc}", detail=exc) from exc
         return self._handle_response(resp)
 
     @staticmethod
@@ -321,7 +329,14 @@ class MboekClient:
             content_type = resp.headers.get("Content-Type", "")
             media_type = content_type.split(";", 1)[0].strip().lower()
             if media_type == "application/json" or media_type.endswith("+json"):
-                return resp.json()
+                try:
+                    return resp.json()
+                except ValueError as exc:
+                    raise MboekError(
+                        "Response body was not valid JSON",
+                        status_code=status,
+                        detail=resp.text or None,
+                    ) from exc
             if media_type.startswith("text/") or media_type in {
                 "application/xml",
                 "text/xml",

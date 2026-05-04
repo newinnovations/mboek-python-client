@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
+from enum import Enum
 from typing import TYPE_CHECKING, Any, TypeVar
+
+from mboek._unset import UNSET, UnsetType
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
@@ -47,6 +52,40 @@ class BaseResource:
 
     def _post_multipart(self, path: str, *, files: dict, data: Any = None) -> Any:
         return self._client._request("POST", path, files=files, data=data)
+
+    @staticmethod
+    def _set_patch_value(data: dict[str, Any], key: str, value: Any) -> None:
+        if value is not UNSET:
+            data[key] = value
+
+    @staticmethod
+    def _set_patch_date(
+        data: dict[str, Any], key: str, value: date | None | UnsetType
+    ) -> None:
+        if isinstance(value, UnsetType):
+            return
+        if value is None:
+            data[key] = None
+            return
+        data[key] = value.isoformat()
+
+    @staticmethod
+    def _set_patch_decimal(
+        data: dict[str, Any], key: str, value: Decimal | None | UnsetType
+    ) -> None:
+        if value is not UNSET:
+            data[key] = None if value is None else str(value)
+
+    @staticmethod
+    def _set_patch_enum(
+        data: dict[str, Any], key: str, value: Enum | None | UnsetType
+    ) -> None:
+        if isinstance(value, UnsetType):
+            return
+        if value is None:
+            data[key] = None
+            return
+        data[key] = value.value
 
     @staticmethod
     def _slice_items(
@@ -176,3 +215,49 @@ class BaseResource:
                 multiple_message=f"Meerdere grootboekrekeningen met code '{code}' gevonden",
             ).id
         raise ValueError("Provide naam or code")
+
+    def _resolve_rekening_reference(
+        self,
+        admin_id: int,
+        *,
+        id_value: int | None = None,
+        name_value: str | None = None,
+        code_value: str | None = None,
+        field_prefix: str = "grootboekrekening",
+    ) -> int | None:
+        provided = sum(x is not None for x in [id_value, name_value, code_value])
+        if provided > 1:
+            raise ValueError(
+                f"Provide only one of: {field_prefix}_id, {field_prefix}_naam, {field_prefix}_code"
+            )
+        if id_value is None and (name_value is not None or code_value is not None):
+            return self._resolve_rekening_id(
+                admin_id,
+                naam=name_value,
+                code=code_value,
+            )
+        return id_value
+
+    def _resolve_rekening_reference_patch(
+        self,
+        admin_id: int,
+        *,
+        id_value: int | None | UnsetType = UNSET,
+        name_value: str | None | UnsetType = UNSET,
+        code_value: str | None | UnsetType = UNSET,
+        field_prefix: str = "grootboekrekening",
+    ) -> int | None | UnsetType:
+        provided = int(id_value is not UNSET)
+        provided += int(name_value is not UNSET and name_value is not None)
+        provided += int(code_value is not UNSET and code_value is not None)
+        if provided > 1:
+            raise ValueError(
+                f"Provide only one of: {field_prefix}_id, {field_prefix}_naam, {field_prefix}_code"
+            )
+        if id_value is not UNSET:
+            return id_value
+        if isinstance(name_value, str):
+            return self._resolve_rekening_id(admin_id, naam=name_value)
+        if isinstance(code_value, str):
+            return self._resolve_rekening_id(admin_id, code=code_value)
+        return UNSET

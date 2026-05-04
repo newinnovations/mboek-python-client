@@ -6,6 +6,7 @@ import builtins
 from datetime import date
 
 from mboek._parsers import parse_boekjaar
+from mboek._unset import UNSET, UnsetType
 from mboek.models.boekjaren import Boekjaar
 from mboek.resources._base import BaseResource
 
@@ -89,13 +90,15 @@ class BoekjarenResource(BaseResource):
         self,
         id: int,
         *,
-        naam: str | None = None,
-        start_datum: date | None = None,
-        eind_datum: date | None = None,
+        naam: str | None | UnsetType = UNSET,
+        start_datum: date | None | UnsetType = UNSET,
+        eind_datum: date | None | UnsetType = UNSET,
     ) -> Boekjaar:
         """Partially update a boekjaar's name or dates.
 
         To change status use :py:meth:`afsluiten` or :py:meth:`heropenen`.
+        Pass ``None`` explicitly to clear a nullable field; omit a keyword to
+        leave it unchanged.
 
         Args:
             id: Boekjaar ID.
@@ -104,12 +107,9 @@ class BoekjarenResource(BaseResource):
             eind_datum: New end date.
         """
         data: dict = {}
-        if naam is not None:
-            data["naam"] = naam
-        if start_datum is not None:
-            data["start_datum"] = start_datum.isoformat()
-        if eind_datum is not None:
-            data["eind_datum"] = eind_datum.isoformat()
+        self._set_patch_value(data, "naam", naam)
+        self._set_patch_date(data, "start_datum", start_datum)
+        self._set_patch_date(data, "eind_datum", eind_datum)
         return parse_boekjaar(
             self._patch(
                 f"/api/administraties/{self._admin_id}/boekjaren/{id}", json=data

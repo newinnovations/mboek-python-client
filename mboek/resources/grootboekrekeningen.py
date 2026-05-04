@@ -9,6 +9,7 @@ from mboek._parsers import (
     parse_grootboekrekening,
     parse_grootboekrekening_met_saldo,
 )
+from mboek._unset import UNSET, UnsetType
 from mboek.models._enums import RekeningCategorie, RekeningType
 from mboek.models.grootboekrekeningen import (
     GrootboekMutatie,
@@ -135,10 +136,12 @@ class GrootboekrekeningenResource(BaseResource):
             data["parent_id"] = parent_id
         if default_btw_id is not None:
             data["default_btw_id"] = default_btw_id
+        response = self._post(
+            f"/api/administraties/{self._admin_id}/grootboekrekeningen", json=data
+        )
+        self.clear_cache()
         return parse_grootboekrekening(
-            self._post(
-                f"/api/administraties/{self._admin_id}/grootboekrekeningen", json=data
-            ),
+            response,
             client=self._client,
         )
 
@@ -146,16 +149,19 @@ class GrootboekrekeningenResource(BaseResource):
         self,
         id: int,
         *,
-        code: str | None = None,
-        naam: str | None = None,
-        rekening_type: RekeningType | None = None,
-        categorie: RekeningCategorie | None = None,
-        rgs_code: str | None = None,
-        parent_id: int | None = None,
-        default_btw_id: int | None = None,
-        actief: bool | None = None,
+        code: str | None | UnsetType = UNSET,
+        naam: str | None | UnsetType = UNSET,
+        rekening_type: RekeningType | None | UnsetType = UNSET,
+        categorie: RekeningCategorie | None | UnsetType = UNSET,
+        rgs_code: str | None | UnsetType = UNSET,
+        parent_id: int | None | UnsetType = UNSET,
+        default_btw_id: int | None | UnsetType = UNSET,
+        actief: bool | None | UnsetType = UNSET,
     ) -> Grootboekrekening:
         """Partially update a grootboekrekening.
+
+        Pass ``None`` explicitly to clear a nullable field; omit a keyword to
+        leave it unchanged.
 
         Args:
             id: Grootboekrekening ID.
@@ -169,27 +175,21 @@ class GrootboekrekeningenResource(BaseResource):
             actief: Enable or disable the account.
         """
         data: dict = {}
-        if code is not None:
-            data["code"] = code
-        if naam is not None:
-            data["naam"] = naam
-        if rekening_type is not None:
-            data["rekening_type"] = rekening_type.value
-        if categorie is not None:
-            data["categorie"] = categorie.value
-        if rgs_code is not None:
-            data["rgs_code"] = rgs_code
-        if parent_id is not None:
-            data["parent_id"] = parent_id
-        if default_btw_id is not None:
-            data["default_btw_id"] = default_btw_id
-        if actief is not None:
-            data["actief"] = actief
+        self._set_patch_value(data, "code", code)
+        self._set_patch_value(data, "naam", naam)
+        self._set_patch_enum(data, "rekening_type", rekening_type)
+        self._set_patch_enum(data, "categorie", categorie)
+        self._set_patch_value(data, "rgs_code", rgs_code)
+        self._set_patch_value(data, "parent_id", parent_id)
+        self._set_patch_value(data, "default_btw_id", default_btw_id)
+        self._set_patch_value(data, "actief", actief)
+        response = self._patch(
+            f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}",
+            json=data,
+        )
+        self.clear_cache()
         return parse_grootboekrekening(
-            self._patch(
-                f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}",
-                json=data,
-            ),
+            response,
             client=self._client,
         )
 
@@ -202,6 +202,7 @@ class GrootboekrekeningenResource(BaseResource):
             id: Grootboekrekening ID.
         """
         self._delete(f"/api/administraties/{self._admin_id}/grootboekrekeningen/{id}")
+        self.clear_cache()
 
     def seed_rgs(self) -> None:
         """Seed the standard Dutch RGS (Referentie Grootboekschema) chart of accounts.
@@ -212,6 +213,7 @@ class GrootboekrekeningenResource(BaseResource):
         afterwards to set up linked BTW rekeningen.
         """
         self._post(f"/api/administraties/{self._admin_id}/grootboekrekeningen/seed-rgs")
+        self.clear_cache()
 
     def met_saldo(
         self,

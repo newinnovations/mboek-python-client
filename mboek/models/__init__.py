@@ -38,7 +38,11 @@ from mboek.models.boekjaren import Boekjaar
 from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedragen
 from mboek.models.btw_codes import BtwCode
 from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
-from mboek.models.export_import import ImportResult, MatchSuggestion
+from mboek.models.export_import import (
+    BoekingenImportResult,
+    ImportResult,
+    MatchSuggestion,
+)
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
 from mboek.models.reports import (
     BalansRegel,
@@ -92,6 +96,7 @@ __all__ = [
     "WinstVerliesRegel",
     "WinstVerliesReport",
     # import / export
+    "BoekingenImportResult",
     "ImportResult",
     "MatchSuggestion",
 ]

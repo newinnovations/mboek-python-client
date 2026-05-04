@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import pytest
+import requests
 import responses
 
 from mboek import MboekClient
-from mboek._exceptions import AuthError, RateLimitError, ValidationError
+from mboek._exceptions import AuthError, MboekError, RateLimitError, ValidationError
 from tests.conftest import BASE_URL
 
 LOGIN_PAYLOAD = {
@@ -99,6 +100,24 @@ def test_context_manager_auto_logout(mocked_responses):
     assert c.token is None
 
 
+def test_context_manager_logout_failure_does_not_mask_original_exception(
+    mocked_responses,
+):
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/auth/logout",
+        json={"error": "boom"},
+        status=500,
+    )
+
+    with pytest.raises(RuntimeError, match="inner boom"):
+        with MboekClient(BASE_URL, "admin", "secret"):
+            raise RuntimeError("inner boom")
+
+
 def test_login_from_env_vars(mocked_responses, monkeypatch):
     monkeypatch.setenv("MBOEK_URL", BASE_URL)
     monkeypatch.setenv("MBOEK_USERNAME", "admin")
@@ -184,3 +203,29 @@ def test_explicit_credentials_override_env_body(mocked_responses, monkeypatch):
     assert client.token == "my-jwt-token"
     body = _json.loads(mocked_responses.calls[-1].request.body)
     assert body["gebruikersnaam"] == "admin"
+
+
+def test_request_wraps_transport_errors(mocked_responses, client, monkeypatch):
+    def raise_transport_error(*args, **kwargs):
+        raise requests.ConnectionError("network down")
+
+    monkeypatch.setattr(client._session, "request", raise_transport_error)
+
+    with pytest.raises(MboekError) as exc_info:
+        client.auth.me()
+
+    assert exc_info.value.status_code is None
+    assert "network down" in str(exc_info.value)
+    assert isinstance(exc_info.value.__cause__, requests.ConnectionError)
+
+
+def test_invalid_json_success_response_raises_mboekerror(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/auth/me",
+        body="{",
+        content_type="application/json",
+    )
+
+    with pytest.raises(MboekError, match="valid JSON"):
+        client.auth.me()

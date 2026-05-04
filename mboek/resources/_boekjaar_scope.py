@@ -129,6 +129,7 @@ class BoekjaarScopedBoekingenResource(BaseResource):
                 )
 
         data: dict = {
+            "boekjaar_id": self._boekjaar_id,
             "datum": datum.isoformat(),
             "omschrijving": omschrijving,
             "regels": [r.to_dict() for r in regels],

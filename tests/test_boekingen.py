@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -129,6 +130,8 @@ def test_create(mocked_responses, client):
         )
     )
     assert item.id == 100
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body["boekjaar_id"] == 10
 
 
 def test_create_serialises_cents():
