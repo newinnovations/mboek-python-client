@@ -59,7 +59,11 @@ class BoekjaarScopedBoekingenResource(BaseResource):
 
         filtered = id is not None or item is not None or description is not None
         items = [
-            parse_boeking_met_regels(d, client=self._client)
+            parse_boeking_met_regels(
+                d,
+                client=self._client,
+                administratie_id=self._admin_id,
+            )
             for d in self._get_paginated(
                 f"/api/dagboeken/{self._dagboek_id}/boekingen",
                 params={"boekjaar_id": self._boekjaar_id},
@@ -120,19 +124,11 @@ class BoekjaarScopedBoekingenResource(BaseResource):
         """
         from mboek._parsers import parse_boeking_met_regels
 
-        for regel in regels:
-            if regel.grootboekrekening_id is None:
-                regel.grootboekrekening_id = self._resolve_rekening_id(
-                    self._admin_id,
-                    naam=regel.grootboekrekening_naam,
-                    code=regel.grootboekrekening_code,
-                )
-
         data: dict = {
             "boekjaar_id": self._boekjaar_id,
             "datum": datum.isoformat(),
             "omschrijving": omschrijving,
-            "regels": [r.to_dict() for r in regels],
+            "regels": self._serialize_boekingsregels(self._admin_id, regels),
         }
         if stuknummer is not None:
             data["stuknummer"] = stuknummer
@@ -152,4 +148,5 @@ class BoekjaarScopedBoekingenResource(BaseResource):
                 json=data,
             ),
             client=self._client,
+            administratie_id=self._admin_id,
         )

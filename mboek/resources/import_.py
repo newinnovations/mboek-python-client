@@ -8,6 +8,7 @@ from typing import IO
 from mboek._parsers import parse_import_result
 from mboek.models.export_import import ImportResult
 from mboek.resources._base import BaseResource
+from mboek.resources.export_import import _bool_query
 
 
 class ImportResource(BaseResource):
@@ -29,6 +30,7 @@ class ImportResource(BaseResource):
         self,
         file: Path | IO[bytes],
         filename: str | None = None,
+        allow_duplicates: bool | None = None,
     ) -> ImportResult:
         """Upload a bank statement file and import its transactions.
 
@@ -45,10 +47,20 @@ class ImportResource(BaseResource):
             filename: Override the filename sent to the server (used for
                 format detection when ``file`` is a file object without a
                 ``.name`` attribute).
+            allow_duplicates: Set ``True`` to re-import transactions already
+                present, ``False`` to send an explicit ``false`` value, or
+                ``None`` to omit the form field and use the backend default.
 
         Returns:
-            :py:class:`~mboek.models.export_import.ImportResult` with counts.
+            :py:class:`~mboek.models.export_import.ImportResult` with detailed
+            import counts and warnings.
         """
+        allow_duplicates_value = _bool_query(allow_duplicates)
+        form_data = (
+            {"allow_duplicates": allow_duplicates_value}
+            if allow_duplicates_value is not None
+            else None
+        )
         if isinstance(file, Path):
             fname = filename or file.name
             with file.open("rb") as fh:
@@ -56,6 +68,7 @@ class ImportResource(BaseResource):
                     self._post_multipart(
                         f"/api/administraties/{self._admin_id}/import",
                         files={"file": (fname, fh)},
+                        data=form_data,
                     )
                 )
         raw_name = getattr(file, "name", "statement.940")
@@ -64,5 +77,6 @@ class ImportResource(BaseResource):
             self._post_multipart(
                 f"/api/administraties/{self._admin_id}/import",
                 files={"file": (fname, file)},
+                data=form_data,
             )
         )

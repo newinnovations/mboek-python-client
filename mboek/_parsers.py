@@ -121,6 +121,8 @@ def parse_boekjaar(d: dict, *, client=None) -> Boekjaar:
 
 
 def parse_dagboek(d: dict, *, client=None, boekjaar_id=None) -> Dagboek:
+    if client is not None:
+        client._dagboek_admin_cache[d["id"]] = d["administratie_id"]
     return Dagboek(
         id=d["id"],
         administratie_id=d["administratie_id"],
@@ -235,7 +237,12 @@ def parse_boekingsregel(d: dict) -> Boekingsregel:
     )
 
 
-def parse_boeking_met_regels(d: dict, *, client=None) -> Boeking:
+def parse_boeking_met_regels(d: dict, *, client=None, administratie_id=None) -> Boeking:
+    resolved_admin_id = administratie_id
+    if resolved_admin_id is None and client is not None:
+        resolved_admin_id = client._dagboek_admin_cache.get(d["dagboek_id"])
+    if resolved_admin_id is not None and client is not None:
+        client._dagboek_admin_cache[d["dagboek_id"]] = resolved_admin_id
     return Boeking(
         id=d["id"],
         dagboek_id=d["dagboek_id"],
@@ -254,6 +261,7 @@ def parse_boeking_met_regels(d: dict, *, client=None) -> Boeking:
         created_at=_require_dt(d["created_at"]),
         updated_at=_require_dt(d["updated_at"]),
         client=client,
+        administratie_id=resolved_admin_id,
     )
 
 
@@ -301,7 +309,6 @@ def parse_auto_booking_rule_line(d: dict) -> AutoBookingRuleLine:
     return AutoBookingRuleLine(
         id=d["id"],
         rule_id=d["rule_id"],
-        volgorde=d["volgorde"],
         tegenrekening_id=d["tegenrekening_id"],
         btw_code_id=d.get("btw_code_id"),
         omschrijving=d.get("omschrijving"),
@@ -374,8 +381,12 @@ def parse_winst_verlies(d: dict) -> WinstVerliesReport:
 def parse_import_result(d: dict) -> ImportResult:
     return ImportResult(
         imported=d["imported"],
-        skipped=d.get("skipped", 0),
-        boeking_ids=d.get("boeking_ids", []),
+        duplicates_skipped=d["duplicates_skipped"],
+        zero_bedrag_skipped=d["zero_bedrag_skipped"],
+        boekjaar_niet_gevonden_skipped=d["boekjaar_niet_gevonden_skipped"],
+        auto_geboekt=d["auto_geboekt"],
+        unmatched_ibans=d["unmatched_ibans"],
+        parse_warnings=d.get("parse_warnings"),
     )
 
 

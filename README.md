@@ -393,8 +393,22 @@ definitief = bj.btw_aangifte.vastleggen(aangifte.id)
 ```python
 from pathlib import Path
 
-result = client.administratie(admin_id).import_.upload(Path("afschrift-jan.940"))
-print(f"Imported {result.imported} transactions, skipped {result.skipped} duplicates")
+result = client.administratie(admin_id).import_.upload(
+    Path("afschrift-jan.940"),
+    allow_duplicates=True,
+)
+print(f"Imported {result.imported} transactions")
+print(
+    "Skipped",
+    result.duplicates_skipped,
+    "duplicates and",
+    result.zero_bedrag_skipped,
+    "zero-amount transactions",
+)
+if result.unmatched_ibans:
+    print("No dagboek matched:", ", ".join(result.unmatched_ibans))
+if result.parse_warnings:
+    print("Warnings:", result.parse_warnings)
 ```
 
 ## Export and import

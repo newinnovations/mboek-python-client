@@ -400,7 +400,9 @@ def test_create_dagboek_unknown_rekening_naam_raises(mocked_responses, client):
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
         json=[GROOTBOEKREKENING],
     )
-    with pytest.raises(NotFoundError, match="Onbekend"):
+    with pytest.raises(
+        NotFoundError, match="Grootboekrekening named 'Onbekend' not found"
+    ):
         client.administratie(1).dagboeken.create(
             code="BANK",
             naam="Bankboek",
@@ -416,7 +418,9 @@ def test_create_dagboek_unknown_rekening_code_raises(mocked_responses, client):
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
         json=[GROOTBOEKREKENING],
     )
-    with pytest.raises(NotFoundError, match="9999"):
+    with pytest.raises(
+        NotFoundError, match="Grootboekrekening with code '9999' not found"
+    ):
         client.administratie(1).dagboeken.create(
             code="BANK",
             naam="Bankboek",
@@ -433,7 +437,9 @@ def test_create_dagboek_ambiguous_rekening_naam_raises(mocked_responses, client)
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
         json=[GROOTBOEKREKENING, duplicate],
     )
-    with pytest.raises(ValueError, match="Bank"):
+    with pytest.raises(
+        ValueError, match="Multiple grootboekrekeningen named 'Bank' found"
+    ):
         client.administratie(1).dagboeken.create(
             code="BANK",
             naam="Bankboek",

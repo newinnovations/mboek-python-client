@@ -187,7 +187,7 @@ class AdminExportImportResource(BaseResource):
         Returns:
             Summary dict with the new boekjaar ID and imported booking count.
         """
-        return self._post(
+        result = self._post(
             f"/api/administraties/{self._admin_id}/boekjaren/import/xaf",
             params={"create_missing": _bool_query(create_missing)},
             data=_read_xml_payload(source),
@@ -196,3 +196,7 @@ class AdminExportImportResource(BaseResource):
                 "Accept": "application/json",
             },
         )
+        from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
+
+        GrootboekrekeningenResource(self._client, self._admin_id).clear_cache()
+        return result

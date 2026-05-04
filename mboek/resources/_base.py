@@ -11,6 +11,8 @@ from mboek._unset import UNSET, UnsetType
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
+    from mboek.models.auto_booking_rules import NewAutoBookingRuleLine
+    from mboek.models.boekingen import NewBoekingsregel
 
 T = TypeVar("T")
 MAX_PAGE_SIZE = 1000
@@ -205,14 +207,14 @@ class BaseResource:
         if naam is not None:
             return gbr._require_single_match(
                 gbr.list(name=naam),
-                not_found_message=f"Grootboekrekening met naam '{naam}' niet gevonden",
-                multiple_message=f"Meerdere grootboekrekeningen met naam '{naam}' gevonden",
+                not_found_message=f"Grootboekrekening named '{naam}' not found",
+                multiple_message=f"Multiple grootboekrekeningen named '{naam}' found",
             ).id
         if code is not None:
             return gbr._require_single_match(
                 gbr.list(code=code),
-                not_found_message=f"Grootboekrekening met code '{code}' niet gevonden",
-                multiple_message=f"Meerdere grootboekrekeningen met code '{code}' gevonden",
+                not_found_message=f"Grootboekrekening with code '{code}' not found",
+                multiple_message=f"Multiple grootboekrekeningen with code '{code}' found",
             ).id
         raise ValueError("Provide naam or code")
 
@@ -261,3 +263,46 @@ class BaseResource:
         if isinstance(code_value, str):
             return self._resolve_rekening_id(admin_id, code=code_value)
         return UNSET
+
+    def _serialize_boekingsregel(
+        self, admin_id: int, regel: "NewBoekingsregel"
+    ) -> dict[str, Any]:
+        resolved_id = self._resolve_rekening_reference(
+            admin_id,
+            id_value=regel.grootboekrekening_id,
+            name_value=regel.grootboekrekening_naam,
+            code_value=regel.grootboekrekening_code,
+        )
+        if resolved_id is None:
+            raise AssertionError(
+                "NewBoekingsregel must resolve to a grootboekrekening_id"
+            )
+        return regel.to_dict(grootboekrekening_id=resolved_id)
+
+    def _serialize_boekingsregels(
+        self, admin_id: int, regels: list["NewBoekingsregel"]
+    ) -> list[dict[str, Any]]:
+        return [self._serialize_boekingsregel(admin_id, regel) for regel in regels]
+
+    def _serialize_auto_booking_rule_line(
+        self, admin_id: int, line: "NewAutoBookingRuleLine"
+    ) -> dict[str, Any]:
+        resolved_id = self._resolve_rekening_reference(
+            admin_id,
+            id_value=line.tegenrekening_id,
+            name_value=line.tegenrekening_naam,
+            code_value=line.tegenrekening_code,
+            field_prefix="tegenrekening",
+        )
+        if resolved_id is None:
+            raise AssertionError(
+                "NewAutoBookingRuleLine must resolve to a tegenrekening_id"
+            )
+        return line.to_dict(tegenrekening_id=resolved_id)
+
+    def _serialize_auto_booking_rule_lines(
+        self, admin_id: int, lines: list["NewAutoBookingRuleLine"]
+    ) -> list[dict[str, Any]]:
+        return [
+            self._serialize_auto_booking_rule_line(admin_id, line) for line in lines
+        ]

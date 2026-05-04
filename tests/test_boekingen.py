@@ -11,6 +11,7 @@ import responses
 
 from mboek import NewBoekingsregel, Regeltype
 from tests.conftest import (
+    ADMINISTRATIE,
     BASE_URL,
     BOEKING,
     BOEKING_REGEL,
@@ -222,7 +223,7 @@ def test_regel_validation_multiple_rekening():
 
 
 def test_regel_with_naam(mocked_responses, client):
-    """NewBoekingsregel created with naam/code resolves to the correct IDs."""
+    """Name/code resolution happens in the payload without mutating the input DTOs."""
     gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": "4000"}
     mocked_responses.add(
         responses.GET,
@@ -269,9 +270,13 @@ def test_regel_with_naam(mocked_responses, client):
         )
     )
     assert item.id == 100
-    # Both regels should have been resolved
-    assert regels[0].grootboekrekening_id == 30
-    assert regels[1].grootboekrekening_id == 31
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body["regels"][0]["grootboekrekening_id"] == 30
+    assert body["regels"][1]["grootboekrekening_id"] == 31
+    assert regels[0].grootboekrekening_id is None
+    assert regels[0].grootboekrekening_naam == "Bank"
+    assert regels[1].grootboekrekening_id is None
+    assert regels[1].grootboekrekening_code == "4000"
 
 
 def test_regel_to_dict_unresolved_raises():
@@ -283,6 +288,50 @@ def test_regel_to_dict_unresolved_raises():
     )
     with pytest.raises(ValueError, match="not yet resolved"):
         regel.to_dict()
+
+
+def test_update_regels_with_naam_resolves_without_mutating(mocked_responses, client):
+    gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": "4000"}
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties",
+        json=[ADMINISTRATIE],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20",
+        json=DAGBOEK,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING, gbr2],
+    )
+    mocked_responses.add(responses.PATCH, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
+
+    regels = [
+        NewBoekingsregel(
+            grootboekrekening_naam="Bank",
+            omschrijving="Bank",
+            bedrag=Decimal("-100.00"),
+        ),
+        NewBoekingsregel(
+            grootboekrekening_code="4000",
+            omschrijving="Kosten",
+            bedrag=Decimal("100.00"),
+        ),
+    ]
+    item = client.boekingen.update(100, regels=regels)
+
+    assert item.id == 100
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body["regels"][0]["grootboekrekening_id"] == 30
+    assert body["regels"][1]["grootboekrekening_id"] == 31
+    assert regels[0].grootboekrekening_id is None
+    assert regels[0].grootboekrekening_naam == "Bank"
+    assert regels[1].grootboekrekening_id is None
+    assert regels[1].grootboekrekening_code == "4000"
 
 
 # ── Unified boekingen via with_boekjaar ───────────────────────────────────────

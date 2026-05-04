@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mboek
 import mboek.models as models_pkg
 
 
@@ -24,3 +25,10 @@ def test_all_entries_are_unique():
     assert len(models_pkg.__all__) == len(
         set(models_pkg.__all__)
     ), "mboek.models.__all__ contains duplicate entries"
+
+
+def test_top_level_reexports_include_advanced_enums():
+    assert hasattr(mboek, "AutoBookingBedragType")
+    assert hasattr(mboek, "BoekingStatus")
+    assert "AutoBookingBedragType" in mboek.__all__
+    assert "BoekingStatus" in mboek.__all__

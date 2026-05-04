@@ -3974,7 +3974,6 @@
         "required": [
           "id",
           "rule_id",
-          "volgorde",
           "bedrag_type",
           "tegenrekening_id",
           "omschrijving"
@@ -3982,9 +3981,10 @@
         "properties": {
           "bedrag": {
             "type": [
-              "string",
+              "integer",
               "null"
-            ]
+            ],
+            "format": "int64"
           },
           "bedrag_type": {
             "$ref": "#/components/schemas/AutoBookingBedragType"
@@ -4008,10 +4008,6 @@
             "format": "int32"
           },
           "tegenrekening_id": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "volgorde": {
             "type": "integer",
             "format": "int32"
           }
@@ -4715,9 +4711,10 @@
         "properties": {
           "bedrag": {
             "type": [
-              "string",
+              "integer",
               "null"
-            ]
+            ],
+            "format": "int64"
           },
           "bedrag_type": {
             "$ref": "#/components/schemas/AutoBookingBedragType"
@@ -4737,13 +4734,6 @@
           },
           "tegenrekening_id": {
             "type": "integer",
-            "format": "int32"
-          },
-          "volgorde": {
-            "type": [
-              "integer",
-              "null"
-            ],
             "format": "int32"
           }
         }

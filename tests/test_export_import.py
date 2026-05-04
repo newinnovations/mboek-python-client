@@ -8,7 +8,7 @@ import pytest
 import responses
 
 from mboek._exceptions import MboekError, NotFoundError, ValidationError
-from tests.conftest import BASE_URL
+from tests.conftest import BASE_URL, GROOTBOEKREKENING
 
 ADMIN_IMPORT_RESULT = {
     "administratie_id": 7,
@@ -21,6 +21,15 @@ BOEKJAAR_IMPORT_RESULT = {
     "boekingen_imported": 12,
 }
 XAF_XML = """<?xml version="1.0" encoding="UTF-8"?><AuditFileFinancial />"""
+BANK_IMPORT_RESULT = {
+    "imported": 3,
+    "duplicates_skipped": 1,
+    "zero_bedrag_skipped": 2,
+    "boekjaar_niet_gevonden_skipped": 0,
+    "auto_geboekt": 2,
+    "unmatched_ibans": ["NL00BANK0123456789"],
+    "parse_warnings": ["Malformed line 42"],
+}
 
 
 def _request_body(call) -> str:
@@ -98,6 +107,54 @@ def test_import_boekjaar_xaf_from_text_stream(mocked_responses, client):
     assert "create_missing=true" in call.request.url
     assert call.request.headers["Content-Type"] == "application/xml"
     assert _request_body(call) == XAF_XML
+
+
+def test_bank_import_upload_supports_allow_duplicates_and_new_result_shape(
+    tmp_path, mocked_responses, client
+):
+    source = tmp_path / "statement.940"
+    source.write_bytes(b":20:START")
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/import",
+        json=BANK_IMPORT_RESULT,
+    )
+
+    result = client.administratie(1).import_.upload(source, allow_duplicates=True)
+
+    call = mocked_responses.calls[-1]
+    body = _request_body(call)
+    assert result.imported == 3
+    assert result.duplicates_skipped == 1
+    assert result.zero_bedrag_skipped == 2
+    assert result.boekjaar_niet_gevonden_skipped == 0
+    assert result.auto_geboekt == 2
+    assert result.unmatched_ibans == ["NL00BANK0123456789"]
+    assert result.parse_warnings == ["Malformed line 42"]
+    assert 'name="allow_duplicates"' in body
+    assert "true" in body
+
+
+def test_bank_import_upload_file_object_omits_allow_duplicates_by_default(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/import",
+        json={
+            key: value
+            for key, value in BANK_IMPORT_RESULT.items()
+            if key != "parse_warnings"
+        },
+    )
+
+    result = client.administratie(1).import_.upload(
+        BytesIO(b":20:START"), filename="statement.940"
+    )
+
+    body = _request_body(mocked_responses.calls[-1])
+    assert result.parse_warnings is None
+    assert 'name="allow_duplicates"' not in body
 
 
 def test_export_boekjaar_xaf(mocked_responses, client):
@@ -215,3 +272,39 @@ def test_import_boekjaar_xaf_validation_error(mocked_responses, client):
     )
     with pytest.raises(ValidationError):
         client.administratie(1).export_import.import_boekjaar_xaf(XAF_XML)
+
+
+def test_import_boekjaar_xaf_invalidates_grootboekrekening_cache(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekjaren/import/xaf",
+        json=BOEKJAAR_IMPORT_RESULT,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+
+    gbr = client.administratie(1).grootboekrekeningen
+    gbr.list()
+    client.administratie(1).export_import.import_boekjaar_xaf(
+        XAF_XML, create_missing=True
+    )
+    gbr.list()
+
+    gbr_calls = [
+        c
+        for c in mocked_responses.calls
+        if c.request.url.startswith(
+            f"{BASE_URL}/api/administraties/1/grootboekrekeningen"
+        )
+    ]
+    assert len(gbr_calls) == 2

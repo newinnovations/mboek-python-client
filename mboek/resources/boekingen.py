@@ -64,6 +64,9 @@ class BoekingenResource(BaseResource):
         If ``regels`` is provided the existing regels are deleted and the new
         set is inserted atomically. Manually editing regels automatically
         clears the ``auto_geboekt`` and ``gecontroleerd`` flags.
+        Regels may reference a grootboekrekening via ``grootboekrekening_naam``
+        or ``grootboekrekening_code`` instead of ``grootboekrekening_id``; the
+        ID is resolved automatically.
         Pass ``None`` explicitly to clear a nullable field; omit a keyword to
         leave it unchanged.
 
@@ -82,6 +85,34 @@ class BoekingenResource(BaseResource):
         Returns:
             The updated boeking.
         """
+        return self._update(
+            id,
+            datum=datum,
+            omschrijving=omschrijving,
+            stuknummer=stuknummer,
+            status=status,
+            tegenpartij_naam=tegenpartij_naam,
+            tegenpartij_iban=tegenpartij_iban,
+            gecontroleerd=gecontroleerd,
+            auto_geboekt=auto_geboekt,
+            regels=regels,
+        )
+
+    def _update(
+        self,
+        id: int,
+        *,
+        admin_id: int | None = None,
+        datum: date | None | UnsetType = UNSET,
+        omschrijving: str | None | UnsetType = UNSET,
+        stuknummer: str | None | UnsetType = UNSET,
+        status: BoekingStatus | None | UnsetType = UNSET,
+        tegenpartij_naam: str | None | UnsetType = UNSET,
+        tegenpartij_iban: str | None | UnsetType = UNSET,
+        gecontroleerd: bool | None | UnsetType = UNSET,
+        auto_geboekt: bool | None | UnsetType = UNSET,
+        regels: "list[NewBoekingsregel] | None | UnsetType" = UNSET,
+    ) -> Boeking:
         data: dict = {}
         self._set_patch_date(data, "datum", datum)
         self._set_patch_value(data, "omschrijving", omschrijving)
@@ -91,13 +122,55 @@ class BoekingenResource(BaseResource):
         self._set_patch_value(data, "tegenpartij_iban", tegenpartij_iban)
         self._set_patch_value(data, "gecontroleerd", gecontroleerd)
         self._set_patch_value(data, "auto_geboekt", auto_geboekt)
+        resolved_admin_id = admin_id
         if not isinstance(regels, UnsetType):
             if regels is None:
                 data["regels"] = None
             else:
-                data["regels"] = [r.to_dict() for r in regels]
+                if any(regel.grootboekrekening_id is None for regel in regels):
+                    resolved_admin_id = self._resolve_admin_id_for_boeking(
+                        boeking_id=id, admin_id=admin_id
+                    )
+                    data["regels"] = self._serialize_boekingsregels(
+                        resolved_admin_id, regels
+                    )
+                else:
+                    data["regels"] = [r.to_dict() for r in regels]
         return parse_boeking_met_regels(
-            self._patch(f"/api/boekingen/{id}", json=data), client=self._client
+            self._patch(f"/api/boekingen/{id}", json=data),
+            client=self._client,
+            administratie_id=resolved_admin_id,
+        )
+
+    def _resolve_admin_id_for_boeking(
+        self, *, boeking_id: int, admin_id: int | None = None
+    ) -> int:
+        if admin_id is not None:
+            return admin_id
+
+        boeking = self.get(boeking_id)
+        if boeking._administratie_id is not None:
+            return boeking._administratie_id
+
+        from mboek._exceptions import NotFoundError
+        from mboek.resources.dagboeken import DagboekenResource
+
+        cached_admin_id = self._client._dagboek_admin_cache.get(boeking.dagboek_id)
+        if cached_admin_id is not None:
+            return cached_admin_id
+
+        for administratie in self._client.administraties.list():
+            try:
+                DagboekenResource(self._client, administratie.id).get(
+                    boeking.dagboek_id
+                )
+            except NotFoundError:
+                continue
+            self._client._dagboek_admin_cache[boeking.dagboek_id] = administratie.id
+            return administratie.id
+
+        raise NotFoundError(
+            f"Dagboek {boeking.dagboek_id} not found in any administratie"
         )
 
     def delete(self, id: int) -> None:

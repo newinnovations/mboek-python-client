@@ -88,8 +88,8 @@ class GrootboekrekeningenResource(BaseResource):
         if code is not None:
             items = [item for item in items if item.code == code]
         if filtered:
-            return self._slice_items(items, limit=limit, offset=offset)
-        return items
+            items = self._slice_items(items, limit=limit, offset=offset)
+        return [item.copy() for item in items]
 
     def get(self, id: int) -> Grootboekrekening:
         """Return a single grootboekrekening.

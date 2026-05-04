@@ -99,6 +99,7 @@ class MboekClient:
         # Per-admin cache of the full grootboekrekening collection.
         # Populated by GrootboekrekeningenResource.list() and cleared via clear_cache().
         self._gbr_cache: dict[int, list[Grootboekrekening]] = {}
+        self._dagboek_admin_cache: dict[int, int] = {}
 
         if resolved_username is not None and resolved_password is not None:
             self.login(resolved_username, resolved_password)

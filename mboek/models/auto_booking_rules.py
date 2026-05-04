@@ -16,7 +16,6 @@ class AutoBookingRuleLine:
     Attributes:
         id: Unique database identifier.
         rule_id: ID of the parent rule.
-        volgorde: Sort order within the rule.
         tegenrekening_id: The contra account to book to.
         btw_code_id: Optional BTW code to apply.
         omschrijving: Optional line description override.
@@ -26,7 +25,6 @@ class AutoBookingRuleLine:
 
     id: int
     rule_id: int
-    volgorde: int
     tegenrekening_id: int
     btw_code_id: int | None
     omschrijving: str | None
@@ -120,14 +118,17 @@ class NewAutoBookingRuleLine:
         if self.bedrag_type == AutoBookingBedragType.VAST and self.bedrag is None:
             raise ValueError("bedrag is required when bedrag_type is 'vast'")
 
-    def to_dict(self) -> dict:
-        if self.tegenrekening_id is None:
+    def to_dict(self, *, tegenrekening_id: int | None = None) -> dict:
+        resolved_tegenrekening_id = (
+            self.tegenrekening_id if tegenrekening_id is None else tegenrekening_id
+        )
+        if resolved_tegenrekening_id is None:
             raise ValueError(
                 "tegenrekening_id is not yet resolved; the resource should have resolved "
                 "tegenrekening_naam / tegenrekening_code before calling to_dict()"
             )
         d: dict = {
-            "tegenrekening_id": self.tegenrekening_id,
+            "tegenrekening_id": resolved_tegenrekening_id,
             "bedrag_type": self.bedrag_type.value,
         }
         if self.btw_code_id is not None:

@@ -28,7 +28,6 @@ AUTO_BOOKING_RULE = {
         {
             "id": 1,
             "rule_id": 70,
-            "volgorde": 1,
             "tegenrekening_id": 30,
             "btw_code_id": None,
             "omschrijving": "Bank costs",
@@ -144,6 +143,34 @@ def test_create_with_rekening_naam_resolves_id(mocked_responses, client):
     assert rule.id == 70
     body = json.loads(mocked_responses.calls[-1].request.body)
     assert body["lines"][0]["tegenrekening_id"] == 30
+    assert line.tegenrekening_id is None
+    assert line.tegenrekening_naam == "Bank"
+
+
+def test_update_lines_with_rekening_naam_resolves_without_mutating(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    mocked_responses.add(
+        responses.PATCH,
+        f"{BASE_URL}/api/administraties/1/regels/70",
+        json=AUTO_BOOKING_RULE,
+    )
+
+    line = NewAutoBookingRuleLine(
+        tegenrekening_naam="Bank", bedrag_type=AutoBookingBedragType.REST
+    )
+    rule = client.administratie(1).auto_booking_rules.update(70, lines=[line])
+
+    assert rule.id == 70
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body["lines"][0]["tegenrekening_id"] == 30
+    assert line.tegenrekening_id is None
+    assert line.tegenrekening_naam == "Bank"
 
 
 def test_create_simple_enkel_rule_without_lines(mocked_responses, client):

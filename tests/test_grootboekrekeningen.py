@@ -203,6 +203,23 @@ def test_list_cached(mocked_responses, client):
     assert len(gbr_calls) == 1
 
 
+def test_list_cache_is_isolated_from_caller_mutation(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING],
+    )
+    gbr = client.administratie(1).grootboekrekeningen
+    first = gbr.list()
+    first[0].naam = "Mutated"
+
+    second = gbr.list()
+
+    assert first[0].naam == "Mutated"
+    assert second[0].naam == "Bank"
+    assert first[0] is not second[0]
+
+
 def test_list_refresh_bypasses_cache(mocked_responses, client):
     """list(refresh=True) bypasses the cache and fetches fresh data."""
     mocked_responses.add(

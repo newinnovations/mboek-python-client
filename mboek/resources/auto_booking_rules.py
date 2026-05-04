@@ -97,8 +97,6 @@ class AutoBookingRulesResource(BaseResource):
             code_value=tegenrekening_code,
             field_prefix="tegenrekening",
         )
-        if lines is not None:
-            self._resolve_lines(lines)
         data: dict = {
             "naam": naam,
             "actie_type": actie_type.value,
@@ -106,7 +104,9 @@ class AutoBookingRulesResource(BaseResource):
             "actief": actief,
         }
         if lines is not None:
-            data["lines"] = [ln.to_dict() for ln in lines]
+            data["lines"] = self._serialize_auto_booking_rule_lines(
+                self._admin_id, lines
+            )
         if iban_eigen is not None:
             data["iban_eigen"] = iban_eigen
         if iban_tegenpartij is not None:
@@ -178,23 +178,14 @@ class AutoBookingRulesResource(BaseResource):
             if lines is None:
                 data["lines"] = None
             else:
-                self._resolve_lines(lines)
-                data["lines"] = [ln.to_dict() for ln in lines]
+                data["lines"] = self._serialize_auto_booking_rule_lines(
+                    self._admin_id, lines
+                )
         return parse_auto_booking_rule(
             self._patch(
                 f"/api/administraties/{self._admin_id}/regels/{rule_id}", json=data
             )
         )
-
-    def _resolve_lines(self, lines: "builtins.list[NewAutoBookingRuleLine]") -> None:
-        """Resolve tegenrekening naam/code → id for each line in-place."""
-        for line in lines:
-            if line.tegenrekening_id is None:
-                line.tegenrekening_id = self._resolve_rekening_id(
-                    self._admin_id,
-                    naam=line.tegenrekening_naam,
-                    code=line.tegenrekening_code,
-                )
 
     def delete(self, rule_id: int) -> None:
         """Permanently delete a rule.

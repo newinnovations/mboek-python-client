@@ -94,6 +94,7 @@ class Boeking:
         updated_at: datetime,
         *,
         client: "MboekClient | None" = None,
+        administratie_id: int | None = None,
     ) -> None:
         self.id = id
         self.dagboek_id = dagboek_id
@@ -112,6 +113,7 @@ class Boeking:
         self.regels = regels
         self.updated_at = updated_at
         self._client = client
+        self._administratie_id = administratie_id
 
     # ── Internal scope guard ─────────────────────────────────────────────────
 
@@ -183,8 +185,9 @@ class Boeking:
         client = self._require_client("update()")
         from mboek.resources.boekingen import BoekingenResource
 
-        return BoekingenResource(client).update(
+        return BoekingenResource(client)._update(
             self.id,
+            admin_id=self._administratie_id,
             datum=datum,
             omschrijving=omschrijving,
             stuknummer=stuknummer,
@@ -304,8 +307,13 @@ class NewBoekingsregel:
                 f"netto_ref is required when regeltype is {self.regeltype.value!r}"
             )
 
-    def to_dict(self) -> dict:
-        if self.grootboekrekening_id is None:
+    def to_dict(self, *, grootboekrekening_id: int | None = None) -> dict:
+        resolved_grootboekrekening_id = (
+            self.grootboekrekening_id
+            if grootboekrekening_id is None
+            else grootboekrekening_id
+        )
+        if resolved_grootboekrekening_id is None:
             raise ValueError(
                 "grootboekrekening_id is not yet resolved; the resource should have resolved "
                 "grootboekrekening_naam / grootboekrekening_code before calling to_dict()"
@@ -316,7 +324,7 @@ class NewBoekingsregel:
         if quantized != self.bedrag:
             raise ValueError(f"bedrag {self.bedrag} has more than 2 decimal places")
         d: dict = {
-            "grootboekrekening_id": self.grootboekrekening_id,
+            "grootboekrekening_id": resolved_grootboekrekening_id,
             "omschrijving": self.omschrijving,
             "bedrag": int(quantized * 100),  # convert euros → cents
             "regeltype": self.regeltype.value,

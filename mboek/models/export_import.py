@@ -11,13 +11,23 @@ class ImportResult:
 
     Attributes:
         imported: Number of transactions imported.
-        skipped: Number of transactions skipped (duplicates or already imported).
-        boeking_ids: IDs of the created boekingen.
+        duplicates_skipped: Number of duplicate transactions skipped.
+        zero_bedrag_skipped: Number of zero-amount transactions skipped.
+        boekjaar_niet_gevonden_skipped: Number of transactions skipped because
+            no boekjaar could be determined.
+        auto_geboekt: Number of imported transactions that were auto-booked by
+            matching rules.
+        unmatched_ibans: IBANs from the statement that did not match a dagboek.
+        parse_warnings: Optional warnings produced while parsing the statement.
     """
 
     imported: int
-    skipped: int
-    boeking_ids: list[int]
+    duplicates_skipped: int
+    zero_bedrag_skipped: int
+    boekjaar_niet_gevonden_skipped: int
+    auto_geboekt: int
+    unmatched_ibans: list[str]
+    parse_warnings: list[str] | None = None
 
 
 @dataclass

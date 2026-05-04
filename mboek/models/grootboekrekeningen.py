@@ -170,6 +170,27 @@ class Grootboekrekening:
             boekjaar_id=None,
         )
 
+    def copy(self) -> "Grootboekrekening":
+        """Return an independent copy of this rekening instance."""
+        return Grootboekrekening(
+            id=self.id,
+            administratie_id=self.administratie_id,
+            code=self.code,
+            naam=self.naam,
+            rekening_type=self.rekening_type,
+            categorie=self.categorie,
+            rgs_code=self.rgs_code,
+            parent_id=self.parent_id,
+            default_btw_id=self.default_btw_id,
+            actief=self.actief,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            client=self._client,
+            boekjaar_id=self._boekjaar_id,
+            saldo=self._saldo,
+            aantal_transacties=self._aantal_transacties,
+        )
+
     # ── Scoped properties ─────────────────────────────────────────────────────
 
     @property
