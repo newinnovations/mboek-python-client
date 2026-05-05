@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 
 import pytest
 import responses
 
-from mboek import AutoBookingActieType, NewAutoBookingRuleLine
+from mboek import (
+    AutoBookingActieType,
+    AutoBookingRuleApplicationResult,
+    NewAutoBookingRuleLine,
+)
 from mboek._exceptions import MboekError, NotFoundError
 from mboek.models._enums import AutoBookingBedragType
 from tests.conftest import BASE_URL, GROOTBOEKREKENING
@@ -118,6 +123,29 @@ def test_create(mocked_responses, client):
     assert body["prioriteit"] == 10
     assert body["omschrijving_regex"] == "KOSTEN"
     assert body["lines"][0]["tegenrekening_id"] == 30
+
+
+def test_create_fixed_amount_line_serializes_bedrag_as_cents(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/regels",
+        json=AUTO_BOOKING_RULE,
+        status=201,
+    )
+
+    line = NewAutoBookingRuleLine(
+        tegenrekening_id=30,
+        bedrag_type=AutoBookingBedragType.VAST,
+        bedrag=Decimal("12.34"),
+    )
+    client.administratie(1).auto_booking_rules.create(
+        naam="Fixed split",
+        actie_type=AutoBookingActieType.SPLITS,
+        lines=[line],
+    )
+
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body["lines"][0]["bedrag"] == 1234
 
 
 def test_create_with_rekening_naam_resolves_id(mocked_responses, client):
@@ -257,18 +285,33 @@ def test_apply_to_boeking_matched(mocked_responses, client):
         f"{BASE_URL}/api/administraties/1/boekingen/100/apply-rules",
         json={"matched": True},
     )
-    matched = client.administratie(1).auto_booking_rules.apply_to_boeking(100)
-    assert matched is True
+    result = client.administratie(1).auto_booking_rules.apply_to_boeking(100)
+    assert isinstance(result, AutoBookingRuleApplicationResult)
+    assert result.matched is True
+    assert result.reason is None
+    assert bool(result) is True
 
 
 def test_apply_to_boeking_not_matched(mocked_responses, client):
     mocked_responses.add(
         responses.POST,
         f"{BASE_URL}/api/administraties/1/boekingen/100/apply-rules",
-        json={"matched": False},
+        json={"matched": False, "reason": "No matching rule"},
     )
-    matched = client.administratie(1).auto_booking_rules.apply_to_boeking(100)
-    assert matched is False
+    result = client.administratie(1).auto_booking_rules.apply_to_boeking(100)
+    assert result.matched is False
+    assert result.reason == "No matching rule"
+    assert bool(result) is False
+
+
+def test_apply_to_boeking_invalid_reason_type(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekingen/100/apply-rules",
+        json={"matched": False, "reason": {"message": "invalid"}},
+    )
+    with pytest.raises(MboekError, match="reason"):
+        client.administratie(1).auto_booking_rules.apply_to_boeking(100)
 
 
 def test_list_server_error(mocked_responses, client):

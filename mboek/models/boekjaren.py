@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.models.dagboeken import Dagboek
     from mboek.models.grootboekrekeningen import Grootboekrekening
+    from mboek.resources.btw_aangifte import BtwAangifteResource
+    from mboek.resources.reports import ReportsResource
 
 
 class Boekjaar:
@@ -70,8 +72,8 @@ class Boekjaar:
         self._client = client
 
         # Lazily-initialised child resources
-        self._reports = None
-        self._btw_aangifte = None
+        self._reports: ReportsResource | None = None
+        self._btw_aangifte: BtwAangifteResource | None = None
 
     # ── Internal scope guard ─────────────────────────────────────────────────
 
@@ -89,7 +91,7 @@ class Boekjaar:
     # ── Scoped resource properties ────────────────────────────────────────────
 
     @property
-    def reports(self):
+    def reports(self) -> "ReportsResource":
         """Reports resource (:py:class:`~mboek.resources.reports.ReportsResource`).
 
         Raises:
@@ -103,7 +105,7 @@ class Boekjaar:
         return self._reports
 
     @property
-    def btw_aangifte(self):
+    def btw_aangifte(self) -> "BtwAangifteResource":
         """BTW-aangifte resource (:py:class:`~mboek.resources.btw_aangifte.BtwAangifteResource`).
 
         Raises:

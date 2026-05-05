@@ -7,6 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
+from mboek._exceptions import MboekError
 from mboek.models._enums import DagboekType, RekeningCategorie, RekeningType
 
 if TYPE_CHECKING:
@@ -252,11 +253,20 @@ class Grootboekrekening:
         ).met_saldo(self._boekjaar_id)
         match = next((r for r in rekeningen if r.id == self.id), None)
         if match is None:
-            self._saldo = Decimal(0)
-            self._aantal_transacties = 0
-        else:
-            self._saldo = match._saldo
-            self._aantal_transacties = match._aantal_transacties
+            raise MboekError(
+                f"met_saldo() did not return grootboekrekening {self.id} "
+                f"for boekjaar {self._boekjaar_id}",
+                detail={
+                    "administratie_id": self.administratie_id,
+                    "boekjaar_id": self._boekjaar_id,
+                    "grootboekrekening_id": self.id,
+                    "returned_grootboekrekening_ids": [
+                        rekening.id for rekening in rekeningen
+                    ],
+                },
+            )
+        self._saldo = match._saldo
+        self._aantal_transacties = match._aantal_transacties
 
     # ── Scoped methods ────────────────────────────────────────────────────────
 

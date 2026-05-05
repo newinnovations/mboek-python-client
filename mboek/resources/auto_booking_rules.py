@@ -9,7 +9,10 @@ from mboek._exceptions import MboekError
 from mboek._parsers import parse_auto_booking_rule
 from mboek._unset import UNSET, UnsetType
 from mboek.models._enums import AutoBookingActieType
-from mboek.models.auto_booking_rules import AutoBookingRule
+from mboek.models.auto_booking_rules import (
+    AutoBookingRule,
+    AutoBookingRuleApplicationResult,
+)
 from mboek.resources._base import BaseResource
 
 if TYPE_CHECKING:
@@ -195,14 +198,15 @@ class AutoBookingRulesResource(BaseResource):
         """
         self._delete(f"/api/administraties/{self._admin_id}/regels/{rule_id}")
 
-    def apply_to_boeking(self, boeking_id: int) -> bool:
+    def apply_to_boeking(self, boeking_id: int) -> AutoBookingRuleApplicationResult:
         """Apply the first matching rule to a single boeking.
 
         Args:
             boeking_id: Boeking ID.
 
         Returns:
-            ``True`` if a rule matched and was applied, ``False`` otherwise.
+            Structured result with the backend ``matched`` flag and optional
+            diagnostic ``reason``.
         """
         data = self._post(
             f"/api/administraties/{self._admin_id}/boekingen/{boeking_id}/apply-rules"
@@ -218,4 +222,10 @@ class AutoBookingRulesResource(BaseResource):
                 "apply_to_boeking() expected a boolean 'matched' field",
                 detail=data,
             )
-        return matched
+        reason = data.get("reason")
+        if reason is not None and not isinstance(reason, str):
+            raise MboekError(
+                "apply_to_boeking() expected 'reason' to be a string or null",
+                detail=data,
+            )
+        return AutoBookingRuleApplicationResult(matched=matched, reason=reason)

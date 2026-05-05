@@ -17,6 +17,7 @@ from mboek.models import (
     AutoBookingActieType,
     AutoBookingBedragType,
     AutoBookingRule,
+    AutoBookingRuleApplicationResult,
     AutoBookingRuleLine,
     BalansRegel,
     BalansReport,
@@ -63,6 +64,7 @@ __all__ = [
     # models — new canonical names
     "Administratie",
     "AuthToken",
+    "AutoBookingRuleApplicationResult",
     "AutoBookingRule",
     "AutoBookingRuleLine",
     "Boeking",

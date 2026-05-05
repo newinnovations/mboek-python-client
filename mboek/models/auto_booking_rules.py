@@ -72,6 +72,22 @@ class AutoBookingRule:
     updated_at: datetime
 
 
+@dataclass(frozen=True)
+class AutoBookingRuleApplicationResult:
+    """Result of applying automatic booking rules to a single boeking.
+
+    Attributes:
+        matched: Whether a rule matched and was applied.
+        reason: Optional diagnostic information returned by the backend.
+    """
+
+    matched: bool
+    reason: str | None = None
+
+    def __bool__(self) -> bool:
+        return self.matched
+
+
 @dataclass
 class NewAutoBookingRuleLine:
     """A line for a new or updated automatic booking rule.
@@ -118,7 +134,7 @@ class NewAutoBookingRuleLine:
         if self.bedrag_type == AutoBookingBedragType.VAST and self.bedrag is None:
             raise ValueError("bedrag is required when bedrag_type is 'vast'")
 
-    def to_dict(self, *, tegenrekening_id: int | None = None) -> dict:
+    def to_dict(self, *, tegenrekening_id: int | None = None) -> dict[str, object]:
         resolved_tegenrekening_id = (
             self.tegenrekening_id if tegenrekening_id is None else tegenrekening_id
         )
@@ -127,7 +143,7 @@ class NewAutoBookingRuleLine:
                 "tegenrekening_id is not yet resolved; the resource should have resolved "
                 "tegenrekening_naam / tegenrekening_code before calling to_dict()"
             )
-        d: dict = {
+        d: dict[str, object] = {
             "tegenrekening_id": resolved_tegenrekening_id,
             "bedrag_type": self.bedrag_type.value,
         }
@@ -141,5 +157,5 @@ class NewAutoBookingRuleLine:
             quantized = self.bedrag.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
             if quantized != self.bedrag:
                 raise ValueError(f"bedrag {self.bedrag} has more than 2 decimal places")
-            d["bedrag"] = str(quantized)
+            d["bedrag"] = int(quantized * 100)  # convert euros → cents
         return d

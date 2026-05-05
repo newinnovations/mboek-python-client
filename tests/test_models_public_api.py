@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import mboek
 import mboek.models as models_pkg
+from mboek._client import MboekClient
+from mboek.models.boekjaren import Boekjaar
+from mboek.models.dagboeken import Dagboek
 
 
 def test_all_names_are_importable():
@@ -32,3 +35,25 @@ def test_top_level_reexports_include_advanced_enums():
     assert hasattr(mboek, "BoekingStatus")
     assert "AutoBookingBedragType" in mboek.__all__
     assert "BoekingStatus" in mboek.__all__
+
+
+def test_top_level_reexports_include_auto_booking_apply_result():
+    assert hasattr(mboek, "AutoBookingRuleApplicationResult")
+    assert "AutoBookingRuleApplicationResult" in mboek.__all__
+
+
+def test_resource_properties_have_explicit_return_annotations():
+    properties = [
+        MboekClient.auth,
+        MboekClient.administraties,
+        MboekClient.boekingen,
+        MboekClient.export_import,
+        MboekClient.maintenance,
+        Boekjaar.reports,
+        Boekjaar.btw_aangifte,
+        Dagboek.boekingen,
+    ]
+
+    for prop in properties:
+        assert prop.fget is not None
+        assert "return" in prop.fget.__annotations__

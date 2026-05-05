@@ -30,6 +30,7 @@ from mboek.models.administraties import Administratie
 from mboek.models.auth import AuthToken
 from mboek.models.auto_booking_rules import (
     AutoBookingRule,
+    AutoBookingRuleApplicationResult,
     AutoBookingRuleLine,
     NewAutoBookingRuleLine,
 )
@@ -87,6 +88,7 @@ __all__ = [
     "BtwBerekening",
     "RubriekBedragen",
     # auto booking rules
+    "AutoBookingRuleApplicationResult",
     "AutoBookingRule",
     "AutoBookingRuleLine",
     "NewAutoBookingRuleLine",

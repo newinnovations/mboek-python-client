@@ -459,16 +459,32 @@ client.export_import.import_administratie_xaf(
 ## Automatic booking rules
 
 ```python
-from mboek import AutoBookingActieType
+from decimal import Decimal
+
+from mboek import AutoBookingActieType, AutoBookingBedragType, NewAutoBookingRuleLine
 
 a = client.administratie(admin_id)
 
 rule = a.auto_booking_rules.create(
     naam="Hosting Duitsland",
-    actie_type=AutoBookingActieType.ENKEL,
+    actie_type=AutoBookingActieType.SPLITS,
     iban_tegenpartij="DE75512308000000060004",
-    tegenrekening_code="4000",
+    lines=[
+        NewAutoBookingRuleLine(
+            tegenrekening_code="4000",
+            bedrag_type=AutoBookingBedragType.VAST,
+            bedrag=Decimal("12.34"),
+        ),
+        NewAutoBookingRuleLine(
+            tegenrekening_code="9990",
+            bedrag_type=AutoBookingBedragType.REST,
+        ),
+    ],
 )
+# bedragen are passed in euros; the client serializes them as integer cents.
+
+applied = a.auto_booking_rules.apply_to_boeking(boeking_id)
+print(applied.matched, applied.reason)
 
 # Ask the backend for matching contra-accounts
 suggestions = a.dagboek(bank_dagboek_id).suggest(

@@ -12,6 +12,7 @@ from mboek.models._enums import DagboekType
 if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.models.export_import import BoekingenImportResult, MatchSuggestion
+    from mboek.resources._boekjaar_scope import BoekjaarScopedBoekingenResource
 
 
 class Dagboek:
@@ -203,7 +204,7 @@ class Dagboek:
         return data
 
     @property
-    def boekingen(self):
+    def boekingen(self) -> "BoekjaarScopedBoekingenResource":
         """Scoped boekingen resource for this dagboek and boekjaar.
 
         Returns a :py:class:`~mboek.resources._boekjaar_scope.BoekjaarScopedBoekingenResource`

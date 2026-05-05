@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
 import responses
 
+from mboek._exceptions import MboekError
 from mboek.models._enums import DagboekType, RekeningCategorie, RekeningType
 from tests.conftest import BASE_URL, GROOTBOEKREKENING
 
@@ -472,6 +474,35 @@ def test_grootboekrekening_lazy_saldo(mocked_responses, client):
     assert scoped.saldo == Decimal("500.00")
     saldo_calls = [c for c in mocked_responses.calls if "met-saldo" in c.request.url]
     assert len(saldo_calls) == 1
+
+
+def test_grootboekrekening_lazy_saldo_missing_match_raises(mocked_responses, client):
+    other = {**GROOTBOEKREKENING, "id": 31, "code": "4000", "naam": "Kosten"}
+    data = [{"rekening": other, "aantal_transacties": 2, "saldo": 50000}]
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=data,
+    )
+    gbr = client.administratie(1).grootboekrekeningen.get(30)
+    scoped = gbr.with_boekjaar(id=10)
+
+    with pytest.raises(
+        MboekError, match="did not return grootboekrekening 30"
+    ) as exc_info:
+        _ = scoped.saldo
+
+    assert exc_info.value.detail == {
+        "administratie_id": 1,
+        "boekjaar_id": 10,
+        "grootboekrekening_id": 30,
+        "returned_grootboekrekening_ids": [31],
+    }
 
 
 def test_grootboekrekening_with_boekjaar_name_requires_single_match(

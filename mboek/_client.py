@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from mboek.models.grootboekrekeningen import Grootboekrekening
     from mboek.resources._admin_scope import AdministratieScope
     from mboek.resources.administraties import AdministratiesResource
+    from mboek.resources.auth import AuthResource
     from mboek.resources.boekingen import BoekingenResource
     from mboek.resources.export_import import ExportImportResource
     from mboek.resources.maintenance import MaintenanceResource
@@ -160,7 +161,7 @@ class MboekClient:
     # ── Resource properties ───────────────────────────────────────────────────
 
     @property
-    def auth(self):
+    def auth(self) -> "AuthResource":
         """Authentication resource (:py:class:`~mboek.resources.auth.AuthResource`)."""
         from mboek.resources.auth import AuthResource
 
@@ -169,7 +170,7 @@ class MboekClient:
         return AuthResource(self)
 
     @property
-    def administraties(self):
+    def administraties(self) -> "AdministratiesResource":
         """Administraties resource (:py:class:`~mboek.resources.administraties.AdministratiesResource`)."""
         if self._administraties is None:
             from mboek.resources.administraties import AdministratiesResource
@@ -178,7 +179,7 @@ class MboekClient:
         return self._administraties
 
     @property
-    def boekingen(self):
+    def boekingen(self) -> "BoekingenResource":
         """Boekingen resource — get/update/delete by ID (:py:class:`~mboek.resources.boekingen.BoekingenResource`).
 
         To list or create boekingen, use the boekjaar-scoped access::
@@ -193,7 +194,7 @@ class MboekClient:
         return self._boekingen
 
     @property
-    def export_import(self):
+    def export_import(self) -> "ExportImportResource":
         """Top-level export/import resource (:py:class:`~mboek.resources.export_import.ExportImportResource`).
 
         Contains
@@ -210,7 +211,7 @@ class MboekClient:
         return self._export_import
 
     @property
-    def maintenance(self):
+    def maintenance(self) -> "MaintenanceResource":
         """Maintenance resource (:py:class:`~mboek.resources.maintenance.MaintenanceResource`)."""
         if self._maintenance is None:
             from mboek.resources.maintenance import MaintenanceResource
