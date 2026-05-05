@@ -454,6 +454,8 @@ client.export_import.import_administratie_xaf(
     overwrite=True,
     create_missing=True,
 )
+
+# Non-UTF-8 XAF files are normalized to UTF-8 automatically before upload.
 ```
 
 ## Automatic booking rules

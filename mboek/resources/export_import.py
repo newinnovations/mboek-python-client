@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import codecs
+import re
 from pathlib import Path
 from typing import IO, Any
 
 from mboek.resources._base import BaseResource
+
+_XML_DECLARATION_ENCODING_RE = re.compile(
+    r'^(?P<prefix>\s*<\?xml\b[^>]*?\bencoding\s*=\s*)(?P<quote>["\'])(?P<encoding>[^"\']+)(?P=quote)',
+    re.IGNORECASE,
+)
 
 
 def _bool_query(value: bool | None) -> str | None:
@@ -14,16 +21,68 @@ def _bool_query(value: bool | None) -> str | None:
     return "true" if value else "false"
 
 
-def _read_xml_payload(source: Path | IO[str] | IO[bytes] | str | bytes) -> str | bytes:
-    if isinstance(source, Path):
-        return source.read_bytes()
-    if isinstance(source, (str, bytes)):
-        return source
+def _detect_xml_encoding(payload: bytes) -> str:
+    if payload.startswith(codecs.BOM_UTF8):
+        return "utf-8-sig"
+    if payload.startswith(codecs.BOM_UTF32_LE):
+        return "utf-32-le"
+    if payload.startswith(codecs.BOM_UTF32_BE):
+        return "utf-32-be"
+    if payload.startswith(codecs.BOM_UTF16_LE):
+        return "utf-16-le"
+    if payload.startswith(codecs.BOM_UTF16_BE):
+        return "utf-16-be"
+    if payload.startswith(b"\x3c\x00\x00\x00\x3f\x00\x00\x00"):
+        return "utf-32-le"
+    if payload.startswith(b"\x00\x00\x00\x3c\x00\x00\x00\x3f"):
+        return "utf-32-be"
+    if payload.startswith(b"\x3c\x00\x3f\x00\x78\x00\x6d\x00"):
+        return "utf-16-le"
+    if payload.startswith(b"\x00\x3c\x00\x3f\x00\x78\x00\x6d"):
+        return "utf-16-be"
 
-    payload = source.read()
-    if isinstance(payload, (str, bytes)):
-        return payload
-    raise TypeError("XML source must provide str or bytes data")
+    prefix = payload[:256].decode("ascii", errors="ignore")
+    match = _XML_DECLARATION_ENCODING_RE.match(prefix)
+    if match:
+        return match.group("encoding")
+
+    return "utf-8"
+
+
+def _decode_xml_bytes(payload: bytes) -> str:
+    encoding = _detect_xml_encoding(payload)
+    try:
+        return payload.decode(encoding)
+    except LookupError as exc:
+        raise ValueError(
+            f"XML payload declares unsupported encoding {encoding!r}"
+        ) from exc
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"XML payload could not be decoded as {encoding!r}") from exc
+
+
+def _normalize_xml_text(payload: str) -> str:
+    payload = payload.removeprefix("\ufeff")
+    return _XML_DECLARATION_ENCODING_RE.sub(
+        lambda match: f'{match.group("prefix")}{match.group("quote")}UTF-8{match.group("quote")}',
+        payload,
+        count=1,
+    )
+
+
+def _read_xml_payload(source: Path | IO[str] | IO[bytes] | str | bytes) -> bytes:
+    if isinstance(source, Path):
+        payload: str | bytes = source.read_bytes()
+    elif isinstance(source, (str, bytes)):
+        payload = source
+    else:
+        payload = source.read()
+        if not isinstance(payload, (str, bytes)):
+            raise TypeError("XML source must provide str or bytes data")
+
+    if isinstance(payload, bytes):
+        payload = _decode_xml_bytes(payload)
+    return _normalize_xml_text(payload).encode("utf-8")
 
 
 def _require_xml_text(payload: Any) -> str:
@@ -68,6 +127,7 @@ class ExportImportResource(BaseResource):
 
         Args:
             source: Path, file object, XML string, or XML bytes to upload.
+                Non-UTF-8 XML is re-encoded to UTF-8 before sending.
             overwrite: Replace an existing administratie with the same name.
             create_missing: Synthesize missing grootboekrekeningen and BTW codes
                 referenced by the XAF file.
@@ -181,6 +241,7 @@ class AdminExportImportResource(BaseResource):
 
         Args:
             source: Path, file object, XML string, or XML bytes to upload.
+                Non-UTF-8 XML is re-encoded to UTF-8 before sending.
             create_missing: Create missing dagboeken, grootboekrekeningen, and
                 BTW codes before importing the boekjaar.
 

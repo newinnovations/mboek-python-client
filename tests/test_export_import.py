@@ -21,6 +21,10 @@ BOEKJAAR_IMPORT_RESULT = {
     "boekingen_imported": 12,
 }
 XAF_XML = """<?xml version="1.0" encoding="UTF-8"?><AuditFileFinancial />"""
+NON_UTF8_XAF_XML = """<?xml version="1.0" encoding="Windows-1252"?><AuditFileFinancial><Description>Bedrag € 12</Description></AuditFileFinancial>"""
+NORMALIZED_XAF_XML = NON_UTF8_XAF_XML.replace(
+    'encoding="Windows-1252"', 'encoding="UTF-8"'
+)
 BANK_IMPORT_RESULT = {
     "imported": 3,
     "duplicates_skipped": 1,
@@ -78,6 +82,24 @@ def test_import_administratie_xaf_from_path(tmp_path, mocked_responses, client):
     assert _request_body(call) == XAF_XML
 
 
+def test_import_administratie_xaf_normalizes_non_utf8_path(
+    tmp_path, mocked_responses, client
+):
+    source = tmp_path / "administratie.xaf"
+    source.write_bytes(NON_UTF8_XAF_XML.encode("cp1252"))
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/import/xaf",
+        json=ADMIN_IMPORT_RESULT,
+    )
+
+    client.export_import.import_administratie_xaf(source)
+
+    call = mocked_responses.calls[-1]
+    assert call.request.headers["Content-Type"] == "application/xml"
+    assert _request_body(call) == NORMALIZED_XAF_XML
+
+
 def test_export_administratie_xaf(mocked_responses, client):
     mocked_responses.add(
         responses.GET,
@@ -107,6 +129,22 @@ def test_import_boekjaar_xaf_from_text_stream(mocked_responses, client):
     assert "create_missing=true" in call.request.url
     assert call.request.headers["Content-Type"] == "application/xml"
     assert _request_body(call) == XAF_XML
+
+
+def test_import_boekjaar_xaf_normalizes_non_utf8_bytes_stream(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekjaren/import/xaf",
+        json=BOEKJAAR_IMPORT_RESULT,
+    )
+
+    client.administratie(1).export_import.import_boekjaar_xaf(
+        BytesIO(NON_UTF8_XAF_XML.encode("cp1252"))
+    )
+
+    call = mocked_responses.calls[-1]
+    assert call.request.headers["Content-Type"] == "application/xml"
+    assert _request_body(call) == NORMALIZED_XAF_XML
 
 
 def test_bank_import_upload_supports_allow_duplicates_and_new_result_shape(
