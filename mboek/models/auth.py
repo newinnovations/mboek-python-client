@@ -22,5 +22,13 @@ class AuthToken:
     expires_at: datetime
 
 
+@dataclass
+class CurrentUser:
+    """Authenticated user details returned by ``GET /api/auth/me``."""
+
+    gebruikersnaam: str
+    sub: str
+
+
 # Backward-compatible alias.
 LoginResponse = AuthToken

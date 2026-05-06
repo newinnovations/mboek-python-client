@@ -7,19 +7,37 @@ from io import BytesIO, StringIO
 import pytest
 import responses
 
+from mboek import (
+    AdministratieExport,
+    AdministratieImportResult,
+    BoekingExport,
+    BoekjaarExport,
+    BoekjaarImportResult,
+)
 from mboek._exceptions import MboekError, NotFoundError, ValidationError
 from tests.conftest import BASE_URL, GROOTBOEKREKENING
 
+ADMIN_EXPORT_PAYLOAD = {
+    "type": "administratie",
+    "naam": "Imported BV",
+    "boekjaren": [],
+}
 ADMIN_IMPORT_RESULT = {
     "administratie_id": 7,
     "naam": "Imported BV",
     "boekingen_imported": 42,
+}
+BOEKJAAR_EXPORT_PAYLOAD = {
+    "type": "boekjaar",
+    "naam": "2024",
+    "boekingen": [],
 }
 BOEKJAAR_IMPORT_RESULT = {
     "boekjaar_id": 10,
     "naam": "2024",
     "boekingen_imported": 12,
 }
+BOEKING_EXPORT_PAYLOAD = {"id": 100, "type": "boeking", "regels": []}
 XAF_XML = """<?xml version="1.0" encoding="UTF-8"?><AuditFileFinancial />"""
 NON_UTF8_XAF_XML = """<?xml version="1.0" encoding="Windows-1252"?><AuditFileFinancial><Description>Bedrag € 12</Description></AuditFileFinancial>"""
 NORMALIZED_XAF_XML = NON_UTF8_XAF_XML.replace(
@@ -53,11 +71,28 @@ def test_import_administratie_supports_overwrite(mocked_responses, client):
     )
 
     result = client.export_import.import_administratie(
-        {"type": "administratie"}, overwrite=True
+        AdministratieExport.from_dict(ADMIN_EXPORT_PAYLOAD), overwrite=True
     )
 
-    assert result["administratie_id"] == 7
+    assert isinstance(result, AdministratieImportResult)
+    assert result.administratie_id == 7
+    assert result.naam == "Imported BV"
+    assert result.boekingen_imported == 42
     assert "overwrite=true" in mocked_responses.calls[-1].request.url
+
+
+def test_export_administratie_returns_typed_payload(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/export",
+        json=ADMIN_EXPORT_PAYLOAD,
+    )
+
+    result = client.administratie(1).export_import.export_administratie()
+
+    assert isinstance(result, AdministratieExport)
+    assert result.type == "administratie"
+    assert result.to_dict() == ADMIN_EXPORT_PAYLOAD
 
 
 def test_import_administratie_xaf_from_path(tmp_path, mocked_responses, client):
@@ -74,7 +109,9 @@ def test_import_administratie_xaf_from_path(tmp_path, mocked_responses, client):
     )
 
     call = mocked_responses.calls[-1]
-    assert result["boekingen_imported"] == 42
+    assert isinstance(result, AdministratieImportResult)
+    assert result.administratie_id == 7
+    assert result.boekingen_imported == 42
     assert "overwrite=true" in call.request.url
     assert "create_missing=false" in call.request.url
     assert call.request.headers["Content-Type"] == "application/xml"
@@ -125,7 +162,10 @@ def test_import_boekjaar_xaf_from_text_stream(mocked_responses, client):
     )
 
     call = mocked_responses.calls[-1]
-    assert result["boekjaar_id"] == 10
+    assert isinstance(result, BoekjaarImportResult)
+    assert result.boekjaar_id == 10
+    assert result.naam == "2024"
+    assert result.boekingen_imported == 12
     assert "create_missing=true" in call.request.url
     assert call.request.headers["Content-Type"] == "application/xml"
     assert _request_body(call) == XAF_XML
@@ -208,6 +248,37 @@ def test_export_boekjaar_xaf(mocked_responses, client):
     assert xml == XAF_XML
 
 
+def test_export_boekjaar_returns_typed_payload(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10/export",
+        json=BOEKJAAR_EXPORT_PAYLOAD,
+    )
+
+    result = client.administratie(1).export_import.export_boekjaar(10)
+
+    assert isinstance(result, BoekjaarExport)
+    assert result.type == "boekjaar"
+    assert result.to_dict() == BOEKJAAR_EXPORT_PAYLOAD
+
+
+def test_import_boekjaar_supports_typed_payload(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/boekjaren/import",
+        json=BOEKJAAR_IMPORT_RESULT,
+    )
+
+    result = client.administratie(1).export_import.import_boekjaar(
+        BoekjaarExport.from_dict(BOEKJAAR_EXPORT_PAYLOAD)
+    )
+
+    assert isinstance(result, BoekjaarImportResult)
+    assert result.boekjaar_id == 10
+    assert result.naam == "2024"
+    assert result.boekingen_imported == 12
+
+
 # ── Failure path tests ────────────────────────────────────────────────────────
 
 
@@ -219,7 +290,9 @@ def test_import_administratie_server_error(mocked_responses, client):
         status=500,
     )
     with pytest.raises(MboekError) as exc_info:
-        client.export_import.import_administratie({"type": "administratie"})
+        client.export_import.import_administratie(
+            AdministratieExport.from_dict(ADMIN_EXPORT_PAYLOAD)
+        )
     assert exc_info.value.status_code == 500
 
 
@@ -231,7 +304,9 @@ def test_import_administratie_validation_error(mocked_responses, client):
         status=422,
     )
     with pytest.raises(ValidationError) as exc_info:
-        client.export_import.import_administratie({"type": "bad"})
+        client.export_import.import_administratie(
+            AdministratieExport.from_dict(ADMIN_EXPORT_PAYLOAD)
+        )
     assert exc_info.value.status_code == 422
 
 
@@ -256,7 +331,7 @@ def test_import_administratie_xaf_from_bytes_stream(mocked_responses, client):
         BytesIO(XAF_XML.encode()), overwrite=False
     )
     call = mocked_responses.calls[-1]
-    assert result["administratie_id"] == 7
+    assert result.administratie_id == 7
     assert call.request.headers["Content-Type"] == "application/xml"
     assert _request_body(call) == XAF_XML
 
@@ -291,14 +366,15 @@ def test_export_administratie_xaf_server_error(mocked_responses, client):
 
 
 def test_export_boeking(mocked_responses, client):
-    boeking_payload = {"id": 100, "type": "boeking", "regels": []}
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/boekingen/100/export",
-        json=boeking_payload,
+        json=BOEKING_EXPORT_PAYLOAD,
     )
     result = client.administratie(1).export_import.export_boeking(100)
-    assert result["id"] == 100
+    assert isinstance(result, BoekingExport)
+    assert result.id == 100
+    assert result.to_dict() == BOEKING_EXPORT_PAYLOAD
 
 
 def test_import_boekjaar_xaf_validation_error(mocked_responses, client):

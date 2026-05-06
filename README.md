@@ -70,7 +70,7 @@ MboekClient
     │   ├── naam, code, dagboek_type, …  ← always available
     │   ├── rerun_regels()
     │   ├── suggest(omschrijving, ...)
-    │   ├── import_boekingen(boekingen, boekjaar_id=...)
+    │   ├── import_boekingen(exported_boekingen, boekjaar_id=...)
     │   └── with_boekjaar(id=|name=)  →  Dagboek  (boekjaar-scoped)
     │       └── boekingen     ← list / create
     └── boekjaar(id|name=)  →  Boekjaar  (rich domain object)
@@ -417,21 +417,23 @@ if result.parse_warnings:
 import json
 from pathlib import Path
 
+from mboek import AdministratieExport, BoekjaarExport
+
 a = client.administratie(admin_id)
 
 # Full export to a JSON file
 payload = a.export_import.export_administratie()
 with open("backup.json", "w") as f:
-    json.dump(payload, f, indent=2)
+    json.dump(payload.to_dict(), f, indent=2)
 
 # Export a single boekjaar
 bj_payload = a.export_import.export_boekjaar(boekjaar_id)
 
 # Restore a full backup into a new administration
 with open("backup.json") as f:
-    payload = json.load(f)
+    payload = AdministratieExport.from_dict(json.load(f))
 result = client.export_import.import_administratie(payload, overwrite=True)
-print(result["administratie_id"], result["boekingen_imported"])
+print(result.administratie_id, result.boekingen_imported)
 
 # Export the full administration as Auditfile Financieel (XAF)
 admin_xaf = a.export_import.export_administratie_xaf()
@@ -446,7 +448,14 @@ result = a.export_import.import_boekjaar_xaf(
     Path("boekjaar-2024.xaf"),
     create_missing=True,
 )
-print(result["boekjaar_id"], result["boekingen_imported"])
+print(result.boekjaar_id, result.boekingen_imported)
+
+# Load a boekjaar JSON export from disk before importing it elsewhere
+target_admin = client.administratie(other_admin_id)
+with open("boekjaar-2024.json") as f:
+    boekjaar_payload = BoekjaarExport.from_dict(json.load(f))
+result = target_admin.export_import.import_boekjaar(boekjaar_payload)
+print(result.boekjaar_id, result.boekingen_imported)
 
 # Or create a brand-new administration directly from a XAF file
 client.export_import.import_administratie_xaf(
@@ -496,6 +505,7 @@ suggestions = a.dagboek(bank_dagboek_id).suggest(
 print(suggestions[0].contra_rekening_code, suggestions[0].confidence, suggestions[0].reason)
 
 # Import exported boekingen into a dagboek + boekjaar
+# exported_boekingen should be a list[BoekingExport]
 result = a.dagboek(bank_dagboek_id).import_boekingen(
     exported_boekingen,
     boekjaar_id=boekjaar_id,

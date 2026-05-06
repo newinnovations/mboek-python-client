@@ -2,7 +2,90 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, field
+from typing import Any, ClassVar, Type, TypeVar
+
+ExportPayloadT = TypeVar("ExportPayloadT", bound="_BaseExportPayload")
+
+
+@dataclass
+class _BaseExportPayload:
+    _payload: dict[str, Any] = field(repr=False)
+    _expected_type: ClassVar[str]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self._payload, dict):
+            raise TypeError(f"{self.__class__.__name__} payload must be a dict")
+        payload_type = self._payload.get("type")
+        if payload_type != self._expected_type:
+            raise ValueError(
+                f"{self.__class__.__name__} requires payload type "
+                f"{self._expected_type!r}, got {payload_type!r}"
+            )
+
+    @classmethod
+    def from_dict(cls: Type[ExportPayloadT], payload: dict[str, Any]) -> ExportPayloadT:
+        if not isinstance(payload, dict):
+            raise TypeError(f"{cls.__name__} payload must be a dict")
+        return cls(_payload=deepcopy(payload))
+
+    @property
+    def type(self) -> str:
+        return self._expected_type
+
+    def to_dict(self) -> dict[str, Any]:
+        return deepcopy(self._payload)
+
+
+@dataclass
+class AdministratieExport(_BaseExportPayload):
+    """Full administratie JSON export payload."""
+
+    _expected_type: ClassVar[str] = "administratie"
+
+
+@dataclass
+class BoekjaarExport(_BaseExportPayload):
+    """Single-boekjaar JSON export payload."""
+
+    _expected_type: ClassVar[str] = "boekjaar"
+
+
+@dataclass
+class BoekingExport(_BaseExportPayload):
+    """Single-boeking JSON export payload."""
+
+    _expected_type: ClassVar[str] = "boeking"
+
+    @property
+    def id(self) -> int | None:
+        value = self._payload.get("id")
+        if value is None:
+            return None
+        if not isinstance(value, int):
+            raise ValueError(
+                f"BoekingExport id must be an int when present, got {type(value).__name__}"
+            )
+        return value
+
+
+@dataclass
+class AdministratieImportResult:
+    """Result of importing an administratie export payload."""
+
+    administratie_id: int
+    naam: str
+    boekingen_imported: int
+
+
+@dataclass
+class BoekjaarImportResult:
+    """Result of importing a boekjaar export payload."""
+
+    boekjaar_id: int
+    naam: str
+    boekingen_imported: int
 
 
 @dataclass

@@ -6,7 +6,7 @@ import pytest
 import requests
 import responses
 
-from mboek import MboekClient
+from mboek import CurrentUser, MboekClient
 from mboek._exceptions import AuthError, MboekError, RateLimitError, ValidationError
 from tests.conftest import BASE_URL
 
@@ -80,7 +80,9 @@ def test_me(mocked_responses, client):
         json={"gebruikersnaam": "admin", "sub": "1"},
     )
     info = client.auth.me()
-    assert info["gebruikersnaam"] == "admin"
+    assert isinstance(info, CurrentUser)
+    assert info.gebruikersnaam == "admin"
+    assert info.sub == "1"
 
 
 def test_logout(mocked_responses, client):

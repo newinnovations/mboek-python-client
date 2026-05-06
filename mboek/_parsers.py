@@ -18,7 +18,7 @@ from mboek.models._enums import (
     RekeningType,
 )
 from mboek.models.administraties import Administratie
-from mboek.models.auth import AuthToken
+from mboek.models.auth import AuthToken, CurrentUser
 from mboek.models.auto_booking_rules import AutoBookingRule, AutoBookingRuleLine
 from mboek.models.boekingen import Boeking, Boekingsregel
 from mboek.models.boekjaren import Boekjaar
@@ -26,17 +26,29 @@ from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedrage
 from mboek.models.btw_codes import BtwCode
 from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.models.export_import import (
+    AdministratieExport,
+    AdministratieImportResult,
     BoekingenImportResult,
+    BoekingExport,
+    BoekjaarExport,
+    BoekjaarImportResult,
     ImportResult,
     MatchSuggestion,
 )
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
+from mboek.models.maintenance import VacuumResult
 from mboek.models.reports import (
     BalansRegel,
     BalansReport,
     WinstVerliesRegel,
     WinstVerliesReport,
 )
+
+
+def _require_object(payload: object, *, response_name: str) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError(f"{response_name} response must be a JSON object")
+    return payload
 
 
 def _dt(s: str | None) -> datetime | None:
@@ -87,6 +99,17 @@ def parse_login(d: dict) -> AuthToken:
         token=d["token"],
         gebruikersnaam=d["gebruikersnaam"],
         expires_at=datetime.fromtimestamp(d["expires_at"], tz=timezone.utc),
+    )
+
+
+def parse_current_user(payload: object) -> CurrentUser:
+    d = _require_object(payload, response_name="Current user")
+    for key in ("gebruikersnaam", "sub"):
+        if key not in d:
+            raise ValueError(f"Current user response missing required key: {key!r}")
+    return CurrentUser(
+        gebruikersnaam=d["gebruikersnaam"],
+        sub=d["sub"],
     )
 
 
@@ -390,6 +413,47 @@ def parse_import_result(d: dict) -> ImportResult:
     )
 
 
+def parse_administratie_export(payload: object) -> AdministratieExport:
+    d = _require_object(payload, response_name="Administratie export")
+    return AdministratieExport.from_dict(d)
+
+
+def parse_boekjaar_export(payload: object) -> BoekjaarExport:
+    d = _require_object(payload, response_name="Boekjaar export")
+    return BoekjaarExport.from_dict(d)
+
+
+def parse_boeking_export(payload: object) -> BoekingExport:
+    d = _require_object(payload, response_name="Boeking export")
+    return BoekingExport.from_dict(d)
+
+
+def parse_administratie_import_result(payload: object) -> AdministratieImportResult:
+    d = _require_object(payload, response_name="Administratie import")
+    for key in ("administratie_id", "naam", "boekingen_imported"):
+        if key not in d:
+            raise ValueError(
+                f"Administratie import response missing required key: {key!r}"
+            )
+    return AdministratieImportResult(
+        administratie_id=d["administratie_id"],
+        naam=d["naam"],
+        boekingen_imported=d["boekingen_imported"],
+    )
+
+
+def parse_boekjaar_import_result(payload: object) -> BoekjaarImportResult:
+    d = _require_object(payload, response_name="Boekjaar import")
+    for key in ("boekjaar_id", "naam", "boekingen_imported"):
+        if key not in d:
+            raise ValueError(f"Boekjaar import response missing required key: {key!r}")
+    return BoekjaarImportResult(
+        boekjaar_id=d["boekjaar_id"],
+        naam=d["naam"],
+        boekingen_imported=d["boekingen_imported"],
+    )
+
+
 def parse_boekingen_import_result(d: dict) -> BoekingenImportResult:
     return BoekingenImportResult(
         dagboek_id=d["dagboek_id"],
@@ -404,4 +468,17 @@ def parse_match_suggestion(d: dict) -> MatchSuggestion:
         contra_rekening_naam=d["contra_rekening_naam"],
         confidence=d["confidence"],
         reason=d["reason"],
+    )
+
+
+def parse_vacuum_result(payload: object) -> VacuumResult:
+    d = _require_object(payload, response_name="Vacuum")
+    if "message" not in d:
+        raise ValueError("Vacuum response missing required key: 'message'")
+    elapsed_ms = d.get("elapsed_ms")
+    if elapsed_ms is not None and not isinstance(elapsed_ms, int):
+        raise ValueError("Vacuum response field 'elapsed_ms' must be an int")
+    return VacuumResult(
+        message=d["message"],
+        elapsed_ms=elapsed_ms,
     )

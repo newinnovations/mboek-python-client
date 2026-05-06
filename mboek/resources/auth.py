@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from mboek._parsers import parse_login
-from mboek.models.auth import AuthToken
+from mboek._parsers import parse_current_user, parse_login
+from mboek.models.auth import AuthToken, CurrentUser
 from mboek.resources._base import BaseResource
 
 
@@ -47,13 +47,14 @@ class AuthResource(BaseResource):
         """
         self._post("/api/auth/logout")
 
-    def me(self) -> dict:
+    def me(self) -> CurrentUser:
         """Return the currently authenticated user's info.
 
         Returns:
-            A dict with ``gebruikersnaam`` and ``sub`` fields.
+            :py:class:`~mboek.models.auth.CurrentUser` with the username and
+            subject claim of the authenticated user.
 
         Raises:
             :py:class:`~mboek._exceptions.AuthError`: Not authenticated.
         """
-        return self._get("/api/auth/me")
+        return parse_current_user(self._get("/api/auth/me"))

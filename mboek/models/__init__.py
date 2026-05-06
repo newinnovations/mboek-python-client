@@ -27,7 +27,7 @@ from mboek.models._enums import (
     RekeningType,
 )
 from mboek.models.administraties import Administratie
-from mboek.models.auth import AuthToken
+from mboek.models.auth import AuthToken, CurrentUser
 from mboek.models.auto_booking_rules import (
     AutoBookingRule,
     AutoBookingRuleApplicationResult,
@@ -40,11 +40,17 @@ from mboek.models.btw_aangifte import BtwAangifte, BtwBerekening, RubriekBedrage
 from mboek.models.btw_codes import BtwCode
 from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.models.export_import import (
+    AdministratieExport,
+    AdministratieImportResult,
     BoekingenImportResult,
+    BoekingExport,
+    BoekjaarExport,
+    BoekjaarImportResult,
     ImportResult,
     MatchSuggestion,
 )
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
+from mboek.models.maintenance import VacuumResult
 from mboek.models.reports import (
     BalansRegel,
     BalansReport,
@@ -67,6 +73,7 @@ __all__ = [
     "Regeltype",
     # auth
     "AuthToken",
+    "CurrentUser",
     # administraties
     "Administratie",
     # boekjaren
@@ -98,7 +105,14 @@ __all__ = [
     "WinstVerliesRegel",
     "WinstVerliesReport",
     # import / export
+    "AdministratieExport",
+    "AdministratieImportResult",
+    "BoekingExport",
     "BoekingenImportResult",
+    "BoekjaarExport",
+    "BoekjaarImportResult",
     "ImportResult",
     "MatchSuggestion",
+    # maintenance
+    "VacuumResult",
 ]

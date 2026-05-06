@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import responses
 
+from mboek import BoekingExport
 from mboek._exceptions import NotFoundError, ScopeError
 from mboek.models._enums import DagboekType
 from tests.conftest import BASE_URL, DAGBOEK, GROOTBOEKREKENING
@@ -492,6 +493,8 @@ def test_suggest_parses_spec_fields(mocked_responses, client):
 
 
 def test_import_boekingen_accepts_explicit_boekjaar_id(mocked_responses, client):
+    import json as _json
+
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK
     )
@@ -505,7 +508,7 @@ def test_import_boekingen_accepts_explicit_boekjaar_id(mocked_responses, client)
         client.administratie(1)
         .dagboek(20)
         .import_boekingen(
-            [{"omschrijving": "Imported"}],
+            [BoekingExport.from_dict({"type": "boeking", "omschrijving": "Imported"})],
             boekjaar_id=10,
         )
     )
@@ -514,4 +517,6 @@ def test_import_boekingen_accepts_explicit_boekjaar_id(mocked_responses, client)
     assert result.boekingen_imported == 2
     import_call = mocked_responses.calls[-1]
     assert "boekjaar_id=10" in import_call.request.url
-    assert import_call.request.body == b'{"boekingen": [{"omschrijving": "Imported"}]}'
+    assert _json.loads(import_call.request.body) == {
+        "boekingen": [{"type": "boeking", "omschrijving": "Imported"}]
+    }

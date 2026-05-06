@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -11,7 +12,11 @@ from mboek.models._enums import DagboekType
 
 if TYPE_CHECKING:
     from mboek._client import MboekClient
-    from mboek.models.export_import import BoekingenImportResult, MatchSuggestion
+    from mboek.models.export_import import (
+        BoekingenImportResult,
+        BoekingExport,
+        MatchSuggestion,
+    )
     from mboek.resources._boekjaar_scope import BoekjaarScopedBoekingenResource
 
 
@@ -295,7 +300,7 @@ class Dagboek:
 
     def import_boekingen(
         self,
-        boekingen: list[dict],
+        boekingen: Sequence["BoekingExport"],
         *,
         boekjaar_id: int | None = None,
         boekjaar_name: str | None = None,
@@ -303,7 +308,10 @@ class Dagboek:
         """Import a list of exported boekingen into this dagboek.
 
         Args:
-            boekingen: List of boeking payloads.
+            boekingen: Export payloads, typically obtained from
+                :py:meth:`mboek.resources.export_import.AdminExportImportResource.export_boeking`
+                or loaded from JSON with
+                :py:meth:`mboek.models.export_import.BoekingExport.from_dict`.
             boekjaar_id: Target boekjaar ID. When omitted, the current
                 boekjaar scope is used.
             boekjaar_name: Target boekjaar name. Requires a client reference.
@@ -322,7 +330,7 @@ class Dagboek:
             "POST",
             f"/api/administraties/{self.administratie_id}/dagboeken/{self.id}/boekingen/import",
             params={"boekjaar_id": resolved_boekjaar_id},
-            json={"boekingen": boekingen},
+            json={"boekingen": [boeking.to_dict() for boeking in boekingen]},
         )
         payload = self._require_dict_response(data, operation="import_boekingen()")
         try:

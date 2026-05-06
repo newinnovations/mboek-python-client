@@ -7,6 +7,20 @@ import re
 from pathlib import Path
 from typing import IO, Any
 
+from mboek._parsers import (
+    parse_administratie_export,
+    parse_administratie_import_result,
+    parse_boeking_export,
+    parse_boekjaar_export,
+    parse_boekjaar_import_result,
+)
+from mboek.models.export_import import (
+    AdministratieExport,
+    AdministratieImportResult,
+    BoekingExport,
+    BoekjaarExport,
+    BoekjaarImportResult,
+)
 from mboek.resources._base import BaseResource
 
 _XML_DECLARATION_ENCODING_RE = re.compile(
@@ -98,22 +112,26 @@ class ExportImportResource(BaseResource):
     """
 
     def import_administratie(
-        self, payload: dict, *, overwrite: bool | None = None
-    ) -> dict:
+        self, payload: AdministratieExport, *, overwrite: bool | None = None
+    ) -> AdministratieImportResult:
         """Create a new administratie from a previously exported payload.
 
         Args:
             payload: Export payload obtained from
-                :py:meth:`~mboek.resources.export_import.AdminExportImportResource.export_administratie`.
+                :py:meth:`~mboek.resources.export_import.AdminExportImportResource.export_administratie`
+                or loaded from JSON with
+                :py:meth:`~mboek.models.export_import.AdministratieExport.from_dict`.
             overwrite: Replace an existing administratie with the same name.
 
         Returns:
-            Summary dict with the new administratie ID and imported booking count.
+            :py:class:`~mboek.models.export_import.AdministratieImportResult`.
         """
-        return self._post(
-            "/api/administraties/import",
-            json=payload,
-            params={"overwrite": _bool_query(overwrite)},
+        return parse_administratie_import_result(
+            self._post(
+                "/api/administraties/import",
+                json=payload.to_dict(),
+                params={"overwrite": _bool_query(overwrite)},
+            )
         )
 
     def import_administratie_xaf(
@@ -122,7 +140,7 @@ class ExportImportResource(BaseResource):
         *,
         overwrite: bool | None = None,
         create_missing: bool | None = None,
-    ) -> dict:
+    ) -> AdministratieImportResult:
         """Create a new administratie from an Auditfile Financieel (XAF) export.
 
         Args:
@@ -133,19 +151,21 @@ class ExportImportResource(BaseResource):
                 referenced by the XAF file.
 
         Returns:
-            Summary dict with the new administratie ID and imported booking count.
+            :py:class:`~mboek.models.export_import.AdministratieImportResult`.
         """
-        return self._post(
-            "/api/administraties/import/xaf",
-            params={
-                "overwrite": _bool_query(overwrite),
-                "create_missing": _bool_query(create_missing),
-            },
-            data=_read_xml_payload(source),
-            headers={
-                "Content-Type": "application/xml",
-                "Accept": "application/json",
-            },
+        return parse_administratie_import_result(
+            self._post(
+                "/api/administraties/import/xaf",
+                params={
+                    "overwrite": _bool_query(overwrite),
+                    "create_missing": _bool_query(create_missing),
+                },
+                data=_read_xml_payload(source),
+                headers={
+                    "Content-Type": "application/xml",
+                    "Accept": "application/json",
+                },
+            )
         )
 
 
@@ -162,16 +182,18 @@ class AdminExportImportResource(BaseResource):
         super().__init__(client)
         self._admin_id = admin_id
 
-    def export_administratie(self) -> dict:
-        """Export the complete administratie as a JSON-serialisable dict.
+    def export_administratie(self) -> AdministratieExport:
+        """Export the complete administratie as a typed JSON payload.
 
         Includes: BTW codes, grootboekrekeningen, dagboeken, auto-booking rules,
         boekjaren and all boekingen with their regels.
 
         Returns:
-            Export payload as a Python dict (can be ``json.dump``'d to a file).
+            :py:class:`~mboek.models.export_import.AdministratieExport`.
         """
-        return self._get(f"/api/administraties/{self._admin_id}/export")
+        return parse_administratie_export(
+            self._get(f"/api/administraties/{self._admin_id}/export")
+        )
 
     def export_administratie_xaf(self) -> str:
         """Export the complete administratie as an Auditfile Financieel (XAF) XML document."""
@@ -179,8 +201,8 @@ class AdminExportImportResource(BaseResource):
             self._get(f"/api/administraties/{self._admin_id}/export/xaf")
         )
 
-    def export_boekjaar(self, boekjaar_id: int) -> dict:
-        """Export a single boekjaar as a JSON-serialisable dict.
+    def export_boekjaar(self, boekjaar_id: int) -> BoekjaarExport:
+        """Export a single boekjaar as a typed JSON payload.
 
         References are encoded by code rather than database ID so the export
         can be imported into an administratie with different IDs.
@@ -189,10 +211,12 @@ class AdminExportImportResource(BaseResource):
             boekjaar_id: Boekjaar ID.
 
         Returns:
-            Export payload as a Python dict.
+            :py:class:`~mboek.models.export_import.BoekjaarExport`.
         """
-        return self._get(
-            f"/api/administraties/{self._admin_id}/boekjaren/{boekjaar_id}/export"
+        return parse_boekjaar_export(
+            self._get(
+                f"/api/administraties/{self._admin_id}/boekjaren/{boekjaar_id}/export"
+            )
         )
 
     def export_boekjaar_xaf(self, boekjaar_id: int) -> str:
@@ -203,32 +227,39 @@ class AdminExportImportResource(BaseResource):
             )
         )
 
-    def export_boeking(self, boeking_id: int) -> dict:
-        """Export a single boeking as a JSON-serialisable dict.
+    def export_boeking(self, boeking_id: int) -> BoekingExport:
+        """Export a single boeking as a typed JSON payload.
 
         Args:
             boeking_id: Boeking ID.
 
         Returns:
-            Export payload as a Python dict.
+            :py:class:`~mboek.models.export_import.BoekingExport`.
         """
-        return self._get(
-            f"/api/administraties/{self._admin_id}/boekingen/{boeking_id}/export"
+        return parse_boeking_export(
+            self._get(
+                f"/api/administraties/{self._admin_id}/boekingen/{boeking_id}/export"
+            )
         )
 
-    def import_boekjaar(self, payload: dict) -> dict:
+    def import_boekjaar(self, payload: BoekjaarExport) -> BoekjaarImportResult:
         """Import a boekjaar into the administratie.
 
         Codes are resolved against the administratie's existing configuration.
 
         Args:
-            payload: Export payload obtained from :py:meth:`export_boekjaar`.
+            payload: Export payload obtained from :py:meth:`export_boekjaar`
+                or loaded from JSON with
+                :py:meth:`~mboek.models.export_import.BoekjaarExport.from_dict`.
 
         Returns:
-            Summary dict with the newly created boekjaar ID.
+            :py:class:`~mboek.models.export_import.BoekjaarImportResult`.
         """
-        return self._post(
-            f"/api/administraties/{self._admin_id}/boekjaren/import", json=payload
+        return parse_boekjaar_import_result(
+            self._post(
+                f"/api/administraties/{self._admin_id}/boekjaren/import",
+                json=payload.to_dict(),
+            )
         )
 
     def import_boekjaar_xaf(
@@ -236,7 +267,7 @@ class AdminExportImportResource(BaseResource):
         source: Path | IO[str] | IO[bytes] | str | bytes,
         *,
         create_missing: bool | None = None,
-    ) -> dict:
+    ) -> BoekjaarImportResult:
         """Import a boekjaar XAF file into the administratie.
 
         Args:
@@ -246,16 +277,18 @@ class AdminExportImportResource(BaseResource):
                 BTW codes before importing the boekjaar.
 
         Returns:
-            Summary dict with the new boekjaar ID and imported booking count.
+            :py:class:`~mboek.models.export_import.BoekjaarImportResult`.
         """
-        result = self._post(
-            f"/api/administraties/{self._admin_id}/boekjaren/import/xaf",
-            params={"create_missing": _bool_query(create_missing)},
-            data=_read_xml_payload(source),
-            headers={
-                "Content-Type": "application/xml",
-                "Accept": "application/json",
-            },
+        result = parse_boekjaar_import_result(
+            self._post(
+                f"/api/administraties/{self._admin_id}/boekjaren/import/xaf",
+                params={"create_missing": _bool_query(create_missing)},
+                data=_read_xml_payload(source),
+                headers={
+                    "Content-Type": "application/xml",
+                    "Accept": "application/json",
+                },
+            )
         )
         from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
 
