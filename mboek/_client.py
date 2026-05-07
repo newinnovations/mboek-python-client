@@ -59,6 +59,8 @@ class MboekClient:
     - ``MBOEK_URL`` — backend base URL (fallback when ``base_url`` is ``None``)
     - ``MBOEK_USERNAME`` — username (fallback when ``username`` is ``None``)
     - ``MBOEK_PASSWORD`` — password (fallback when ``password`` is ``None``)
+    - ``MBOEK_TOKEN`` — JWT bearer token (fallback when ``token`` is ``None``;
+                        if set, takes precedence over username/password)
 
     Args:
         base_url: Base URL of the mBoek backend (no trailing slash). Falls back
@@ -69,6 +71,8 @@ class MboekClient:
             during construction.
         password: Password for auto-login.
         timeout: Default request timeout in seconds (default: 30).
+        token: JWT bearer token for authentication. If provided, ``username`` and
+            ``password`` are ignored.
     """
 
     def __init__(
@@ -77,6 +81,7 @@ class MboekClient:
         username: str | None = None,
         password: str | None = None,
         *,
+        token: str | None = None,
         timeout: int = 30,
     ) -> None:
         resolved_url = (
@@ -84,11 +89,13 @@ class MboekClient:
         )
         resolved_username = username or os.environ.get("MBOEK_USERNAME")
         resolved_password = password or os.environ.get("MBOEK_PASSWORD")
+        resolved_token = token or os.environ.get("MBOEK_TOKEN")
 
         self._base_url = resolved_url.rstrip("/")
         self._timeout = timeout
         self._session = requests.Session()
         self._token: str | None = None
+        self._token_provided: bool = resolved_token is not None
         self._login_response: AuthToken | None = None
 
         # Lazily-initialised resource managers
@@ -102,7 +109,10 @@ class MboekClient:
         self._gbr_cache: dict[int, list[Grootboekrekening]] = {}
         self._dagboek_admin_cache: dict[int, int] = {}
 
-        if resolved_username is not None and resolved_password is not None:
+        if self._token_provided:
+            self._token = resolved_token
+            self._session.headers.update({"Authorization": f"Bearer {self._token}"})
+        elif resolved_username is not None and resolved_password is not None:
             self.login(resolved_username, resolved_password)
 
     # ── Context manager ───────────────────────────────────────────────────────
@@ -112,7 +122,7 @@ class MboekClient:
 
     def __exit__(self, *_: object) -> None:
         try:
-            if self._token is not None:
+            if self._token is not None and not self._token_provided:
                 try:
                     self.logout()
                 except MboekError:
