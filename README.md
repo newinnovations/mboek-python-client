@@ -77,6 +77,8 @@ MboekClient
     └── boekjaar(id|name=)  →  Boekjaar  (rich domain object)
         ├── naam, start_datum, eind_datum, status, …  ← always available
         ├── reports                   ← balance sheet and P&L
+        ├── jaarrekening_html(...)    ← derived shorthand HTML generation
+        ├── jaarrekening_pdf(...)     ← derived shorthand PDF generation
         ├── btw_aangifte              ← quarterly VAT returns
         ├── grootboekrekeningen()     ← all accounts with balance for this year
         ├── grootboekrekening(code=)  ← single account with balance, by code
@@ -552,11 +554,21 @@ pdf_report = client.jaarrekening.generate_pdf(
     minimal=True,
 )
 Path("atlas-holding-2025.pdf").write_bytes(pdf_report.pdf)
+
+# On a Boekjaar, shorthand defaults are derived automatically:
+#   bedrijf = administratie naam without "BV", without spaces, lowercased
+#   jaar = boekjaar.start_datum.year
+bj = client.administratie(admin_id).boekjaar(boekjaar_id)
+html_report = bj.jaarrekening_html()
+pdf_report = bj.jaarrekening_pdf(minimal=True)
 ```
 
 The jaarrekening endpoints generate reports from YAML config files that exist on
 the server. The PDF response is decoded to Python `bytes`, and runtime messages
-are available via `report.messages`.
+are available via `report.messages`. The `Boekjaar` convenience methods derive
+the shorthand `bedrijf` slug from the administratie name by removing `BV`,
+removing spaces, and lowercasing; pass `bedrijf=` and/or `jaar=` explicitly to
+override those defaults.
 
 ## Error handling
 

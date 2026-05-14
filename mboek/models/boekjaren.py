@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -11,8 +12,19 @@ if TYPE_CHECKING:
     from mboek._client import MboekClient
     from mboek.models.dagboeken import Dagboek
     from mboek.models.grootboekrekeningen import Grootboekrekening
+    from mboek.models.jaarrekening import JaarrekeningHtmlReport, JaarrekeningPdfReport
     from mboek.resources.btw_aangifte import BtwAangifteResource
     from mboek.resources.reports import ReportsResource
+
+
+def _derive_bedrijf_from_administratie_naam(naam: str) -> str:
+    without_bv = re.sub(r"\bbv\b", "", naam, flags=re.IGNORECASE)
+    bedrijf = "".join(without_bv.lower().split())
+    if not bedrijf:
+        raise ValueError(
+            "Could not derive bedrijf from administratie name; provide bedrijf explicitly"
+        )
+    return bedrijf
 
 
 class Boekjaar:
@@ -21,7 +33,8 @@ class Boekjaar:
     This is a *rich domain object*: it always carries all data attributes and
     optionally holds a client reference that unlocks scope-specific operations
     such as :py:attr:`reports`, :py:attr:`btw_aangifte`,
-    :py:meth:`dagboeken`, and :py:meth:`dagboek`.
+    :py:meth:`dagboeken`, :py:meth:`dagboek`,
+    :py:meth:`jaarrekening_html`, and :py:meth:`jaarrekening_pdf`.
 
     Obtain a fully-scoped instance via the admin scope helper::
 
@@ -29,6 +42,7 @@ class Boekjaar:
         boekjaar.reports.balans()
         boekjaar.dagboeken(code="BANK")[0].boekingen.list()
         boekjaar.dagboek(code="BANK").boekingen.list()
+        boekjaar.jaarrekening_html()
 
     A ``Boekjaar`` obtained from :py:meth:`~mboek.resources.boekjaren.BoekjarenResource.list`
     carries a client reference automatically, so scope-specific methods work
@@ -243,6 +257,103 @@ class Boekjaar:
                 multiple_message=f"Multiple dagboeken with code '{code}' found",
             )
         return found
+
+    def _resolve_jaarrekening_shorthand(
+        self,
+        *,
+        client: "MboekClient",
+        config_path: str | None,
+        bedrijf: str | None,
+        jaar: int | None,
+    ) -> tuple[str | None, str | None, int | None]:
+        if config_path is not None:
+            return config_path, bedrijf, jaar
+        resolved_bedrijf = bedrijf
+        if resolved_bedrijf is None:
+            administratie = client.administraties.get(self.administratie_id)
+            resolved_bedrijf = _derive_bedrijf_from_administratie_naam(administratie.naam)
+        resolved_jaar = self.start_datum.year if jaar is None else jaar
+        return None, resolved_bedrijf, resolved_jaar
+
+    def jaarrekening_html(
+        self,
+        *,
+        config_path: str | None = None,
+        bedrijf: str | None = None,
+        jaar: int | None = None,
+        debug: bool = False,
+        minimal: bool = False,
+        consolidatie: bool = False,
+        write_beginbalans: bool = False,
+    ) -> "JaarrekeningHtmlReport":
+        """Generate a jaarrekening HTML report for this boekjaar.
+
+        When ``config_path`` is omitted, ``bedrijf`` defaults to the owning
+        administratie name with ``BV`` removed, spaces stripped, and the result
+        lowercased. ``jaar`` defaults to ``start_datum.year``.
+
+        Returns:
+            :py:class:`~mboek.models.jaarrekening.JaarrekeningHtmlReport`.
+
+        Raises:
+            :py:class:`~mboek._exceptions.ScopeError`: No client reference.
+        """
+        client = self._require_client("jaarrekening_html()")
+        config_path, bedrijf, jaar = self._resolve_jaarrekening_shorthand(
+            client=client,
+            config_path=config_path,
+            bedrijf=bedrijf,
+            jaar=jaar,
+        )
+        return client.jaarrekening.generate_html(
+            config_path=config_path,
+            bedrijf=bedrijf,
+            jaar=jaar,
+            debug=debug,
+            minimal=minimal,
+            consolidatie=consolidatie,
+            write_beginbalans=write_beginbalans,
+        )
+
+    def jaarrekening_pdf(
+        self,
+        *,
+        config_path: str | None = None,
+        bedrijf: str | None = None,
+        jaar: int | None = None,
+        debug: bool = False,
+        minimal: bool = False,
+        consolidatie: bool = False,
+        write_beginbalans: bool = False,
+    ) -> "JaarrekeningPdfReport":
+        """Generate a jaarrekening PDF report for this boekjaar.
+
+        When ``config_path`` is omitted, ``bedrijf`` defaults to the owning
+        administratie name with ``BV`` removed, spaces stripped, and the result
+        lowercased. ``jaar`` defaults to ``start_datum.year``.
+
+        Returns:
+            :py:class:`~mboek.models.jaarrekening.JaarrekeningPdfReport`.
+
+        Raises:
+            :py:class:`~mboek._exceptions.ScopeError`: No client reference.
+        """
+        client = self._require_client("jaarrekening_pdf()")
+        config_path, bedrijf, jaar = self._resolve_jaarrekening_shorthand(
+            client=client,
+            config_path=config_path,
+            bedrijf=bedrijf,
+            jaar=jaar,
+        )
+        return client.jaarrekening.generate_pdf(
+            config_path=config_path,
+            bedrijf=bedrijf,
+            jaar=jaar,
+            debug=debug,
+            minimal=minimal,
+            consolidatie=consolidatie,
+            write_beginbalans=write_beginbalans,
+        )
 
     # ── Dunder helpers ────────────────────────────────────────────────────────
 

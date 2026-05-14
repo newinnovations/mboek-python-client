@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import json
 from datetime import date
 
 import pytest
@@ -9,7 +11,13 @@ import responses
 
 from mboek._exceptions import ConflictError, NotFoundError, ScopeError
 from mboek.models._enums import BoekjaarStatus
-from tests.conftest import BASE_URL, BOEKJAAR, DAGBOEK, GROOTBOEKREKENING
+from tests.conftest import (
+    ADMINISTRATIE,
+    BASE_URL,
+    BOEKJAAR,
+    DAGBOEK,
+    GROOTBOEKREKENING,
+)
 
 
 def test_list(mocked_responses, client):
@@ -184,6 +192,19 @@ def test_boekjaar_scope_ambiguous_args(client):
 
 
 MET_SALDO = [{"rekening": GROOTBOEKREKENING, "aantal_transacties": 3, "saldo": 400000}]
+JAARREKENING_HTML_RESPONSE = {
+    "summary": {"netto_resultaat": "460"},
+    "html": "<html><body>Atlas BV</body></html>",
+    "hash": "0123456789abcdef",
+    "messages": [{"level": "info", "message": "Report generated"}],
+}
+JAARREKENING_PDF_BYTES = b"%PDF-1.7\nboekjaar-convenience\n"
+JAARREKENING_PDF_RESPONSE = {
+    "summary": {"netto_resultaat": "460"},
+    "hash": "fedcba9876543210",
+    "messages": [{"level": "warning", "message": "Using defaults"}],
+    "pdf": base64.b64encode(JAARREKENING_PDF_BYTES).decode("ascii"),
+}
 
 
 def test_boekjaar_scope_grootboekrekeningen(mocked_responses, client):
@@ -260,6 +281,70 @@ def test_boekjaar_scope_dagboeken(mocked_responses, client):
     assert dagboek._boekjaar_id == 10
 
 
+def test_boekjaar_jaarrekening_html_derives_bedrijf_and_jaar(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1",
+        json={**ADMINISTRATIE, "naam": "Atlas Holding BV"},
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/jaarrekening/html",
+        json=JAARREKENING_HTML_RESPONSE,
+    )
+
+    report = client.administratie(1).boekjaar(10).jaarrekening_html()
+
+    assert report.hash == "0123456789abcdef"
+    assert report.summary["netto_resultaat"] == "460"
+    assert report.html == "<html><body>Atlas BV</body></html>"
+
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body == {
+        "bedrijf": "atlasholding",
+        "jaar": 2024,
+        "debug": False,
+        "minimal": False,
+        "consolidatie": False,
+        "write_beginbalans": False,
+    }
+
+
+def test_boekjaar_jaarrekening_pdf_uses_partial_shorthand_override(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/jaarrekening/pdf",
+        json=JAARREKENING_PDF_RESPONSE,
+    )
+
+    report = client.administratie(1).boekjaar(10).jaarrekening_pdf(
+        bedrijf="atlas",
+        debug=True,
+        minimal=True,
+    )
+
+    assert report.hash == "fedcba9876543210"
+    assert report.pdf == JAARREKENING_PDF_BYTES
+
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body == {
+        "bedrijf": "atlas",
+        "jaar": 2024,
+        "debug": True,
+        "minimal": True,
+        "consolidatie": False,
+        "write_beginbalans": False,
+    }
+
+
 # ── Scope error tests ──────────────────────────────────────────────────────────
 
 
@@ -289,6 +374,20 @@ def test_boekjaar_dagboeken_scope_error():
     bj = client_free_boekjaar()
     with pytest.raises(ScopeError):
         bj.dagboeken()
+
+
+def test_boekjaar_jaarrekening_html_scope_error():
+    """Boekjaar without client raises ScopeError when calling jaarrekening_html()."""
+    bj = client_free_boekjaar()
+    with pytest.raises(ScopeError):
+        bj.jaarrekening_html()
+
+
+def test_boekjaar_jaarrekening_pdf_scope_error():
+    """Boekjaar without client raises ScopeError when calling jaarrekening_pdf()."""
+    bj = client_free_boekjaar()
+    with pytest.raises(ScopeError):
+        bj.jaarrekening_pdf()
 
 
 def test_boekjaar_dagboek_via_scope(mocked_responses, client):
