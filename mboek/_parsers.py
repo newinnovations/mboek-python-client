@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
@@ -13,6 +15,7 @@ from mboek.models._enums import (
     BtwAangifteStatus,
     BtwSoort,
     DagboekType,
+    JaarrekeningLogLevel,
     Regeltype,
     RekeningCategorie,
     RekeningType,
@@ -36,6 +39,11 @@ from mboek.models.export_import import (
     MatchSuggestion,
 )
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
+from mboek.models.jaarrekening import (
+    JaarrekeningHtmlReport,
+    JaarrekeningPdfReport,
+    JaarrekeningRuntimeMessage,
+)
 from mboek.models.maintenance import VacuumResult
 from mboek.models.reports import (
     BalansRegel,
@@ -49,6 +57,25 @@ def _require_object(payload: object, *, response_name: str) -> dict:
     if not isinstance(payload, dict):
         raise ValueError(f"{response_name} response must be a JSON object")
     return payload
+
+
+def _require_string(value: object, *, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+    return value
+
+
+def _require_string_map(value: object, *, field_name: str) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{field_name} must be an object")
+    result: dict[str, str] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ValueError(f"{field_name} keys must be strings")
+        if not isinstance(item, str):
+            raise ValueError(f"{field_name} values must be strings")
+        result[key] = item
+    return result
 
 
 def _dt(s: str | None) -> datetime | None:
@@ -398,6 +425,83 @@ def parse_winst_verlies(d: dict) -> WinstVerliesReport:
         totaal_kosten=Decimal(str(d["totaal_kosten"])),
         totaal_bijzonder=Decimal(str(d["totaal_bijzonder"])),
         netto_resultaat=Decimal(str(d["netto_resultaat"])),
+    )
+
+
+def _parse_jaarrekening_runtime_message(payload: object) -> JaarrekeningRuntimeMessage:
+    d = _require_object(payload, response_name="Jaarrekening runtime message")
+    for key in ("level", "message"):
+        if key not in d:
+            raise ValueError(
+                f"Jaarrekening runtime message missing required key: {key!r}"
+            )
+    return JaarrekeningRuntimeMessage(
+        level=JaarrekeningLogLevel(
+            _require_string(
+                d["level"], field_name="Jaarrekening runtime message field 'level'"
+            )
+        ),
+        message=_require_string(
+            d["message"], field_name="Jaarrekening runtime message field 'message'"
+        ),
+    )
+
+
+def _parse_jaarrekening_common(
+    payload: object, *, response_name: str
+) -> tuple[dict[str, str], str, list[JaarrekeningRuntimeMessage]]:
+    d = _require_object(payload, response_name=response_name)
+    for key in ("summary", "hash", "messages"):
+        if key not in d:
+            raise ValueError(f"{response_name} response missing required key: {key!r}")
+    messages_payload = d["messages"]
+    if not isinstance(messages_payload, list):
+        raise ValueError(f"{response_name} response field 'messages' must be a list")
+    return (
+        _require_string_map(
+            d["summary"], field_name=f"{response_name} response field 'summary'"
+        ),
+        _require_string(d["hash"], field_name=f"{response_name} response field 'hash'"),
+        [_parse_jaarrekening_runtime_message(item) for item in messages_payload],
+    )
+
+
+def parse_jaarrekening_html(payload: object) -> JaarrekeningHtmlReport:
+    summary, hash_value, messages = _parse_jaarrekening_common(
+        payload, response_name="Jaarrekening HTML"
+    )
+    d = _require_object(payload, response_name="Jaarrekening HTML")
+    if "html" not in d:
+        raise ValueError("Jaarrekening HTML response missing required key: 'html'")
+    return JaarrekeningHtmlReport(
+        summary=summary,
+        html=_require_string(d["html"], field_name="Jaarrekening HTML response field 'html'"),
+        hash=hash_value,
+        messages=messages,
+    )
+
+
+def parse_jaarrekening_pdf(payload: object) -> JaarrekeningPdfReport:
+    summary, hash_value, messages = _parse_jaarrekening_common(
+        payload, response_name="Jaarrekening PDF"
+    )
+    d = _require_object(payload, response_name="Jaarrekening PDF")
+    if "pdf" not in d:
+        raise ValueError("Jaarrekening PDF response missing required key: 'pdf'")
+    pdf_base64 = _require_string(
+        d["pdf"], field_name="Jaarrekening PDF response field 'pdf'"
+    )
+    try:
+        pdf = base64.b64decode(pdf_base64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError(
+            "Jaarrekening PDF response field 'pdf' must be valid base64"
+        ) from exc
+    return JaarrekeningPdfReport(
+        summary=summary,
+        hash=hash_value,
+        messages=messages,
+        pdf=pdf,
     )
 
 

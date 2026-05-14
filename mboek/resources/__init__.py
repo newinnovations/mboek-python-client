@@ -4,7 +4,8 @@ Resources fall into two groups:
 
 * **Top-level resources** — accessed directly via ``MboekClient``:
   ``auth`` (``AuthResource``), ``administraties``, ``boekingen``,
-  ``export_import`` (``ExportImportResource``), and ``maintenance``.
+  ``export_import`` (``ExportImportResource``), ``jaarrekening``, and
+  ``maintenance``.
   These are not scoped to a single administratie.
 
 * **Admin-scoped resources** — accessed via
@@ -28,6 +29,7 @@ from mboek.resources.dagboeken import DagboekenResource
 from mboek.resources.export_import import ExportImportResource
 from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
 from mboek.resources.import_ import ImportResource
+from mboek.resources.jaarrekening import JaarrekeningResource
 from mboek.resources.maintenance import MaintenanceResource
 from mboek.resources.reports import ReportsResource
 
@@ -42,6 +44,7 @@ __all__ = [
     "ExportImportResource",
     "GrootboekrekeningenResource",
     "ImportResource",
+    "JaarrekeningResource",
     "MaintenanceResource",
     "ReportsResource",
 ]

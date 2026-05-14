@@ -100,3 +100,11 @@ class ImportFormaat(str, Enum):
 
     MT940 = "mt940"
     CAMT053 = "camt053"
+
+
+class JaarrekeningLogLevel(str, Enum):
+    """Severity level of a jaarrekening runtime message."""
+
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"

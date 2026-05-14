@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from mboek.resources.auth import AuthResource
     from mboek.resources.boekingen import BoekingenResource
     from mboek.resources.export_import import ExportImportResource
+    from mboek.resources.jaarrekening import JaarrekeningResource
     from mboek.resources.maintenance import MaintenanceResource
 
 
@@ -102,6 +103,7 @@ class MboekClient:
         self._administraties: AdministratiesResource | None = None
         self._boekingen: BoekingenResource | None = None
         self._export_import: ExportImportResource | None = None
+        self._jaarrekening: JaarrekeningResource | None = None
         self._maintenance: MaintenanceResource | None = None
 
         # Per-admin cache of the full grootboekrekening collection.
@@ -219,6 +221,15 @@ class MboekClient:
 
             self._export_import = ExportImportResource(self)
         return self._export_import
+
+    @property
+    def jaarrekening(self) -> "JaarrekeningResource":
+        """Jaarrekening generation resource (:py:class:`~mboek.resources.jaarrekening.JaarrekeningResource`)."""
+        if self._jaarrekening is None:
+            from mboek.resources.jaarrekening import JaarrekeningResource
+
+            self._jaarrekening = JaarrekeningResource(self)
+        return self._jaarrekening
 
     @property
     def maintenance(self) -> "MaintenanceResource":

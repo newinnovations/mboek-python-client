@@ -46,6 +46,10 @@ def test_top_level_reexports_include_new_typed_payload_models():
     for name in [
         "AdministratieExport",
         "AdministratieImportResult",
+        "JaarrekeningHtmlReport",
+        "JaarrekeningLogLevel",
+        "JaarrekeningPdfReport",
+        "JaarrekeningRuntimeMessage",
         "BoekingExport",
         "BoekjaarExport",
         "BoekjaarImportResult",
@@ -62,6 +66,7 @@ def test_resource_properties_have_explicit_return_annotations():
         MboekClient.administraties,
         MboekClient.boekingen,
         MboekClient.export_import,
+        MboekClient.jaarrekening,
         MboekClient.maintenance,
         Boekjaar.reports,
         Boekjaar.btw_aangifte,

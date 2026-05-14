@@ -22,6 +22,7 @@ from mboek.models._enums import (
     BtwSoort,
     DagboekType,
     ImportFormaat,
+    JaarrekeningLogLevel,
     Regeltype,
     RekeningCategorie,
     RekeningType,
@@ -50,6 +51,11 @@ from mboek.models.export_import import (
     MatchSuggestion,
 )
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
+from mboek.models.jaarrekening import (
+    JaarrekeningHtmlReport,
+    JaarrekeningPdfReport,
+    JaarrekeningRuntimeMessage,
+)
 from mboek.models.maintenance import VacuumResult
 from mboek.models.reports import (
     BalansRegel,
@@ -68,6 +74,7 @@ __all__ = [
     "BtwSoort",
     "DagboekType",
     "ImportFormaat",
+    "JaarrekeningLogLevel",
     "RekeningCategorie",
     "RekeningType",
     "Regeltype",
@@ -104,6 +111,10 @@ __all__ = [
     "BalansReport",
     "WinstVerliesRegel",
     "WinstVerliesReport",
+    # jaarrekening
+    "JaarrekeningRuntimeMessage",
+    "JaarrekeningHtmlReport",
+    "JaarrekeningPdfReport",
     # import / export
     "AdministratieExport",
     "AdministratieImportResult",

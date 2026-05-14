@@ -57,6 +57,7 @@ MboekClient
 ├── administraties            ← cross-administration resources
 ├── boekingen                 ← get / update / delete by ID
 ├── export_import             ← import_administratie / import_administratie_xaf
+├── jaarrekening              ← server-side HTML/PDF annual accounts generation
 ├── maintenance               ← database vacuum
 └── administratie(id|name=)  →  AdministratieScope
     ├── boekjaren             ← fiscal years (CRUD + open/close)
@@ -532,6 +533,30 @@ print(f"In balans: {balans.in_balans}")
 wv = bj.reports.winst_verlies()
 print(f"Netto resultaat: {wv.netto_resultaat}")
 ```
+
+## Jaarrekening
+
+```python
+from pathlib import Path
+
+# Use either an explicit server-side config path...
+html_report = client.jaarrekening.generate_html(
+    config_path="/srv/jaarrekening/atlas-holding-2025.yaml"
+)
+print(html_report.hash, html_report.summary["netto_resultaat"])
+
+# ...or shorthand bedrijf + jaar.
+pdf_report = client.jaarrekening.generate_pdf(
+    bedrijf="atlas-holding",
+    jaar=2025,
+    minimal=True,
+)
+Path("atlas-holding-2025.pdf").write_bytes(pdf_report.pdf)
+```
+
+The jaarrekening endpoints generate reports from YAML config files that exist on
+the server. The PDF response is decoded to Python `bytes`, and runtime messages
+are available via `report.messages`.
 
 ## Error handling
 
