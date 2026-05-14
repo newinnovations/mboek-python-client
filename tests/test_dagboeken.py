@@ -308,7 +308,7 @@ def test_create_dagboek_with_rekening_code(mocked_responses, client):
         code="BANK",
         naam="Bankboek",
         dagboek_type=DagboekType.BANK,
-        grootboekrekening_code="1220",
+        grootboekrekening_code=1220,
     )
     assert item.id == 20
     body = _json.loads(mocked_responses.calls[-1].request.body)
@@ -426,7 +426,7 @@ def test_create_dagboek_unknown_rekening_code_raises(mocked_responses, client):
             code="BANK",
             naam="Bankboek",
             dagboek_type=DagboekType.BANK,
-            grootboekrekening_code="9999",
+            grootboekrekening_code=9999,
         )
 
 
@@ -474,7 +474,7 @@ def test_suggest_parses_spec_fields(mocked_responses, client):
         json=[
             {
                 "contra_rekening_id": 30,
-                "contra_rekening_code": "1220",
+                "contra_rekening_code": 1220,
                 "contra_rekening_naam": "Bank",
                 "confidence": 87,
                 "reason": "Matched on prior similar omschrijvingen",
@@ -486,7 +486,7 @@ def test_suggest_parses_spec_fields(mocked_responses, client):
 
     assert len(suggestions) == 1
     assert suggestions[0].contra_rekening_id == 30
-    assert suggestions[0].contra_rekening_code == "1220"
+    assert suggestions[0].contra_rekening_code == 1220
     assert suggestions[0].contra_rekening_naam == "Bank"
     assert suggestions[0].confidence == 87
     assert suggestions[0].reason == "Matched on prior similar omschrijvingen"

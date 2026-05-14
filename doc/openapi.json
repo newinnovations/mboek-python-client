@@ -159,8 +159,8 @@
                 },
                 "example": {
                   "administratie_id": 1,
-                  "boekingen_imported": 42,
-                  "naam": "My BV"
+                  "naam": "My BV",
+                  "boekingen_imported": 42
                 }
               }
             }
@@ -573,9 +573,9 @@
                   }
                 },
                 "example": {
-                  "boekingen_imported": 10,
                   "boekjaar_id": 5,
-                  "naam": "2024"
+                  "naam": "2024",
+                  "boekingen_imported": 10
                 }
               }
             }
@@ -1993,8 +1993,8 @@
                   }
                 },
                 "example": {
-                  "boekingen_imported": 7,
-                  "dagboek_id": 3
+                  "dagboek_id": 3,
+                  "boekingen_imported": 7
                 }
               }
             }
@@ -3855,6 +3855,90 @@
         ]
       }
     },
+    "/api/jaarrekening/html": {
+      "post": {
+        "tags": [
+          "jaarrekening"
+        ],
+        "description": "Generates a jaarrekening HTML report from a server-side jaarrekening config file. Provide either `config_path` or the shorthand combination `bedrijf` + `jaar`. The authenticated caller token is forwarded to the jaarrekening runtime for mBoek-backed queries. The response contains the generated HTML, the run summary, a content hash, and runtime messages.",
+        "operationId": "generate_html",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JaarrekeningGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Generated jaarrekening HTML report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JaarrekeningHtmlResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Invalid request or jaarrekening generation failed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/jaarrekening/pdf": {
+      "post": {
+        "tags": [
+          "jaarrekening"
+        ],
+        "description": "Generates a jaarrekening PDF report from a server-side jaarrekening config file. Provide either `config_path` or the shorthand combination `bedrijf` + `jaar`. The authenticated caller token is forwarded to the jaarrekening runtime for mBoek-backed queries. The PDF bytes are returned as a base64-encoded string in the `pdf` field together with the run summary, content hash, and runtime messages.",
+        "operationId": "generate_pdf",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JaarrekeningGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Generated jaarrekening PDF report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JaarrekeningPdfResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Invalid request or jaarrekening generation failed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/vacuum": {
       "post": {
         "tags": [
@@ -4107,7 +4191,8 @@
         ],
         "properties": {
           "code": {
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
           },
           "credit": {
             "type": "string"
@@ -4944,7 +5029,8 @@
             "$ref": "#/components/schemas/RekeningCategorie"
           },
           "code": {
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
           },
           "default_btw_id": {
             "type": [
@@ -5145,7 +5231,8 @@
             "$ref": "#/components/schemas/RekeningCategorie"
           },
           "code": {
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
           },
           "created_at": {
             "type": "string",
@@ -5217,7 +5304,8 @@
             "$ref": "#/components/schemas/RekeningCategorie"
           },
           "code": {
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
           },
           "created_at": {
             "type": "string",
@@ -5339,6 +5427,140 @@
           }
         }
       },
+      "JaarrekeningGenerateRequest": {
+        "type": "object",
+        "properties": {
+          "bedrijf": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional shorthand company slug. Use together with `jaar` instead of `config_path`."
+          },
+          "config_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Absolute or relative path to the jaarrekening YAML config file on the server."
+          },
+          "consolidatie": {
+            "type": "boolean",
+            "description": "Enable consolidatie mode."
+          },
+          "debug": {
+            "type": "boolean",
+            "description": "Enable debug output inside the generated report."
+          },
+          "jaar": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Optional shorthand report year. Use together with `bedrijf` instead of `config_path`."
+          },
+          "minimal": {
+            "type": "boolean",
+            "description": "Generate the minimal report variant."
+          },
+          "write_beginbalans": {
+            "type": "boolean",
+            "description": "Write the computed beginbalans back to mBoek when configured."
+          }
+        }
+      },
+      "JaarrekeningHtmlResponse": {
+        "type": "object",
+        "required": [
+          "summary",
+          "html",
+          "hash",
+          "messages"
+        ],
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JaarrekeningRuntimeMessage"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "description": "Flattened summary JSON values returned by the jaarrekening crate.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "JaarrekeningLogLevel": {
+        "type": "string",
+        "enum": [
+          "info",
+          "warning",
+          "error"
+        ]
+      },
+      "JaarrekeningPdfResponse": {
+        "type": "object",
+        "required": [
+          "summary",
+          "hash",
+          "messages",
+          "pdf"
+        ],
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JaarrekeningRuntimeMessage"
+            }
+          },
+          "pdf": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded PDF bytes."
+          },
+          "summary": {
+            "type": "object",
+            "description": "Flattened summary JSON values returned by the jaarrekening crate.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "JaarrekeningRuntimeMessage": {
+        "type": "object",
+        "required": [
+          "level",
+          "message"
+        ],
+        "properties": {
+          "level": {
+            "$ref": "#/components/schemas/JaarrekeningLogLevel"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
       "ListQuery": {
         "type": "object",
         "required": [
@@ -5406,7 +5628,8 @@
             "minimum": 0
           },
           "contra_rekening_code": {
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
           },
           "contra_rekening_id": {
             "type": "integer",
@@ -5822,9 +6045,10 @@
           },
           "code": {
             "type": [
-              "string",
+              "integer",
               "null"
-            ]
+            ],
+            "format": "int32"
           },
           "default_btw_id": {
             "type": [
@@ -5887,7 +6111,8 @@
             "type": "string"
           },
           "code": {
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
           },
           "naam": {
             "type": "string"

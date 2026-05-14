@@ -87,7 +87,7 @@ class DagboekenResource(BaseResource):
         *,
         grootboekrekening_id: int | None = None,
         grootboekrekening_naam: str | None = None,
-        grootboekrekening_code: str | None = None,
+        grootboekrekening_code: int | None = None,
         iban: str | None = None,
     ) -> Dagboek:
         """Create a new dagboek.
@@ -146,7 +146,7 @@ class DagboekenResource(BaseResource):
         dagboek_type: DagboekType | None | UnsetType = UNSET,
         grootboekrekening_id: int | None | UnsetType = UNSET,
         grootboekrekening_naam: str | None | UnsetType = UNSET,
-        grootboekrekening_code: str | None | UnsetType = UNSET,
+        grootboekrekening_code: int | None | UnsetType = UNSET,
         iban: str | None | UnsetType = UNSET,
     ) -> Dagboek:
         """Partially update a dagboek.

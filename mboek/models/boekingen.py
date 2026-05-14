@@ -277,7 +277,7 @@ class NewBoekingsregel:
     bedrag: Decimal
     grootboekrekening_id: int | None = None
     grootboekrekening_naam: str | None = None
-    grootboekrekening_code: str | None = None
+    grootboekrekening_code: int | None = None
     btw_code_id: int | None = None
     regeltype: Regeltype = Regeltype.NETTO
     netto_ref: int | None = None

@@ -144,11 +144,11 @@ class Boekjaar:
             offset=offset,
         )
 
-    def grootboekrekening(self, *, code: str) -> "Grootboekrekening":
+    def grootboekrekening(self, *, code: int) -> "Grootboekrekening":
         """Return a single grootboekrekening for this boekjaar, looked up by account code.
 
         Args:
-            code: Account code to search for (e.g. ``"4000"``).
+            code: Account code to search for (e.g. ``4000``).
 
         Raises:
             :py:class:`~mboek._exceptions.NotFoundError`: No account found.

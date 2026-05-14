@@ -41,7 +41,7 @@ class GrootboekrekeningenResource(BaseResource):
         *,
         id: int | None = None,
         name: str | None = None,
-        code: str | None = None,
+        code: int | None = None,
         refresh: bool = False,
         limit: int | None = None,
         offset: int | None = None,
@@ -104,7 +104,7 @@ class GrootboekrekeningenResource(BaseResource):
 
     def create(
         self,
-        code: str,
+        code: int,
         naam: str,
         rekening_type: RekeningType,
         categorie: RekeningCategorie,
@@ -149,7 +149,7 @@ class GrootboekrekeningenResource(BaseResource):
         self,
         id: int,
         *,
-        code: str | None | UnsetType = UNSET,
+        code: int | None | UnsetType = UNSET,
         naam: str | None | UnsetType = UNSET,
         rekening_type: RekeningType | None | UnsetType = UNSET,
         categorie: RekeningCategorie | None | UnsetType = UNSET,

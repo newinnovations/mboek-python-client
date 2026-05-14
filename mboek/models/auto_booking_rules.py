@@ -109,7 +109,7 @@ class NewAutoBookingRuleLine:
     bedrag_type: AutoBookingBedragType = AutoBookingBedragType.REST
     tegenrekening_id: int | None = None
     tegenrekening_naam: str | None = None
-    tegenrekening_code: str | None = None
+    tegenrekening_code: int | None = None
     btw_code_id: int | None = None
     omschrijving: str | None = None
     bedrag: Decimal | None = None

@@ -121,7 +121,7 @@ unscoped = scoped.without_boekjaar()
 The same pattern applies to `Grootboekrekening.saldo`:
 
 ```python
-gbr = admin.grootboekrekeningen.list(code="1220")[0]
+gbr = admin.grootboekrekeningen.list(code=1220)[0]
 gbr.saldo                            # ✗ raises ScopeError — no boekjaar
 gbr.with_boekjaar(id=10).saldo  # ✓ lazily fetched and cached
 ```
@@ -191,7 +191,7 @@ bank = a.dagboeken.list(code="bank")[0]   # matches "BANK"
 
 # Filter a general-ledger account by name or account code
 rekening = a.grootboekrekeningen.list(name="Bank")[0]
-rekening = a.grootboekrekeningen.list(code="1220")[0]
+rekening = a.grootboekrekeningen.list(code=1220)[0]
 
 # Filter a VAT code by its short code (case-insensitive)
 btw = a.btw_codes.list(code="v21")[0]    # matches "V21"
@@ -245,7 +245,7 @@ for rekening in bj.grootboekrekeningen():
     print(rekening.code, rekening.naam, rekening.transacties, rekening.saldo)
 
 # Look up a single account by code — raises NotFoundError when not found
-rekening = bj.grootboekrekening(code="4000")
+rekening = bj.grootboekrekening(code=4000)
 print("Saldo 4000:", rekening.saldo)
 ```
 
@@ -300,7 +300,7 @@ numeric ID — the library resolves them automatically (with caching):
 
 ```python
 regels = [
-    NewBoekingsregel(grootboekrekening_code="1220", omschrijving="Bank", bedrag=Decimal("-100.00")),
+    NewBoekingsregel(grootboekrekening_code=1220, omschrijving="Bank", bedrag=Decimal("-100.00")),
     NewBoekingsregel(grootboekrekening_naam="Kosten internet", omschrijving="Hosting", bedrag=Decimal("100.00")),
 ]
 ```
@@ -482,12 +482,12 @@ rule = a.auto_booking_rules.create(
     iban_tegenpartij="DE75512308000000060004",
     lines=[
         NewAutoBookingRuleLine(
-            tegenrekening_code="4000",
+            tegenrekening_code=4000,
             bedrag_type=AutoBookingBedragType.VAST,
             bedrag=Decimal("12.34"),
         ),
         NewAutoBookingRuleLine(
-            tegenrekening_code="9990",
+            tegenrekening_code=9990,
             bedrag_type=AutoBookingBedragType.REST,
         ),
     ],

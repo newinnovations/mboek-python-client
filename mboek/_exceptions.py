@@ -79,7 +79,7 @@ class ScopeError(ValueError):
         dagboek = client.administratie(1).dagboeken.list(code="BANK")[0]
         dagboek.boekingen.list()      # raises ScopeError — no boekjaar scope
 
-        gbr = client.administratie(1).grootboekrekeningen.list(code="1220")[0]
+        gbr = client.administratie(1).grootboekrekeningen.list(code=1220)[0]
         gbr.saldo                     # raises ScopeError — no boekjaar scope
 
     Fix by adding the required scope::

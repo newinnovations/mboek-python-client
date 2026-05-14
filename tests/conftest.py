@@ -55,7 +55,7 @@ DAGBOEK = {
 GROOTBOEKREKENING = {
     "id": 30,
     "administratie_id": 1,
-    "code": "1220",
+    "code": 1220,
     "naam": "Bank",
     "rekening_type": "activa",
     "categorie": "balans",

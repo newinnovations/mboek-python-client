@@ -198,7 +198,7 @@ def test_boekjaar_scope_grootboekrekeningen(mocked_responses, client):
     items = client.administratie(1).boekjaar(10).grootboekrekeningen()
     assert len(items) == 1
     item = items[0]
-    assert item.code == "1220"
+    assert item.code == 1220
     assert item.naam == "Bank"
     assert item.transacties == 3
     from decimal import Decimal
@@ -215,7 +215,7 @@ def test_boekjaar_scope_grootboekrekening_found(mocked_responses, client):
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
         json=MET_SALDO,
     )
-    item = client.administratie(1).boekjaar(10).grootboekrekening(code="1220")
+    item = client.administratie(1).boekjaar(10).grootboekrekening(code=1220)
     assert item.naam == "Bank"
     from decimal import Decimal
 
@@ -232,7 +232,7 @@ def test_boekjaar_scope_grootboekrekening_not_found(mocked_responses, client):
         json=MET_SALDO,
     )
     with pytest.raises(NotFoundError) as exc_info:
-        client.administratie(1).boekjaar(10).grootboekrekening(code="9999")
+        client.administratie(1).boekjaar(10).grootboekrekening(code=9999)
     assert "9999" in str(exc_info.value)
 
 

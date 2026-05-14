@@ -20,7 +20,7 @@ def test_list(mocked_responses, client):
     )
     items = client.administratie(1).grootboekrekeningen.list()
     assert len(items) == 1
-    assert items[0].code == "1220"
+    assert items[0].code == 1220
     assert items[0].rekening_type == RekeningType.ACTIVA
     gbr_calls = [
         c
@@ -53,7 +53,7 @@ def test_create(mocked_responses, client):
         status=201,
     )
     item = client.administratie(1).grootboekrekeningen.create(
-        code="1220",
+        code=1220,
         naam="Bank",
         rekening_type=RekeningType.ACTIVA,
         categorie=RekeningCategorie.BALANS,
@@ -118,12 +118,12 @@ def test_list_filters_auto_paginate(mocked_responses, client):
         {
             **GROOTBOEKREKENING,
             "id": i + 1,
-            "code": f"{i:04d}",
+            "code": 1000 + i,
             "naam": f"Rekening {i + 1}",
         }
         for i in range(1000)
     ]
-    target = {**GROOTBOEKREKENING, "id": 2001, "code": "9999", "naam": "Target"}
+    target = {**GROOTBOEKREKENING, "id": 2001, "code": 9999, "naam": "Target"}
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
@@ -135,7 +135,7 @@ def test_list_filters_auto_paginate(mocked_responses, client):
         json=[target],
     )
 
-    items = client.administratie(1).grootboekrekeningen.list(code="9999", refresh=True)
+    items = client.administratie(1).grootboekrekeningen.list(code=9999, refresh=True)
 
     assert len(items) == 1
     assert items[0].id == 2001
@@ -153,7 +153,7 @@ def test_list_filters_auto_paginate(mocked_responses, client):
 
 
 def test_list_filters(mocked_responses, client):
-    other = {**GROOTBOEKREKENING, "id": 31, "code": "4000", "naam": "Kosten"}
+    other = {**GROOTBOEKREKENING, "id": 31, "code": 4000, "naam": "Kosten"}
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
@@ -163,13 +163,13 @@ def test_list_filters(mocked_responses, client):
     assert len(by_name) == 1
     assert by_name[0].id == 30
 
-    by_code = client.administratie(1).grootboekrekeningen.list(code="4000")
+    by_code = client.administratie(1).grootboekrekeningen.list(code=4000)
     assert len(by_code) == 1
     assert by_code[0].naam == "Kosten"
 
     by_id = client.administratie(1).grootboekrekeningen.list(id=31)
     assert len(by_id) == 1
-    assert by_id[0].code == "4000"
+    assert by_id[0].code == 4000
 
 
 def test_list_filters_not_found(mocked_responses, client):
@@ -179,7 +179,7 @@ def test_list_filters_not_found(mocked_responses, client):
         json=[GROOTBOEKREKENING],
     )
     assert client.administratie(1).grootboekrekeningen.list(name="Kas") == []
-    assert client.administratie(1).grootboekrekeningen.list(code="9999") == []
+    assert client.administratie(1).grootboekrekeningen.list(code=9999) == []
 
 
 # ── Cache tests ───────────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ def test_list_filters_use_cache(mocked_responses, client):
     )
     gbr = client.administratie(1).grootboekrekeningen
     r1 = gbr.list(name="Bank")
-    r2 = gbr.list(code="1220")
+    r2 = gbr.list(code=1220)
     assert len(r1) == 1
     assert len(r2) == 1
     gbr_calls = [
@@ -310,7 +310,7 @@ def test_create_invalidates_cache(mocked_responses, client):
     gbr = client.administratie(1).grootboekrekeningen
     gbr.list()
     gbr.create(
-        code="1220",
+        code=1220,
         naam="Bank",
         rekening_type=RekeningType.ACTIVA,
         categorie=RekeningCategorie.BALANS,
@@ -477,7 +477,7 @@ def test_grootboekrekening_lazy_saldo(mocked_responses, client):
 
 
 def test_grootboekrekening_lazy_saldo_missing_match_raises(mocked_responses, client):
-    other = {**GROOTBOEKREKENING, "id": 31, "code": "4000", "naam": "Kosten"}
+    other = {**GROOTBOEKREKENING, "id": 31, "code": 4000, "naam": "Kosten"}
     data = [{"rekening": other, "aantal_transacties": 2, "saldo": 50000}]
     mocked_responses.add(
         responses.GET,

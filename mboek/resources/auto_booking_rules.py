@@ -74,7 +74,7 @@ class AutoBookingRulesResource(BaseResource):
         omschrijving_regex: str | None = None,
         tegenrekening_id: int | None = None,
         tegenrekening_naam: str | None = None,
-        tegenrekening_code: str | None = None,
+        tegenrekening_code: int | None = None,
         btw_code_id: int | None = None,
     ) -> AutoBookingRule:
         """Create a new automatic booking rule.
@@ -137,7 +137,7 @@ class AutoBookingRulesResource(BaseResource):
         omschrijving_regex: str | None | UnsetType = UNSET,
         tegenrekening_id: int | None | UnsetType = UNSET,
         tegenrekening_naam: str | None | UnsetType = UNSET,
-        tegenrekening_code: str | None | UnsetType = UNSET,
+        tegenrekening_code: int | None | UnsetType = UNSET,
         btw_code_id: int | None | UnsetType = UNSET,
         lines: "builtins.list[NewAutoBookingRuleLine] | None | UnsetType" = UNSET,
     ) -> AutoBookingRule:

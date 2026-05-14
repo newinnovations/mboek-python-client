@@ -12,7 +12,7 @@ BALANS_RESPONSE = {
     "boekjaar_naam": "2024",
     "activa": [
         {
-            "code": "1220",
+            "code": 1220,
             "naam": "Bank",
             "debet": "5000.00",
             "credit": "0.00",
@@ -21,7 +21,7 @@ BALANS_RESPONSE = {
     ],
     "passiva": [
         {
-            "code": "2000",
+            "code": 2000,
             "naam": "Eigen vermogen",
             "debet": "0.00",
             "credit": "5000.00",
@@ -35,8 +35,8 @@ BALANS_RESPONSE = {
 
 WV_RESPONSE = {
     "boekjaar_naam": "2024",
-    "opbrengsten": [{"code": "3000", "naam": "Omzet", "bedrag": "10000.00"}],
-    "kosten": [{"code": "4000", "naam": "Kosten", "bedrag": "6000.00"}],
+    "opbrengsten": [{"code": 3000, "naam": "Omzet", "bedrag": "10000.00"}],
+    "kosten": [{"code": 4000, "naam": "Kosten", "bedrag": "6000.00"}],
     "bijzonder": [],
     "totaal_opbrengsten": "10000.00",
     "totaal_kosten": "6000.00",

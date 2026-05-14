@@ -182,7 +182,7 @@ class BaseResource:
         admin_id: int,
         *,
         naam: str | None = None,
-        code: str | None = None,
+        code: int | None = None,
     ) -> int:
         """Resolve a grootboekrekening naam or code to its numeric ID.
 
@@ -192,7 +192,7 @@ class BaseResource:
         Args:
             admin_id: Administratie ID to search within.
             naam: Exact account name (case-sensitive).
-            code: Account code (e.g. ``"1220"``).
+            code: Account code (e.g. ``1220``).
 
         Returns:
             The ``id`` of the matching grootboekrekening.
@@ -224,7 +224,7 @@ class BaseResource:
         *,
         id_value: int | None = None,
         name_value: str | None = None,
-        code_value: str | None = None,
+        code_value: int | None = None,
         field_prefix: str = "grootboekrekening",
     ) -> int | None:
         provided = sum(x is not None for x in [id_value, name_value, code_value])
@@ -246,7 +246,7 @@ class BaseResource:
         *,
         id_value: int | None | UnsetType = UNSET,
         name_value: str | None | UnsetType = UNSET,
-        code_value: str | None | UnsetType = UNSET,
+        code_value: int | None | UnsetType = UNSET,
         field_prefix: str = "grootboekrekening",
     ) -> int | None | UnsetType:
         provided = int(id_value is not UNSET)
@@ -260,7 +260,7 @@ class BaseResource:
             return id_value
         if isinstance(name_value, str):
             return self._resolve_rekening_id(admin_id, naam=name_value)
-        if isinstance(code_value, str):
+        if isinstance(code_value, int) and not isinstance(code_value, bool):
             return self._resolve_rekening_id(admin_id, code=code_value)
         return UNSET
 

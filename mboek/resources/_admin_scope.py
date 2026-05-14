@@ -223,7 +223,7 @@ class AdministratieScope:
         self,
         id: int | None = None,
         *,
-        code: str | None = None,
+        code: int | None = None,
         naam: str | None = None,
     ) -> "Grootboekrekening":
         """Return a :py:class:`~mboek.models.grootboekrekeningen.Grootboekrekening` for this administratie.
@@ -231,7 +231,7 @@ class AdministratieScope:
         Pass the numeric ``id`` (one HTTP call to fetch data), a ``code``, or a ``naam`` to look up by exact code or name::
 
             rekening = admin.grootboekrekening(30)
-            rekening = admin.grootboekrekening(code="1200")
+            rekening = admin.grootboekrekening(code=1200)
             rekening = admin.grootboekrekening(naam="Bank")
 
         The returned :py:class:`~mboek.models.grootboekrekeningen.Grootboekrekening` is fully-populated and carries a client
@@ -239,7 +239,7 @@ class AdministratieScope:
 
         Args:
             id: Grootboekrekening ID. Makes one GET request to fetch data.
-            code: Exact grootboekrekening code, e.g. ``"1200"`` (case-sensitive). Performs a list lookup.
+            code: Exact grootboekrekening code, e.g. ``1200``. Performs a list lookup.
             naam: Exact grootboekrekening name, e.g. ``"Bank"`` (case-sensitive). Performs a list lookup.
 
         Raises:

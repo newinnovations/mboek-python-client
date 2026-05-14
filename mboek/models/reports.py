@@ -18,7 +18,7 @@ class BalansRegel:
         saldo: Net balance in euros (positive = asset / equity perspective).
     """
 
-    code: str
+    code: int
     naam: str
     debet: Decimal
     credit: Decimal
@@ -56,7 +56,7 @@ class WinstVerliesRegel:
         bedrag: Amount in euros (positive = cost / revenue as appropriate for the type).
     """
 
-    code: str
+    code: int
     naam: str
     bedrag: Decimal
 

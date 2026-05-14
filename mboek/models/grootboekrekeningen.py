@@ -31,14 +31,14 @@ class Grootboekrekening:
     Use :py:meth:`with_boekjaar` to add a boekjaar scope; the saldo is then
     lazy-fetched on first access::
 
-        gbr = client.administratie(1).grootboekrekeningen.list(code="1220")[0]
+        gbr = client.administratie(1).grootboekrekeningen.list(code=1220)[0]
         gbr_scoped = gbr.with_boekjaar(id=10)
         print(gbr_scoped.saldo)   # one HTTP call here; result is cached
 
     Attributes:
         id: Unique database identifier.
         administratie_id: ID of the owning administratie.
-        code: Account code (e.g. ``"1220"``).
+        code: Account code (e.g. ``1220``).
         naam: Account name (e.g. ``"Bank"``).
         rekening_type: Account type.
         categorie: Statement category.
@@ -54,7 +54,7 @@ class Grootboekrekening:
         self,
         id: int,
         administratie_id: int,
-        code: str,
+        code: int,
         naam: str,
         rekening_type: RekeningType,
         categorie: RekeningCategorie,

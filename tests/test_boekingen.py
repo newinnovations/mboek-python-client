@@ -224,7 +224,7 @@ def test_regel_validation_multiple_rekening():
 
 def test_regel_with_naam(mocked_responses, client):
     """Name/code resolution happens in the payload without mutating the input DTOs."""
-    gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": "4000"}
+    gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": 4000}
     mocked_responses.add(
         responses.GET,
         f"{BASE_URL}/api/administraties/1/boekjaren/10",
@@ -254,7 +254,7 @@ def test_regel_with_naam(mocked_responses, client):
             bedrag=Decimal("-100.00"),
         ),
         NewBoekingsregel(
-            grootboekrekening_code="4000",
+            grootboekrekening_code=4000,
             omschrijving="Kosten",
             bedrag=Decimal("100.00"),
         ),
@@ -276,7 +276,7 @@ def test_regel_with_naam(mocked_responses, client):
     assert regels[0].grootboekrekening_id is None
     assert regels[0].grootboekrekening_naam == "Bank"
     assert regels[1].grootboekrekening_id is None
-    assert regels[1].grootboekrekening_code == "4000"
+    assert regels[1].grootboekrekening_code == 4000
 
 
 def test_regel_to_dict_unresolved_raises():
@@ -291,7 +291,7 @@ def test_regel_to_dict_unresolved_raises():
 
 
 def test_update_regels_with_naam_resolves_without_mutating(mocked_responses, client):
-    gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": "4000"}
+    gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": 4000}
     mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
     mocked_responses.add(
         responses.GET,
@@ -317,7 +317,7 @@ def test_update_regels_with_naam_resolves_without_mutating(mocked_responses, cli
             bedrag=Decimal("-100.00"),
         ),
         NewBoekingsregel(
-            grootboekrekening_code="4000",
+            grootboekrekening_code=4000,
             omschrijving="Kosten",
             bedrag=Decimal("100.00"),
         ),
@@ -331,7 +331,7 @@ def test_update_regels_with_naam_resolves_without_mutating(mocked_responses, cli
     assert regels[0].grootboekrekening_id is None
     assert regels[0].grootboekrekening_naam == "Bank"
     assert regels[1].grootboekrekening_id is None
-    assert regels[1].grootboekrekening_code == "4000"
+    assert regels[1].grootboekrekening_code == 4000
 
 
 # ── Unified boekingen via with_boekjaar ───────────────────────────────────────

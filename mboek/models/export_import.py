@@ -142,7 +142,7 @@ class MatchSuggestion:
     """
 
     contra_rekening_id: int
-    contra_rekening_code: str
+    contra_rekening_code: int
     contra_rekening_naam: str
     confidence: int
     reason: str
