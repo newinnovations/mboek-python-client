@@ -132,6 +132,30 @@ def test_login_from_env_vars(mocked_responses, monkeypatch):
     assert client._base_url == BASE_URL
 
 
+def test_blank_env_token_falls_back_to_login(mocked_responses, monkeypatch):
+    monkeypatch.setenv("MBOEK_URL", BASE_URL)
+    monkeypatch.setenv("MBOEK_USERNAME", "admin")
+    monkeypatch.setenv("MBOEK_PASSWORD", "secret")
+    monkeypatch.setenv("MBOEK_TOKEN", "   ")
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
+
+    client = MboekClient()
+
+    assert client.token == "my-jwt-token"
+
+
+def test_blank_explicit_token_falls_back_to_login(mocked_responses):
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
+
+    client = MboekClient(BASE_URL, "admin", "secret", token=" ")
+
+    assert client.token == "my-jwt-token"
+
+
 def test_env_var_url_only(mocked_responses, monkeypatch):
     monkeypatch.setenv("MBOEK_URL", BASE_URL)
     monkeypatch.delenv("MBOEK_USERNAME", raising=False)

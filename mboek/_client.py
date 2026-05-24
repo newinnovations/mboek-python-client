@@ -90,7 +90,9 @@ class MboekClient:
         )
         resolved_username = username or os.environ.get("MBOEK_USERNAME")
         resolved_password = password or os.environ.get("MBOEK_PASSWORD")
-        resolved_token = token or os.environ.get("MBOEK_TOKEN")
+        resolved_token = token if token is not None else os.environ.get("MBOEK_TOKEN")
+        if resolved_token is not None and not resolved_token.strip():
+            resolved_token = None
 
         self._base_url = resolved_url.rstrip("/")
         self._timeout = timeout

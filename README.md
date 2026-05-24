@@ -64,7 +64,7 @@ MboekClient
     ├── dagboeken             ← journals (CRUD + werkstatus)
     ├── grootboekrekeningen   ← chart of accounts (CRUD + balances + ledger)
     ├── btw_codes             ← VAT codes (CRUD)
-    ├── auto_booking_rules    ← automatic booking rules (CRUD)
+    ├── auto_booking_rules    ← automatic booking rules (CRUD + export/import + apply)
     ├── import_               ← bank statement upload
     ├── export_import         ← JSON export/import + XAF export/import
     ├── dagboek(id|name=|code=)  →  Dagboek  (rich domain object, no boekjaar scope)
@@ -145,6 +145,7 @@ from mboek import ScopeError
 | `MBOEK_URL`      | Backend base URL        | `http://localhost:3000` |
 | `MBOEK_USERNAME` | Username for auto-login | *(none)*                |
 | `MBOEK_PASSWORD` | Password for auto-login | *(none)*                |
+| `MBOEK_TOKEN`    | Bearer token            | *(none)*                |
 
 ```python
 # No arguments needed when env vars are set
@@ -152,7 +153,8 @@ with MboekClient() as client:
     admins = client.administraties.list()
 ```
 
-Explicitly-passed constructor arguments always override env vars.
+Explicitly-passed constructor arguments always override env vars. Blank
+`MBOEK_TOKEN` values are ignored, so username/password fallback still works.
 
 ## Authentication
 
@@ -338,11 +340,12 @@ for entry in entries:
 ```
 
 `update()` accepts the same keyword arguments as `BoekingenResource.update()`
-(all optional): `datum`, `omschrijving`, `stuknummer`, `status`,
+(all optional): `admin_id`, `datum`, `omschrijving`, `stuknummer`, `status`,
 `tegenpartij_naam`, `tegenpartij_iban`, `gecontroleerd`, `auto_geboekt`, and
-`regels` (full replacement set of boekingsregels).  It returns a fresh
-`Boeking` with the updated data. Pass `None` explicitly to clear a nullable
-field; omit a keyword to leave it unchanged.
+`regels` (full replacement set of boekingsregels). Use `admin_id` to skip an
+ownership lookup when replacing `regels` by rekening name/code. It returns a
+fresh `Boeking` with the updated data. Pass `None` explicitly to clear a
+nullable field; omit a keyword to leave it unchanged.
 
 `delete()` permanently removes the boeking and all its boekingsregels.
 
@@ -500,6 +503,11 @@ rule = a.auto_booking_rules.create(
 applied = a.auto_booking_rules.apply_to_boeking(boeking_id)
 print(applied.matched, applied.reason)
 
+# Export/import rules between administrations
+rules_payload = a.auto_booking_rules.export()
+result = a.auto_booking_rules.import_(rules_payload, replace=True)
+print(result.imported, result.replaced_existing)
+
 # Ask the backend for matching contra-accounts
 suggestions = a.dagboek(bank_dagboek_id).suggest(
     "SEPA INCASSO HOSTING GMBH",
@@ -545,7 +553,8 @@ from pathlib import Path
 html_report = client.jaarrekening.generate_html(
     config_path="/srv/jaarrekening/atlas-holding-2025.yaml"
 )
-print(html_report.hash, html_report.summary["netto_resultaat"])
+print(html_report.hash, html_report.summary.netto_resultaat)
+print(html_report.beginbalans.jaar, len(html_report.beginbalans.regels))
 
 # ...or shorthand bedrijf + jaar.
 pdf_report = client.jaarrekening.generate_pdf(
@@ -565,10 +574,11 @@ pdf_report = bj.jaarrekening_pdf(minimal=True)
 
 The jaarrekening endpoints generate reports from YAML config files that exist on
 the server. The PDF response is decoded to Python `bytes`, and runtime messages
-are available via `report.messages`. The `Boekjaar` convenience methods derive
-the shorthand `bedrijf` slug from the administratie name by removing `BV`,
-removing spaces, and lowercasing; pass `bedrijf=` and/or `jaar=` explicitly to
-override those defaults.
+are available via `report.messages`. The summary and beginbalans payloads are
+exposed as typed objects via `report.summary` and `report.beginbalans`. The
+`Boekjaar` convenience methods derive the shorthand `bedrijf` slug from the
+administratie name by removing `BV`, removing spaces, and lowercasing; pass
+`bedrijf=` and/or `jaar=` explicitly to override those defaults.
 
 ## Error handling
 

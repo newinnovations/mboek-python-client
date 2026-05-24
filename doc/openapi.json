@@ -207,6 +207,15 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "include_btw_codes",
+            "in": "query",
+            "description": "If true, import BTW-codes from the XAF file; if false, ignore them",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "requestBody": {
@@ -622,6 +631,15 @@
             "name": "create_missing",
             "in": "query",
             "description": "If true, create missing dagboeken, grootboekrekeningen, and BTW-codes before importing the boekjaar",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "include_btw_codes",
+            "in": "query",
+            "description": "If true, import BTW-codes from the XAF file; if false, ignore them",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -2828,7 +2846,7 @@
         "tags": [
           "grootboekrekeningen"
         ],
-        "description": "Returns the full mutation ledger for a single grootboekrekening within a boekjaar: every boekingsregel with its date, dagboek code/name/type, journal entry description, line description, and amount (positive = debet, negative = credit). Ordered by date and id.",
+        "description": "Returns the full mutation ledger for a single grootboekrekening within a boekjaar: every boekingsregel with its date, dagboek code/name/type, journal entry description, line description, and amount (positive = debet, negative = credit). Ordered by date, dagboek type, and ids, with beginbalans first and memoriaal last on the same day.",
         "operationId": "mutaties",
         "parameters": [
           {
@@ -2995,7 +3013,7 @@
         "tags": [
           "reports"
         ],
-        "description": "Generates a balance sheet (balans) for a boekjaar. Aggregates all boekingsregels for active activa and passiva grootboekrekeningen. Returns per-account debet/credit/saldo values and totals. `in_balans` is true when the absolute difference between activa and passiva totals is less than €0.01.",
+        "description": "Generates a balance sheet (balans) for a boekjaar. Aggregates all boekingsregels for activa and passiva grootboekrekeningen, including inactive accounts with historical transactions. Returns per-account debet/credit/saldo values and totals. `in_balans` is true when the absolute difference between activa and passiva totals is less than €0.01.",
         "operationId": "balans",
         "parameters": [
           {
@@ -3052,7 +3070,7 @@
         "tags": [
           "reports"
         ],
-        "description": "Generates a profit & loss report (winst & verlies) for a boekjaar. Aggregates all boekingsregels for active kosten, opbrengsten, and bijzonder grootboekrekeningen. Returns per-account amounts and the `netto_resultaat` (opbrengsten − kosten − bijzonder). Accounts with zero balance are omitted.",
+        "description": "Generates a profit & loss report (winst & verlies) for a boekjaar. Aggregates all boekingsregels for kosten, opbrengsten, and bijzonder grootboekrekeningen, including inactive accounts with historical transactions. Returns per-account amounts and the `netto_resultaat` (opbrengsten − kosten − bijzonder). Accounts with zero balance are omitted.",
         "operationId": "winst_verlies",
         "parameters": [
           {
@@ -3217,6 +3235,115 @@
           },
           "422": {
             "description": "Validation error (e.g. invalid regex)"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/regels/export": {
+      "get": {
+        "tags": [
+          "regels"
+        ],
+        "description": "Exports all auto-booking rules for an administratie as a JSON download. Exported rules reference grootboekrekeningen by code and BTW codes by code so they can be imported into another administratie with matching master data.",
+        "operationId": "export_json",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Auto-booking rules export as JSON file download",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/administraties/{admin_id}/regels/import": {
+      "post": {
+        "tags": [
+          "regels"
+        ],
+        "description": "Imports a JSON export of auto-booking rules into the target administratie. Rules resolve grootboekrekeningen by code and BTW codes by code. If `replace=true`, all existing auto-booking rules in the administratie are removed first.",
+        "operationId": "import_json",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "description": "Administratie ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "replace",
+            "in": "query",
+            "description": "If true, replace existing auto-booking rules before importing",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "ExportEnvelope JSON (type=auto_booking_rules)",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Import result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportAutoBookingRulesResult"
+                },
+                "example": {
+                  "imported": 3,
+                  "replaced_existing": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation error"
           }
         },
         "security": [
@@ -3860,7 +3987,7 @@
         "tags": [
           "jaarrekening"
         ],
-        "description": "Generates a jaarrekening HTML report from a server-side jaarrekening config file. Provide either `config_path` or the shorthand combination `bedrijf` + `jaar`. The authenticated caller token is forwarded to the jaarrekening runtime for mBoek-backed queries. The response contains the generated HTML, the run summary, a content hash, and runtime messages.",
+        "description": "Generates a jaarrekening HTML report from a server-side jaarrekening config file. Provide either `config_path` or the shorthand combination `bedrijf` + `jaar`. The authenticated caller token is forwarded to the jaarrekening runtime for mBoek-backed queries. The response contains the generated HTML, the computed beginbalans, the run summary, a content hash, and runtime messages.",
         "operationId": "generate_html",
         "requestBody": {
           "content": {
@@ -3902,7 +4029,7 @@
         "tags": [
           "jaarrekening"
         ],
-        "description": "Generates a jaarrekening PDF report from a server-side jaarrekening config file. Provide either `config_path` or the shorthand combination `bedrijf` + `jaar`. The authenticated caller token is forwarded to the jaarrekening runtime for mBoek-backed queries. The PDF bytes are returned as a base64-encoded string in the `pdf` field together with the run summary, content hash, and runtime messages.",
+        "description": "Generates a jaarrekening PDF report from a server-side jaarrekening config file. Provide either `config_path` or the shorthand combination `bedrijf` + `jaar`. The authenticated caller token is forwarded to the jaarrekening runtime for mBoek-backed queries. The PDF bytes are returned as a base64-encoded string in the `pdf` field together with the computed beginbalans, run summary, content hash, and runtime messages.",
         "operationId": "generate_pdf",
         "requestBody": {
           "content": {
@@ -5115,12 +5242,12 @@
       "DagboekType": {
         "type": "string",
         "enum": [
+          "beginbalans",
           "bank",
           "kas",
           "verkoop",
           "inkoop",
-          "memoriaal",
-          "beginbalans"
+          "memoriaal"
         ]
       },
       "DagboekWerkStatus": {
@@ -5347,6 +5474,22 @@
           }
         }
       },
+      "ImportAutoBookingRulesResult": {
+        "type": "object",
+        "required": [
+          "imported",
+          "replaced_existing"
+        ],
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "replaced_existing": {
+            "type": "boolean"
+          }
+        }
+      },
       "ImportFormaat": {
         "type": "string",
         "enum": [
@@ -5427,6 +5570,55 @@
           }
         }
       },
+      "JaarrekeningBalansRegel": {
+        "type": "object",
+        "required": [
+          "nummer",
+          "omschrijving",
+          "bedrag"
+        ],
+        "properties": {
+          "bedrag": {
+            "type": "string"
+          },
+          "nummer": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "omschrijving": {
+            "type": "string"
+          }
+        }
+      },
+      "JaarrekeningBeginbalans": {
+        "type": "object",
+        "required": [
+          "jaar",
+          "regels"
+        ],
+        "properties": {
+          "afrondingsverschil": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JaarrekeningBalansRegel"
+              }
+            ]
+          },
+          "jaar": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JaarrekeningBalansRegel"
+            }
+          }
+        }
+      },
       "JaarrekeningGenerateRequest": {
         "type": "object",
         "properties": {
@@ -5473,12 +5665,16 @@
       "JaarrekeningHtmlResponse": {
         "type": "object",
         "required": [
+          "beginbalans",
           "summary",
           "html",
           "hash",
           "messages"
         ],
         "properties": {
+          "beginbalans": {
+            "$ref": "#/components/schemas/JaarrekeningBeginbalans"
+          },
           "hash": {
             "type": "string"
           },
@@ -5492,14 +5688,7 @@
             }
           },
           "summary": {
-            "type": "object",
-            "description": "Flattened summary JSON values returned by the jaarrekening crate.",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "propertyNames": {
-              "type": "string"
-            }
+            "$ref": "#/components/schemas/JaarrekeningSummary"
           }
         }
       },
@@ -5514,12 +5703,16 @@
       "JaarrekeningPdfResponse": {
         "type": "object",
         "required": [
+          "beginbalans",
           "summary",
           "hash",
           "messages",
           "pdf"
         ],
         "properties": {
+          "beginbalans": {
+            "$ref": "#/components/schemas/JaarrekeningBeginbalans"
+          },
           "hash": {
             "type": "string"
           },
@@ -5535,14 +5728,7 @@
             "description": "Base64-encoded PDF bytes."
           },
           "summary": {
-            "type": "object",
-            "description": "Flattened summary JSON values returned by the jaarrekening crate.",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "propertyNames": {
-              "type": "string"
-            }
+            "$ref": "#/components/schemas/JaarrekeningSummary"
           }
         }
       },
@@ -5557,6 +5743,33 @@
             "$ref": "#/components/schemas/JaarrekeningLogLevel"
           },
           "message": {
+            "type": "string"
+          }
+        }
+      },
+      "JaarrekeningSummary": {
+        "type": "object",
+        "required": [
+          "netto_resultaat",
+          "vpb_resultaat_voor_belastingen",
+          "vpb_belastbaar_bedrag",
+          "vpb_berekend",
+          "vpb_geboekt"
+        ],
+        "properties": {
+          "netto_resultaat": {
+            "type": "string"
+          },
+          "vpb_belastbaar_bedrag": {
+            "type": "string"
+          },
+          "vpb_berekend": {
+            "type": "string"
+          },
+          "vpb_geboekt": {
+            "type": "string"
+          },
+          "vpb_resultaat_voor_belastingen": {
             "type": "string"
           }
         }

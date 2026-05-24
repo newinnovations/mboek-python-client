@@ -49,6 +49,7 @@ class BoekingenResource(BaseResource):
         self,
         id: int,
         *,
+        admin_id: int | None = None,
         datum: date | None | UnsetType = UNSET,
         omschrijving: str | None | UnsetType = UNSET,
         stuknummer: str | None | UnsetType = UNSET,
@@ -72,6 +73,8 @@ class BoekingenResource(BaseResource):
 
         Args:
             id: Boeking ID.
+            admin_id: Owning administratie ID. Provide this when replacing
+                ``regels`` by rekening name/code to skip the ownership lookup.
             datum: New booking date.
             omschrijving: New description.
             stuknummer: New document reference.
@@ -87,6 +90,7 @@ class BoekingenResource(BaseResource):
         """
         return self._update(
             id,
+            admin_id=admin_id,
             datum=datum,
             omschrijving=omschrijving,
             stuknummer=stuknummer,

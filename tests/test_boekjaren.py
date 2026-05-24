@@ -5,10 +5,12 @@ from __future__ import annotations
 import base64
 import json
 from datetime import date
+from decimal import Decimal
 
 import pytest
 import responses
 
+from mboek import JaarrekeningBeginbalans, JaarrekeningSummary
 from mboek._exceptions import ConflictError, NotFoundError, ScopeError
 from mboek.models._enums import BoekjaarStatus
 from tests.conftest import (
@@ -192,15 +194,28 @@ def test_boekjaar_scope_ambiguous_args(client):
 
 
 MET_SALDO = [{"rekening": GROOTBOEKREKENING, "aantal_transacties": 3, "saldo": 400000}]
+JAARREKENING_SUMMARY = {
+    "netto_resultaat": "460",
+    "vpb_resultaat_voor_belastingen": "575",
+    "vpb_belastbaar_bedrag": "575",
+    "vpb_berekend": "115",
+    "vpb_geboekt": "0",
+}
+JAARREKENING_BEGINBALANS = {
+    "jaar": 2024,
+    "regels": [{"nummer": 1200, "omschrijving": "Bank", "bedrag": "1250.50"}],
+}
 JAARREKENING_HTML_RESPONSE = {
-    "summary": {"netto_resultaat": "460"},
+    "beginbalans": JAARREKENING_BEGINBALANS,
+    "summary": JAARREKENING_SUMMARY,
     "html": "<html><body>Atlas BV</body></html>",
     "hash": "0123456789abcdef",
     "messages": [{"level": "info", "message": "Report generated"}],
 }
 JAARREKENING_PDF_BYTES = b"%PDF-1.7\nboekjaar-convenience\n"
 JAARREKENING_PDF_RESPONSE = {
-    "summary": {"netto_resultaat": "460"},
+    "beginbalans": JAARREKENING_BEGINBALANS,
+    "summary": JAARREKENING_SUMMARY,
     "hash": "fedcba9876543210",
     "messages": [{"level": "warning", "message": "Using defaults"}],
     "pdf": base64.b64encode(JAARREKENING_PDF_BYTES).decode("ascii"),
@@ -299,7 +314,10 @@ def test_boekjaar_jaarrekening_html_derives_bedrijf_and_jaar(mocked_responses, c
     report = client.administratie(1).boekjaar(10).jaarrekening_html()
 
     assert report.hash == "0123456789abcdef"
-    assert report.summary["netto_resultaat"] == "460"
+    assert isinstance(report.beginbalans, JaarrekeningBeginbalans)
+    assert isinstance(report.summary, JaarrekeningSummary)
+    assert report.summary.netto_resultaat == Decimal("460")
+    assert report.beginbalans.regels[0].bedrag == Decimal("1250.50")
     assert report.html == "<html><body>Atlas BV</body></html>"
 
     body = json.loads(mocked_responses.calls[-1].request.body)
@@ -325,13 +343,18 @@ def test_boekjaar_jaarrekening_pdf_uses_partial_shorthand_override(
         json=JAARREKENING_PDF_RESPONSE,
     )
 
-    report = client.administratie(1).boekjaar(10).jaarrekening_pdf(
-        bedrijf="atlas",
-        debug=True,
-        minimal=True,
+    report = (
+        client.administratie(1)
+        .boekjaar(10)
+        .jaarrekening_pdf(
+            bedrijf="atlas",
+            debug=True,
+            minimal=True,
+        )
     )
 
     assert report.hash == "fedcba9876543210"
+    assert report.summary.vpb_berekend == Decimal("115")
     assert report.pdf == JAARREKENING_PDF_BYTES
 
     body = json.loads(mocked_responses.calls[-1].request.body)

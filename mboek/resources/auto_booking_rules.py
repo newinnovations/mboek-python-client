@@ -6,21 +6,30 @@ import builtins
 from typing import TYPE_CHECKING
 
 from mboek._exceptions import MboekError
-from mboek._parsers import parse_auto_booking_rule
+from mboek._parsers import (
+    parse_auto_booking_rule,
+    parse_auto_booking_rules_export,
+    parse_auto_booking_rules_import_result,
+)
 from mboek._unset import UNSET, UnsetType
 from mboek.models._enums import AutoBookingActieType
 from mboek.models.auto_booking_rules import (
     AutoBookingRule,
     AutoBookingRuleApplicationResult,
 )
+from mboek.models.export_import import (
+    AutoBookingRulesExport,
+    AutoBookingRulesImportResult,
+)
 from mboek.resources._base import BaseResource
+from mboek.resources.export_import import _bool_query
 
 if TYPE_CHECKING:
     from mboek.models.auto_booking_rules import NewAutoBookingRuleLine
 
 
 class AutoBookingRulesResource(BaseResource):
-    """CRUD + execution operations for automatic booking rules.
+    """CRUD + import/export + execution operations for automatic booking rules.
 
     Instantiated via :py:meth:`AdministratieScope.auto_booking_rules`.
 
@@ -60,6 +69,37 @@ class AutoBookingRulesResource(BaseResource):
                 offset=offset,
             )
         ]
+
+    def export(self) -> AutoBookingRulesExport:
+        """Export all automatic booking rules as a typed JSON payload."""
+        return parse_auto_booking_rules_export(
+            self._get(f"/api/administraties/{self._admin_id}/regels/export")
+        )
+
+    def import_(
+        self,
+        payload: AutoBookingRulesExport,
+        *,
+        replace: bool | None = None,
+    ) -> AutoBookingRulesImportResult:
+        """Import automatic booking rules from a previously exported payload.
+
+        Args:
+            payload: Export payload obtained from :py:meth:`export` or loaded
+                from JSON with
+                :py:meth:`~mboek.models.export_import.AutoBookingRulesExport.from_dict`.
+            replace: Remove existing rules in the administratie before importing.
+
+        Returns:
+            :py:class:`~mboek.models.export_import.AutoBookingRulesImportResult`.
+        """
+        return parse_auto_booking_rules_import_result(
+            self._post(
+                f"/api/administraties/{self._admin_id}/regels/import",
+                json=payload.to_dict(),
+                params={"replace": _bool_query(replace)},
+            )
+        )
 
     def create(
         self,

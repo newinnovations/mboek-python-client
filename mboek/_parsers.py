@@ -5,7 +5,8 @@ from __future__ import annotations
 import base64
 import binascii
 from datetime import date, datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from typing import Any, cast
 
 from mboek.models._enums import (
     AutoBookingActieType,
@@ -31,6 +32,8 @@ from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.models.export_import import (
     AdministratieExport,
     AdministratieImportResult,
+    AutoBookingRulesExport,
+    AutoBookingRulesImportResult,
     BoekingenImportResult,
     BoekingExport,
     BoekjaarExport,
@@ -40,9 +43,12 @@ from mboek.models.export_import import (
 )
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
 from mboek.models.jaarrekening import (
+    JaarrekeningBalansRegel,
+    JaarrekeningBeginbalans,
     JaarrekeningHtmlReport,
     JaarrekeningPdfReport,
     JaarrekeningRuntimeMessage,
+    JaarrekeningSummary,
 )
 from mboek.models.maintenance import VacuumResult
 from mboek.models.reports import (
@@ -59,10 +65,28 @@ def _require_object(payload: object, *, response_name: str) -> dict:
     return payload
 
 
+def _require_keys(d: dict, *, response_name: str, keys: tuple[str, ...]) -> None:
+    for key in keys:
+        if key not in d:
+            raise ValueError(f"{response_name} response missing required key: {key!r}")
+
+
 def _require_string(value: object, *, field_name: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{field_name} must be a string")
     return value
+
+
+def _require_bool(value: object, *, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _require_list(value: object, *, field_name: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a list")
+    return cast(list[Any], value)
 
 
 def _require_string_map(value: object, *, field_name: str) -> dict[str, str]:
@@ -118,10 +142,21 @@ def _require_cents(v: int | None) -> Decimal:
     return value
 
 
+def _require_decimal_string(value: object, *, field_name: str) -> Decimal:
+    string_value = _require_string(value, field_name=field_name)
+    try:
+        return Decimal(string_value)
+    except InvalidOperation as exc:
+        raise ValueError(f"{field_name} must be a decimal string") from exc
+
+
 def parse_login(d: dict) -> AuthToken:
-    for key in ("token", "gebruikersnaam", "expires_at"):
-        if key not in d:
-            raise ValueError(f"Login response missing required key: {key!r}")
+    d = _require_object(d, response_name="Login")
+    _require_keys(
+        d,
+        response_name="Login",
+        keys=("token", "gebruikersnaam", "expires_at"),
+    )
     return AuthToken(
         token=d["token"],
         gebruikersnaam=d["gebruikersnaam"],
@@ -131,9 +166,11 @@ def parse_login(d: dict) -> AuthToken:
 
 def parse_current_user(payload: object) -> CurrentUser:
     d = _require_object(payload, response_name="Current user")
-    for key in ("gebruikersnaam", "sub"):
-        if key not in d:
-            raise ValueError(f"Current user response missing required key: {key!r}")
+    _require_keys(
+        d,
+        response_name="Current user",
+        keys=("gebruikersnaam", "sub"),
+    )
     return CurrentUser(
         gebruikersnaam=d["gebruikersnaam"],
         sub=d["sub"],
@@ -141,6 +178,12 @@ def parse_current_user(payload: object) -> CurrentUser:
 
 
 def parse_administratie(d: dict) -> Administratie:
+    d = _require_object(d, response_name="Administratie")
+    _require_keys(
+        d,
+        response_name="Administratie",
+        keys=("id", "naam", "active", "created_at", "updated_at"),
+    )
     return Administratie(
         id=d["id"],
         naam=d["naam"],
@@ -148,7 +191,9 @@ def parse_administratie(d: dict) -> Administratie:
         kvk_nummer=d.get("kvk_nummer"),
         btw_nummer=d.get("btw_nummer"),
         adres=d.get("adres"),
-        active=d.get("active", True),
+        active=_require_bool(
+            d["active"], field_name="Administratie response field 'active'"
+        ),
         huidig_boekjaar_id=d.get("huidig_boekjaar_id"),
         bankimport_rekening_id=d.get("bankimport_rekening_id"),
         created_at=_require_dt(d["created_at"]),
@@ -157,6 +202,7 @@ def parse_administratie(d: dict) -> Administratie:
 
 
 def parse_boekjaar(d: dict, *, client=None) -> Boekjaar:
+    d = _require_object(d, response_name="Boekjaar")
     return Boekjaar(
         id=d["id"],
         administratie_id=d["administratie_id"],
@@ -171,6 +217,7 @@ def parse_boekjaar(d: dict, *, client=None) -> Boekjaar:
 
 
 def parse_dagboek(d: dict, *, client=None, boekjaar_id=None) -> Dagboek:
+    d = _require_object(d, response_name="Dagboek")
     if client is not None:
         client._dagboek_admin_cache[d["id"]] = d["administratie_id"]
     return Dagboek(
@@ -189,6 +236,7 @@ def parse_dagboek(d: dict, *, client=None, boekjaar_id=None) -> Dagboek:
 
 
 def parse_werkstatus(d: dict) -> DagboekWerkStatus:
+    d = _require_object(d, response_name="Dagboek werkstatus")
     return DagboekWerkStatus(
         dagboek_id=d["dagboek_id"],
         onverwerkt=d["onverwerkt"],
@@ -199,6 +247,22 @@ def parse_werkstatus(d: dict) -> DagboekWerkStatus:
 def parse_grootboekrekening(
     d: dict, *, client=None, boekjaar_id=None
 ) -> Grootboekrekening:
+    d = _require_object(d, response_name="Grootboekrekening")
+    _require_keys(
+        d,
+        response_name="Grootboekrekening",
+        keys=(
+            "id",
+            "administratie_id",
+            "code",
+            "naam",
+            "rekening_type",
+            "categorie",
+            "actief",
+            "created_at",
+            "updated_at",
+        ),
+    )
     return Grootboekrekening(
         id=d["id"],
         administratie_id=d["administratie_id"],
@@ -209,7 +273,9 @@ def parse_grootboekrekening(
         rgs_code=d.get("rgs_code"),
         parent_id=d.get("parent_id"),
         default_btw_id=d.get("default_btw_id"),
-        actief=d.get("actief", True),
+        actief=_require_bool(
+            d["actief"], field_name="Grootboekrekening response field 'actief'"
+        ),
         created_at=_require_dt(d["created_at"]),
         updated_at=_require_dt(d["updated_at"]),
         client=client,
@@ -220,7 +286,23 @@ def parse_grootboekrekening(
 def parse_grootboekrekening_met_saldo(
     d: dict, *, client=None, boekjaar_id=None
 ) -> Grootboekrekening:
+    d = _require_object(d, response_name="Grootboekrekening met saldo")
     rekening_data = d.get("rekening", d)
+    _require_keys(
+        rekening_data,
+        response_name="Grootboekrekening met saldo",
+        keys=(
+            "id",
+            "administratie_id",
+            "code",
+            "naam",
+            "rekening_type",
+            "categorie",
+            "actief",
+            "created_at",
+            "updated_at",
+        ),
+    )
     return Grootboekrekening(
         id=rekening_data["id"],
         administratie_id=rekening_data["administratie_id"],
@@ -231,7 +313,10 @@ def parse_grootboekrekening_met_saldo(
         rgs_code=rekening_data.get("rgs_code"),
         parent_id=rekening_data.get("parent_id"),
         default_btw_id=rekening_data.get("default_btw_id"),
-        actief=rekening_data.get("actief", True),
+        actief=_require_bool(
+            rekening_data["actief"],
+            field_name="Grootboekrekening met saldo response field 'actief'",
+        ),
         created_at=_require_dt(rekening_data["created_at"]),
         updated_at=_require_dt(rekening_data["updated_at"]),
         client=client,
@@ -242,6 +327,7 @@ def parse_grootboekrekening_met_saldo(
 
 
 def parse_grootboek_mutatie(d: dict) -> GrootboekMutatie:
+    d = _require_object(d, response_name="Grootboek mutatie")
     return GrootboekMutatie(
         regel_id=d["regel_id"],
         boeking_id=d["boeking_id"],
@@ -257,6 +343,23 @@ def parse_grootboek_mutatie(d: dict) -> GrootboekMutatie:
 
 
 def parse_btw_code(d: dict) -> BtwCode:
+    d = _require_object(d, response_name="BTW code")
+    _require_keys(
+        d,
+        response_name="BTW code",
+        keys=(
+            "id",
+            "administratie_id",
+            "code",
+            "omschrijving",
+            "percentage",
+            "soort",
+            "pct_aftrek",
+            "actief",
+            "created_at",
+            "updated_at",
+        ),
+    )
     return BtwCode(
         id=d["id"],
         administratie_id=d["administratie_id"],
@@ -267,18 +370,36 @@ def parse_btw_code(d: dict) -> BtwCode:
         output_rekening_id=d.get("output_rekening_id"),
         input_rekening_id=d.get("input_rekening_id"),
         pct_aftrek=Decimal(str(d["pct_aftrek"])),
-        actief=d.get("actief", True),
+        actief=_require_bool(
+            d["actief"], field_name="BTW code response field 'actief'"
+        ),
         created_at=_require_dt(d["created_at"]),
         updated_at=_require_dt(d["updated_at"]),
     )
 
 
 def parse_boekingsregel(d: dict) -> Boekingsregel:
+    d = _require_object(d, response_name="Boekingsregel")
+    _require_keys(
+        d,
+        response_name="Boekingsregel",
+        keys=(
+            "id",
+            "boeking_id",
+            "grootboekrekening_id",
+            "omschrijving",
+            "bedrag",
+            "regeltype",
+            "created_at",
+        ),
+    )
     return Boekingsregel(
         id=d["id"],
         boeking_id=d["boeking_id"],
         grootboekrekening_id=d["grootboekrekening_id"],
-        omschrijving=d.get("omschrijving", ""),
+        omschrijving=_require_string(
+            d["omschrijving"], field_name="Boekingsregel response field 'omschrijving'"
+        ),
         bedrag=_require_cents(d["bedrag"]),
         btw_code_id=d.get("btw_code_id"),
         regeltype=Regeltype(d["regeltype"]),
@@ -288,6 +409,27 @@ def parse_boekingsregel(d: dict) -> Boekingsregel:
 
 
 def parse_boeking_met_regels(d: dict, *, client=None, administratie_id=None) -> Boeking:
+    d = _require_object(d, response_name="Boeking")
+    _require_keys(
+        d,
+        response_name="Boeking",
+        keys=(
+            "id",
+            "dagboek_id",
+            "boekjaar_id",
+            "datum",
+            "omschrijving",
+            "status",
+            "auto_geboekt",
+            "gecontroleerd",
+            "regels",
+            "created_at",
+            "updated_at",
+        ),
+    )
+    regels_payload = _require_list(
+        d["regels"], field_name="Boeking response field 'regels'"
+    )
     resolved_admin_id = administratie_id
     if resolved_admin_id is None and client is not None:
         resolved_admin_id = client._dagboek_admin_cache.get(d["dagboek_id"])
@@ -298,16 +440,24 @@ def parse_boeking_met_regels(d: dict, *, client=None, administratie_id=None) -> 
         dagboek_id=d["dagboek_id"],
         boekjaar_id=d["boekjaar_id"],
         datum=_require_date(d["datum"]),
-        omschrijving=d.get("omschrijving", ""),
+        omschrijving=_require_string(
+            d["omschrijving"], field_name="Boeking response field 'omschrijving'"
+        ),
         stuknummer=d.get("stuknummer"),
-        status=BoekingStatus(d.get("status", "concept")),
+        status=BoekingStatus(
+            _require_string(d["status"], field_name="Boeking response field 'status'")
+        ),
         tegenpartij_naam=d.get("tegenpartij_naam"),
         tegenpartij_iban=d.get("tegenpartij_iban"),
         referentie_import=d.get("referentie_import"),
         import_hash=d.get("import_hash"),
-        auto_geboekt=d.get("auto_geboekt", False),
-        gecontroleerd=d.get("gecontroleerd", False),
-        regels=[parse_boekingsregel(r) for r in d.get("regels", [])],
+        auto_geboekt=_require_bool(
+            d["auto_geboekt"], field_name="Boeking response field 'auto_geboekt'"
+        ),
+        gecontroleerd=_require_bool(
+            d["gecontroleerd"], field_name="Boeking response field 'gecontroleerd'"
+        ),
+        regels=[parse_boekingsregel(r) for r in regels_payload],
         created_at=_require_dt(d["created_at"]),
         updated_at=_require_dt(d["updated_at"]),
         client=client,
@@ -342,6 +492,7 @@ def parse_btw_berekening(d: dict) -> BtwBerekening:
 
 
 def parse_btw_aangifte(d: dict) -> BtwAangifte:
+    d = _require_object(d, response_name="BTW aangifte")
     return BtwAangifte(
         id=d["id"],
         administratie_id=d["administratie_id"],
@@ -356,31 +507,61 @@ def parse_btw_aangifte(d: dict) -> BtwAangifte:
 
 
 def parse_auto_booking_rule_line(d: dict) -> AutoBookingRuleLine:
+    d = _require_object(d, response_name="Auto-booking rule line")
+    _require_keys(
+        d,
+        response_name="Auto-booking rule line",
+        keys=("id", "rule_id", "bedrag_type", "tegenrekening_id", "omschrijving"),
+    )
     return AutoBookingRuleLine(
         id=d["id"],
         rule_id=d["rule_id"],
         tegenrekening_id=d["tegenrekening_id"],
         btw_code_id=d.get("btw_code_id"),
-        omschrijving=d.get("omschrijving"),
+        omschrijving=_require_string(
+            d["omschrijving"],
+            field_name="Auto-booking rule line response field 'omschrijving'",
+        ),
         bedrag_type=AutoBookingBedragType(d["bedrag_type"]),
         bedrag=_cents(d["bedrag"]) if d.get("bedrag") is not None else None,
     )
 
 
 def parse_auto_booking_rule(d: dict) -> AutoBookingRule:
+    d = _require_object(d, response_name="Auto-booking rule")
+    _require_keys(
+        d,
+        response_name="Auto-booking rule",
+        keys=(
+            "id",
+            "administratie_id",
+            "naam",
+            "prioriteit",
+            "actie_type",
+            "actief",
+            "lines",
+            "created_at",
+            "updated_at",
+        ),
+    )
+    lines_payload = _require_list(
+        d["lines"], field_name="Auto-booking rule response field 'lines'"
+    )
     return AutoBookingRule(
         id=d["id"],
         administratie_id=d["administratie_id"],
         naam=d["naam"],
         prioriteit=d["prioriteit"],
-        actief=d["actief"],
+        actief=_require_bool(
+            d["actief"], field_name="Auto-booking rule response field 'actief'"
+        ),
         actie_type=AutoBookingActieType(d["actie_type"]),
         btw_code_id=d.get("btw_code_id"),
         iban_eigen=d.get("iban_eigen"),
         iban_tegenpartij=d.get("iban_tegenpartij"),
         omschrijving_regex=d.get("omschrijving_regex"),
         tegenrekening_id=d.get("tegenrekening_id"),
-        lines=[parse_auto_booking_rule_line(ln) for ln in d.get("lines", [])],
+        lines=[parse_auto_booking_rule_line(ln) for ln in lines_payload],
         created_at=_require_dt(d["created_at"]),
         updated_at=_require_dt(d["updated_at"]),
     )
@@ -397,6 +578,7 @@ def _parse_balans_regel(d: dict) -> BalansRegel:
 
 
 def parse_balans(d: dict) -> BalansReport:
+    d = _require_object(d, response_name="Balans")
     return BalansReport(
         boekjaar_naam=d["boekjaar_naam"],
         activa=[_parse_balans_regel(r) for r in d["activa"]],
@@ -416,6 +598,7 @@ def _parse_winst_verlies_regel(d: dict) -> WinstVerliesRegel:
 
 
 def parse_winst_verlies(d: dict) -> WinstVerliesReport:
+    d = _require_object(d, response_name="Winst/verlies")
     return WinstVerliesReport(
         boekjaar_naam=d["boekjaar_naam"],
         opbrengsten=[_parse_winst_verlies_regel(r) for r in d["opbrengsten"]],
@@ -447,42 +630,126 @@ def _parse_jaarrekening_runtime_message(payload: object) -> JaarrekeningRuntimeM
     )
 
 
-def _parse_jaarrekening_common(
-    payload: object, *, response_name: str
-) -> tuple[dict[str, str], str, list[JaarrekeningRuntimeMessage]]:
-    d = _require_object(payload, response_name=response_name)
-    for key in ("summary", "hash", "messages"):
-        if key not in d:
-            raise ValueError(f"{response_name} response missing required key: {key!r}")
-    messages_payload = d["messages"]
-    if not isinstance(messages_payload, list):
-        raise ValueError(f"{response_name} response field 'messages' must be a list")
-    return (
-        _require_string_map(
-            d["summary"], field_name=f"{response_name} response field 'summary'"
+def _parse_jaarrekening_balans_regel(payload: object) -> JaarrekeningBalansRegel:
+    d = _require_object(payload, response_name="Jaarrekening balansregel")
+    _require_keys(
+        d,
+        response_name="Jaarrekening balansregel",
+        keys=("nummer", "omschrijving", "bedrag"),
+    )
+    return JaarrekeningBalansRegel(
+        nummer=d["nummer"],
+        omschrijving=_require_string(
+            d["omschrijving"],
+            field_name="Jaarrekening balansregel field 'omschrijving'",
         ),
+        bedrag=_require_decimal_string(
+            d["bedrag"], field_name="Jaarrekening balansregel field 'bedrag'"
+        ),
+    )
+
+
+def _parse_jaarrekening_beginbalans(payload: object) -> JaarrekeningBeginbalans:
+    d = _require_object(payload, response_name="Jaarrekening beginbalans")
+    _require_keys(
+        d,
+        response_name="Jaarrekening beginbalans",
+        keys=("jaar", "regels"),
+    )
+    regels_payload = _require_list(
+        d["regels"], field_name="Jaarrekening beginbalans field 'regels'"
+    )
+    afrondingsverschil_payload = d.get("afrondingsverschil")
+    afrondingsverschil = (
+        None
+        if afrondingsverschil_payload is None
+        else _parse_jaarrekening_balans_regel(afrondingsverschil_payload)
+    )
+    return JaarrekeningBeginbalans(
+        jaar=d["jaar"],
+        regels=[_parse_jaarrekening_balans_regel(item) for item in regels_payload],
+        afrondingsverschil=afrondingsverschil,
+    )
+
+
+def _parse_jaarrekening_summary(payload: object) -> JaarrekeningSummary:
+    d = _require_object(payload, response_name="Jaarrekening summary")
+    _require_keys(
+        d,
+        response_name="Jaarrekening summary",
+        keys=(
+            "netto_resultaat",
+            "vpb_resultaat_voor_belastingen",
+            "vpb_belastbaar_bedrag",
+            "vpb_berekend",
+            "vpb_geboekt",
+        ),
+    )
+    return JaarrekeningSummary(
+        netto_resultaat=_require_decimal_string(
+            d["netto_resultaat"],
+            field_name="Jaarrekening summary field 'netto_resultaat'",
+        ),
+        vpb_resultaat_voor_belastingen=_require_decimal_string(
+            d["vpb_resultaat_voor_belastingen"],
+            field_name="Jaarrekening summary field 'vpb_resultaat_voor_belastingen'",
+        ),
+        vpb_belastbaar_bedrag=_require_decimal_string(
+            d["vpb_belastbaar_bedrag"],
+            field_name="Jaarrekening summary field 'vpb_belastbaar_bedrag'",
+        ),
+        vpb_berekend=_require_decimal_string(
+            d["vpb_berekend"], field_name="Jaarrekening summary field 'vpb_berekend'"
+        ),
+        vpb_geboekt=_require_decimal_string(
+            d["vpb_geboekt"], field_name="Jaarrekening summary field 'vpb_geboekt'"
+        ),
+    )
+
+
+def _parse_jaarrekening_common(payload: object, *, response_name: str) -> tuple[
+    JaarrekeningBeginbalans,
+    JaarrekeningSummary,
+    str,
+    list[JaarrekeningRuntimeMessage],
+]:
+    d = _require_object(payload, response_name=response_name)
+    _require_keys(
+        d,
+        response_name=response_name,
+        keys=("beginbalans", "summary", "hash", "messages"),
+    )
+    messages_payload = _require_list(
+        d["messages"], field_name=f"{response_name} response field 'messages'"
+    )
+    return (
+        _parse_jaarrekening_beginbalans(d["beginbalans"]),
+        _parse_jaarrekening_summary(d["summary"]),
         _require_string(d["hash"], field_name=f"{response_name} response field 'hash'"),
         [_parse_jaarrekening_runtime_message(item) for item in messages_payload],
     )
 
 
 def parse_jaarrekening_html(payload: object) -> JaarrekeningHtmlReport:
-    summary, hash_value, messages = _parse_jaarrekening_common(
+    beginbalans, summary, hash_value, messages = _parse_jaarrekening_common(
         payload, response_name="Jaarrekening HTML"
     )
     d = _require_object(payload, response_name="Jaarrekening HTML")
     if "html" not in d:
         raise ValueError("Jaarrekening HTML response missing required key: 'html'")
     return JaarrekeningHtmlReport(
+        beginbalans=beginbalans,
         summary=summary,
-        html=_require_string(d["html"], field_name="Jaarrekening HTML response field 'html'"),
+        html=_require_string(
+            d["html"], field_name="Jaarrekening HTML response field 'html'"
+        ),
         hash=hash_value,
         messages=messages,
     )
 
 
 def parse_jaarrekening_pdf(payload: object) -> JaarrekeningPdfReport:
-    summary, hash_value, messages = _parse_jaarrekening_common(
+    beginbalans, summary, hash_value, messages = _parse_jaarrekening_common(
         payload, response_name="Jaarrekening PDF"
     )
     d = _require_object(payload, response_name="Jaarrekening PDF")
@@ -498,6 +765,7 @@ def parse_jaarrekening_pdf(payload: object) -> JaarrekeningPdfReport:
             "Jaarrekening PDF response field 'pdf' must be valid base64"
         ) from exc
     return JaarrekeningPdfReport(
+        beginbalans=beginbalans,
         summary=summary,
         hash=hash_value,
         messages=messages,
@@ -559,6 +827,7 @@ def parse_boekjaar_import_result(payload: object) -> BoekjaarImportResult:
 
 
 def parse_boekingen_import_result(d: dict) -> BoekingenImportResult:
+    d = _require_object(d, response_name="Boekingen import")
     return BoekingenImportResult(
         dagboek_id=d["dagboek_id"],
         boekingen_imported=d["boekingen_imported"],
@@ -566,12 +835,36 @@ def parse_boekingen_import_result(d: dict) -> BoekingenImportResult:
 
 
 def parse_match_suggestion(d: dict) -> MatchSuggestion:
+    d = _require_object(d, response_name="Match suggestion")
     return MatchSuggestion(
         contra_rekening_id=d["contra_rekening_id"],
         contra_rekening_code=d["contra_rekening_code"],
         contra_rekening_naam=d["contra_rekening_naam"],
         confidence=d["confidence"],
         reason=d["reason"],
+    )
+
+
+def parse_auto_booking_rules_export(payload: object) -> AutoBookingRulesExport:
+    d = _require_object(payload, response_name="Auto-booking rules export")
+    return AutoBookingRulesExport.from_dict(d)
+
+
+def parse_auto_booking_rules_import_result(
+    payload: object,
+) -> AutoBookingRulesImportResult:
+    d = _require_object(payload, response_name="Auto-booking rules import")
+    _require_keys(
+        d,
+        response_name="Auto-booking rules import",
+        keys=("imported", "replaced_existing"),
+    )
+    return AutoBookingRulesImportResult(
+        imported=d["imported"],
+        replaced_existing=_require_bool(
+            d["replaced_existing"],
+            field_name="Auto-booking rules import response field 'replaced_existing'",
+        ),
     )
 
 

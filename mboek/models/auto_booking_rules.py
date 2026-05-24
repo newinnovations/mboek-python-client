@@ -18,7 +18,7 @@ class AutoBookingRuleLine:
         rule_id: ID of the parent rule.
         tegenrekening_id: The contra account to book to.
         btw_code_id: Optional BTW code to apply.
-        omschrijving: Optional line description override.
+        omschrijving: Line description override (may be an empty string).
         bedrag_type: ``vast`` (fixed amount) or ``rest`` (remainder).
         bedrag: Fixed amount in euros (only applicable when ``bedrag_type == "vast"``).
     """
@@ -27,7 +27,7 @@ class AutoBookingRuleLine:
     rule_id: int
     tegenrekening_id: int
     btw_code_id: int | None
-    omschrijving: str | None
+    omschrijving: str
     bedrag_type: AutoBookingBedragType
     bedrag: Decimal | None
 

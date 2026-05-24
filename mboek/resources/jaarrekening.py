@@ -38,7 +38,9 @@ def _build_generate_payload(
         if normalized_bedrijf is None and jaar is None:
             raise ValueError("Provide config_path or bedrijf + jaar")
         if normalized_bedrijf is None or jaar is None:
-            raise ValueError("Provide both bedrijf and jaar when using shorthand config")
+            raise ValueError(
+                "Provide both bedrijf and jaar when using shorthand config"
+            )
 
     payload: dict[str, object] = {
         "debug": debug,

@@ -271,7 +271,9 @@ class Boekjaar:
         resolved_bedrijf = bedrijf
         if resolved_bedrijf is None:
             administratie = client.administraties.get(self.administratie_id)
-            resolved_bedrijf = _derive_bedrijf_from_administratie_naam(administratie.naam)
+            resolved_bedrijf = _derive_bedrijf_from_administratie_naam(
+                administratie.naam
+            )
         resolved_jaar = self.start_datum.year if jaar is None else jaar
         return None, resolved_bedrijf, resolved_jaar
 

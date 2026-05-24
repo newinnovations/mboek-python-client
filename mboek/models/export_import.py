@@ -71,6 +71,13 @@ class BoekingExport(_BaseExportPayload):
 
 
 @dataclass
+class AutoBookingRulesExport(_BaseExportPayload):
+    """Auto-booking rules JSON export payload."""
+
+    _expected_type: ClassVar[str] = "auto_booking_rules"
+
+
+@dataclass
 class AdministratieImportResult:
     """Result of importing an administratie export payload."""
 
@@ -86,6 +93,14 @@ class BoekjaarImportResult:
     boekjaar_id: int
     naam: str
     boekingen_imported: int
+
+
+@dataclass
+class AutoBookingRulesImportResult:
+    """Result of importing an auto-booking rules export payload."""
+
+    imported: int
+    replaced_existing: bool
 
 
 @dataclass

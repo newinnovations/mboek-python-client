@@ -11,6 +11,8 @@ import responses
 from mboek import (
     AutoBookingActieType,
     AutoBookingRuleApplicationResult,
+    AutoBookingRulesExport,
+    AutoBookingRulesImportResult,
     NewAutoBookingRuleLine,
 )
 from mboek._exceptions import MboekError, NotFoundError
@@ -42,6 +44,17 @@ AUTO_BOOKING_RULE = {
     ],
     "created_at": "2024-01-01T00:00:00Z",
     "updated_at": "2024-01-01T00:00:00Z",
+}
+AUTO_BOOKING_RULES_EXPORT = {
+    "type": "auto_booking_rules",
+    "rules": [
+        {
+            "naam": "Bank costs",
+            "prioriteit": 10,
+            "actie_type": "enkel",
+            "tegenrekening_code": 1220,
+        }
+    ],
 }
 
 
@@ -96,6 +109,43 @@ def test_list_parses_all_fields(mocked_responses, client):
     assert line.tegenrekening_id == 30
     assert line.bedrag_type == AutoBookingBedragType.REST
     assert line.bedrag is None
+
+
+def test_export(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/regels/export",
+        json=AUTO_BOOKING_RULES_EXPORT,
+    )
+
+    payload = client.administratie(1).auto_booking_rules.export()
+
+    assert isinstance(payload, AutoBookingRulesExport)
+    assert payload.type == "auto_booking_rules"
+    assert payload.to_dict() == AUTO_BOOKING_RULES_EXPORT
+
+
+def test_import(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/regels/import",
+        json={"imported": 3, "replaced_existing": True},
+    )
+
+    result = client.administratie(1).auto_booking_rules.import_(
+        AutoBookingRulesExport.from_dict(AUTO_BOOKING_RULES_EXPORT),
+        replace=True,
+    )
+
+    assert isinstance(result, AutoBookingRulesImportResult)
+    assert result.imported == 3
+    assert result.replaced_existing is True
+    assert mocked_responses.calls[-1].request.url.endswith(
+        "/regels/import?replace=true"
+    )
+    assert (
+        json.loads(mocked_responses.calls[-1].request.body) == AUTO_BOOKING_RULES_EXPORT
+    )
 
 
 def test_create(mocked_responses, client):
@@ -312,6 +362,25 @@ def test_apply_to_boeking_invalid_reason_type(mocked_responses, client):
     )
     with pytest.raises(MboekError, match="reason"):
         client.administratie(1).auto_booking_rules.apply_to_boeking(100)
+
+
+def test_list_requires_line_omschrijving(mocked_responses, client):
+    lines = AUTO_BOOKING_RULE.get("lines")
+    assert isinstance(lines, list)
+    line = lines[0]
+    assert isinstance(line, dict)
+    invalid_rule = {
+        **AUTO_BOOKING_RULE,
+        "lines": [{k: v for k, v in line.items() if k != "omschrijving"}],
+    }
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/regels",
+        json=[invalid_rule],
+    )
+
+    with pytest.raises(ValueError, match="omschrijving"):
+        client.administratie(1).auto_booking_rules.list()
 
 
 def test_list_server_error(mocked_responses, client):

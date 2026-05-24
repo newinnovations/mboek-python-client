@@ -91,6 +91,28 @@ def test_get(mocked_responses, client):
     assert item.id == 100
 
 
+def test_get_requires_booking_status(mocked_responses, client):
+    invalid = {k: v for k, v in BOEKING.items() if k != "status"}
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=invalid)
+
+    with pytest.raises(ValueError, match="status"):
+        client.boekingen.get(100)
+
+
+def test_get_requires_regel_omschrijving(mocked_responses, client):
+    invalid = {
+        **BOEKING,
+        "regels": [
+            {k: v for k, v in BOEKING_REGEL.items() if k != "omschrijving"},
+            BOEKING_REGEL2,
+        ],
+    }
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=invalid)
+
+    with pytest.raises(ValueError, match="omschrijving"):
+        client.boekingen.get(100)
+
+
 def test_create(mocked_responses, client):
     mocked_responses.add(
         responses.GET,
@@ -332,6 +354,40 @@ def test_update_regels_with_naam_resolves_without_mutating(mocked_responses, cli
     assert regels[0].grootboekrekening_naam == "Bank"
     assert regels[1].grootboekrekening_id is None
     assert regels[1].grootboekrekening_code == 4000
+
+
+def test_update_regels_with_admin_id_skips_owner_lookup(mocked_responses, client):
+    gbr2 = {**GROOTBOEKREKENING, "id": 31, "naam": "Kosten", "code": 4000}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING, gbr2],
+    )
+    mocked_responses.add(responses.PATCH, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
+
+    regels = [
+        NewBoekingsregel(
+            grootboekrekening_naam="Bank",
+            omschrijving="Bank",
+            bedrag=Decimal("-100.00"),
+        ),
+        NewBoekingsregel(
+            grootboekrekening_code=4000,
+            omschrijving="Kosten",
+            bedrag=Decimal("100.00"),
+        ),
+    ]
+
+    start = len(mocked_responses.calls)
+    item = client.boekingen.update(100, admin_id=1, regels=regels)
+
+    assert item.id == 100
+    new_calls = mocked_responses.calls[start:]
+    assert len(new_calls) == 2
+    assert new_calls[0].request.url.startswith(
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen"
+    )
+    assert new_calls[1].request.url == f"{BASE_URL}/api/boekingen/100"
 
 
 # ── Unified boekingen via with_boekjaar ───────────────────────────────────────

@@ -43,6 +43,8 @@ from mboek.models.dagboeken import Dagboek, DagboekWerkStatus
 from mboek.models.export_import import (
     AdministratieExport,
     AdministratieImportResult,
+    AutoBookingRulesExport,
+    AutoBookingRulesImportResult,
     BoekingenImportResult,
     BoekingExport,
     BoekjaarExport,
@@ -52,9 +54,12 @@ from mboek.models.export_import import (
 )
 from mboek.models.grootboekrekeningen import GrootboekMutatie, Grootboekrekening
 from mboek.models.jaarrekening import (
+    JaarrekeningBalansRegel,
+    JaarrekeningBeginbalans,
     JaarrekeningHtmlReport,
     JaarrekeningPdfReport,
     JaarrekeningRuntimeMessage,
+    JaarrekeningSummary,
 )
 from mboek.models.maintenance import VacuumResult
 from mboek.models.reports import (
@@ -112,12 +117,17 @@ __all__ = [
     "WinstVerliesRegel",
     "WinstVerliesReport",
     # jaarrekening
+    "JaarrekeningBalansRegel",
+    "JaarrekeningBeginbalans",
     "JaarrekeningRuntimeMessage",
+    "JaarrekeningSummary",
     "JaarrekeningHtmlReport",
     "JaarrekeningPdfReport",
     # import / export
     "AdministratieExport",
     "AdministratieImportResult",
+    "AutoBookingRulesExport",
+    "AutoBookingRulesImportResult",
     "BoekingExport",
     "BoekingenImportResult",
     "BoekjaarExport",
