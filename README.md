@@ -445,6 +445,10 @@ with open("backup.json") as f:
 result = client.export_import.import_administratie(payload, overwrite=True)
 print(result.administratie_id, result.boekingen_imported)
 
+# from_dict() wraps a server-generated export payload for round-tripping.
+# It validates the top-level export type marker, but is not a full schema validator
+# for hand-edited JSON.
+
 # Export the full administration as Auditfile Financieel (XAF)
 admin_xaf = a.export_import.export_administratie_xaf()
 Path("administratie.xaf").write_text(admin_xaf, encoding="utf-8")
@@ -476,8 +480,10 @@ client.export_import.import_administratie_xaf(
     include_btw_codes=True,
 )
 
-# String sources that start with "<" are treated as literal XML.
-# Non-UTF-8 XAF files are normalized to UTF-8 automatically before upload.
+# String sources that look like XML after removing a UTF-8 BOM and leading
+# whitespace are treated as literal XML.
+# Leading whitespace before the XML declaration is removed automatically, and
+# non-UTF-8 XAF files are normalized to UTF-8 before upload.
 ```
 
 ## Automatic booking rules

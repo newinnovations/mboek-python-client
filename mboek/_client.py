@@ -115,6 +115,8 @@ class MboekClient:
         self._gbr_saldo_cache: dict[tuple[int, int], dict[int, tuple[Decimal, int]]] = (
             {}
         )
+        self._gbr_cache_generation = 0
+        self._gbr_cache_generation_by_admin: dict[int, int] = {}
         self._dagboek_admin_cache: dict[int, int] = {}
 
         if resolved_token is not None:
@@ -299,9 +301,33 @@ class MboekClient:
 
     # ── Internal HTTP helpers ─────────────────────────────────────────────────
 
+    def _grootboekrekening_cache_version(
+        self, administratie_id: int
+    ) -> tuple[int, int]:
+        return (
+            self._gbr_cache_generation,
+            self._gbr_cache_generation_by_admin.get(administratie_id, 0),
+        )
+
+    def _invalidate_grootboekrekening_caches(
+        self, administratie_id: int | None = None
+    ) -> None:
+        if administratie_id is None:
+            self._gbr_cache_generation += 1
+            self._gbr_cache_generation_by_admin.clear()
+            self._gbr_cache.clear()
+            self._gbr_saldo_cache.clear()
+            return
+        self._gbr_cache_generation_by_admin[administratie_id] = (
+            self._gbr_cache_generation_by_admin.get(administratie_id, 0) + 1
+        )
+        self._gbr_cache.pop(administratie_id, None)
+        for cache_key in list(self._gbr_saldo_cache):
+            if cache_key[0] == administratie_id:
+                self._gbr_saldo_cache.pop(cache_key, None)
+
     def _clear_client_caches(self) -> None:
-        self._gbr_cache.clear()
-        self._gbr_saldo_cache.clear()
+        self._invalidate_grootboekrekening_caches()
         self._dagboek_admin_cache.clear()
 
     def _request(

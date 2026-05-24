@@ -281,11 +281,9 @@ class GrootboekrekeningenResource(BaseResource):
         ]
 
     def clear_cache(self) -> None:
-        """Remove the cached full grootboekrekening list for this administratie.
+        """Remove cached grootboekrekening data for this administratie.
 
-        The next call to :py:meth:`list` will fetch fresh data from the API.
+        The next call to :py:meth:`list` or lazy saldo access will fetch fresh
+        data from the API.
         """
-        self._client._gbr_cache.pop(self._admin_id, None)
-        for cache_key in list(self._client._gbr_saldo_cache):
-            if cache_key[0] == self._admin_id:
-                self._client._gbr_saldo_cache.pop(cache_key, None)
+        self._client._invalidate_grootboekrekening_caches(self._admin_id)

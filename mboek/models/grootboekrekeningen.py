@@ -72,6 +72,7 @@ class Grootboekrekening:
         boekjaar_snapshot_cache: (
             dict[int, dict[int, tuple[Decimal, int]]] | None
         ) = None,
+        saldo_cache_version: tuple[int, int] | None = None,
     ) -> None:
         self.id = id
         self.administratie_id = administratie_id
@@ -92,6 +93,11 @@ class Grootboekrekening:
         if boekjaar_snapshot_cache is None:
             boekjaar_snapshot_cache = {}
         self._boekjaar_snapshot_cache = boekjaar_snapshot_cache
+        if saldo_cache_version is None and client is not None:
+            saldo_cache_version = client._grootboekrekening_cache_version(
+                administratie_id
+            )
+        self._saldo_cache_version = saldo_cache_version
         if (
             boekjaar_id is not None
             and saldo is not None
@@ -165,6 +171,7 @@ class Grootboekrekening:
             client=self._client,
             boekjaar_id=id,
             boekjaar_snapshot_cache=self._boekjaar_snapshot_cache,
+            saldo_cache_version=self._saldo_cache_version,
             # saldo not carried over — will be lazy-fetched for the new boekjaar
         )
 
@@ -186,6 +193,7 @@ class Grootboekrekening:
             client=self._client,
             boekjaar_id=None,
             boekjaar_snapshot_cache=self._boekjaar_snapshot_cache,
+            saldo_cache_version=self._saldo_cache_version,
         )
 
     def copy(self) -> "Grootboekrekening":
@@ -208,6 +216,7 @@ class Grootboekrekening:
             saldo=self._saldo,
             aantal_transacties=self._aantal_transacties,
             boekjaar_snapshot_cache=self._boekjaar_snapshot_cache,
+            saldo_cache_version=self._saldo_cache_version,
         )
 
     # ── Scoped properties ─────────────────────────────────────────────────────
@@ -223,6 +232,7 @@ class Grootboekrekening:
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No boekjaar scope set.
         """
+        self._ensure_saldo_cache_fresh()
         if self._saldo is not None:
             return self._saldo
         self._fetch_saldo()
@@ -239,6 +249,7 @@ class Grootboekrekening:
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No boekjaar scope set.
         """
+        self._ensure_saldo_cache_fresh()
         if self._aantal_transacties is not None:
             return self._aantal_transacties
         self._fetch_saldo()
@@ -253,10 +264,24 @@ class Grootboekrekening:
         """Alias for :py:attr:`aantal_transacties`."""
         return self.aantal_transacties
 
+    def _ensure_saldo_cache_fresh(self) -> None:
+        if self._client is None:
+            return
+        current_version = self._client._grootboekrekening_cache_version(
+            self.administratie_id
+        )
+        if self._saldo_cache_version == current_version:
+            return
+        self._saldo = None
+        self._aantal_transacties = None
+        self._boekjaar_snapshot_cache.clear()
+        self._saldo_cache_version = current_version
+
     def _fetch_saldo(self) -> None:
         """Lazy-fetch saldo and aantal_transacties from the met-saldo endpoint."""
         from mboek._exceptions import ScopeError
 
+        self._ensure_saldo_cache_fresh()
         if self._boekjaar_id is None:
             raise ScopeError(
                 "saldo requires a boekjaar scope. "

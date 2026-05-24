@@ -11,6 +11,13 @@ ExportPayloadT = TypeVar("ExportPayloadT", bound="_BaseExportPayload")
 
 @dataclass
 class _BaseExportPayload:
+    """Opaque wrapper around a server-generated export payload.
+
+    The wrapper validates the top-level ``type`` marker and preserves the
+    payload for round-tripping via :meth:`to_dict`, but it does not fully
+    validate the nested export schema.
+    """
+
     _payload: dict[str, Any] = field(repr=False)
     _expected_type: ClassVar[str]
 
@@ -26,6 +33,10 @@ class _BaseExportPayload:
 
     @classmethod
     def from_dict(cls: Type[ExportPayloadT], payload: dict[str, Any]) -> ExportPayloadT:
+        """Wrap a server-generated export payload.
+
+        This validates only the top-level envelope expected by the wrapper.
+        """
         if not isinstance(payload, dict):
             raise TypeError(f"{cls.__name__} payload must be a dict")
         return cls(_payload=deepcopy(payload))
@@ -63,9 +74,10 @@ class BoekingExport(_BaseExportPayload):
         value = self._payload.get("id")
         if value is None:
             return None
-        if not isinstance(value, int):
+        if not isinstance(value, int) or isinstance(value, bool):
             raise ValueError(
-                f"BoekingExport id must be an int when present, got {type(value).__name__}"
+                "BoekingExport id must be an integer when present, "
+                f"got {type(value).__name__}"
             )
         return value
 

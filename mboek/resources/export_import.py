@@ -75,8 +75,12 @@ def _decode_xml_bytes(payload: bytes) -> str:
         raise ValueError(f"XML payload could not be decoded as {encoding!r}") from exc
 
 
+def _normalize_xml_candidate(payload: str) -> str:
+    return payload.removeprefix("\ufeff").lstrip()
+
+
 def _normalize_xml_text(payload: str) -> str:
-    payload = payload.removeprefix("\ufeff")
+    payload = _normalize_xml_candidate(payload)
     return _XML_DECLARATION_ENCODING_RE.sub(
         lambda match: f'{match.group("prefix")}{match.group("quote")}UTF-8{match.group("quote")}',
         payload,
@@ -88,8 +92,9 @@ def _read_xml_payload(source: Path | IO[str] | IO[bytes] | str | bytes) -> bytes
     if isinstance(source, Path):
         payload: str | bytes = source.read_bytes()
     elif isinstance(source, str):
-        if source.lstrip().startswith("<"):
-            payload = source
+        normalized_source = _normalize_xml_candidate(source)
+        if normalized_source.startswith("<"):
+            payload = normalized_source
         else:
             payload = Path(source).expanduser().read_bytes()
     elif isinstance(source, bytes):
@@ -151,9 +156,10 @@ class ExportImportResource(BaseResource):
 
         Args:
             source: Path, path string, file object, XML string, or XML bytes to
-                upload. String values that do not start with ``"<"`` are treated
-                as filesystem paths. Non-UTF-8 XML is re-encoded to UTF-8 before
-                sending.
+                upload. String values that look like XML after removing a UTF-8
+                BOM and leading whitespace are treated as literal XML.
+                Leading whitespace before the XML declaration is removed, and
+                non-UTF-8 XML is re-encoded to UTF-8 before sending.
             overwrite: Replace an existing administratie with the same name.
             create_missing: Synthesize missing grootboekrekeningen and BTW codes
                 referenced by the XAF file.
@@ -283,9 +289,10 @@ class AdminExportImportResource(BaseResource):
 
         Args:
             source: Path, path string, file object, XML string, or XML bytes to
-                upload. String values that do not start with ``"<"`` are treated
-                as filesystem paths. Non-UTF-8 XML is re-encoded to UTF-8 before
-                sending.
+                upload. String values that look like XML after removing a UTF-8
+                BOM and leading whitespace are treated as literal XML.
+                Leading whitespace before the XML declaration is removed, and
+                non-UTF-8 XML is re-encoded to UTF-8 before sending.
             create_missing: Create missing dagboeken, grootboekrekeningen, and
                 BTW codes before importing the boekjaar.
             include_btw_codes: Import BTW codes from the XAF file when present.

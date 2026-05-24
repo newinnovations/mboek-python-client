@@ -95,6 +95,14 @@ def _require_list(value: object, *, field_name: str) -> list[Any]:
     return cast(list[Any], value)
 
 
+def _require_string_list(value: object, *, field_name: str) -> list[str]:
+    items = _require_list(value, field_name=field_name)
+    result: list[str] = []
+    for item in items:
+        result.append(_require_string(item, field_name=f"{field_name} items"))
+    return result
+
+
 def _require_string_map(value: object, *, field_name: str) -> dict[str, str]:
     if not isinstance(value, dict):
         raise ValueError(f"{field_name} must be an object")
@@ -480,6 +488,12 @@ def parse_boeking_met_regels(d: dict, *, client=None, administratie_id=None) -> 
 
 
 def _parse_rubriek(d: dict) -> RubriekBedragen:
+    d = _require_object(d, response_name="BTW berekening rubriek")
+    _require_keys(
+        d,
+        response_name="BTW berekening rubriek",
+        keys=("grondslag", "btw"),
+    )
     return RubriekBedragen(
         grondslag=Decimal(str(d["grondslag"])),
         btw=Decimal(str(d["btw"])),
@@ -487,6 +501,27 @@ def _parse_rubriek(d: dict) -> RubriekBedragen:
 
 
 def parse_btw_berekening(d: dict) -> BtwBerekening:
+    d = _require_object(d, response_name="BTW berekening")
+    _require_keys(
+        d,
+        response_name="BTW berekening",
+        keys=(
+            "r1a",
+            "r1b",
+            "r1c",
+            "r1d",
+            "r1e",
+            "r2a",
+            "r3a",
+            "r3b",
+            "r3c",
+            "r4a",
+            "r4b",
+            "r5a",
+            "r5b",
+            "r5g",
+        ),
+    )
     return BtwBerekening(
         r1a=_parse_rubriek(d["r1a"]),
         r1b=_parse_rubriek(d["r1b"]),
@@ -507,15 +542,45 @@ def parse_btw_berekening(d: dict) -> BtwBerekening:
 
 def parse_btw_aangifte(d: dict) -> BtwAangifte:
     d = _require_object(d, response_name="BTW aangifte")
+    _require_keys(
+        d,
+        response_name="BTW aangifte",
+        keys=(
+            "id",
+            "administratie_id",
+            "boekjaar_id",
+            "kwartaal",
+            "periode_start",
+            "periode_eind",
+            "berekening",
+            "r5g",
+            "status",
+        ),
+    )
+    berekening = parse_btw_berekening(d["berekening"])
+    r5g = Decimal(str(d["r5g"]))
+    if r5g != berekening.r5g:
+        raise ValueError(
+            "BTW aangifte response field 'r5g' must match "
+            "BTW aangifte response field 'berekening.r5g'"
+        )
     return BtwAangifte(
-        id=d["id"],
-        administratie_id=d["administratie_id"],
-        boekjaar_id=d["boekjaar_id"],
-        kwartaal=d["kwartaal"],
+        id=_require_int(d["id"], field_name="BTW aangifte response field 'id'"),
+        administratie_id=_require_int(
+            d["administratie_id"],
+            field_name="BTW aangifte response field 'administratie_id'",
+        ),
+        boekjaar_id=_require_int(
+            d["boekjaar_id"],
+            field_name="BTW aangifte response field 'boekjaar_id'",
+        ),
+        kwartaal=_require_int(
+            d["kwartaal"], field_name="BTW aangifte response field 'kwartaal'"
+        ),
         periode_start=_require_date(d["periode_start"]),
         periode_eind=_require_date(d["periode_eind"]),
-        berekening=parse_btw_berekening(d["berekening"]),
-        r5g=Decimal(str(d["r5g"])),
+        berekening=berekening,
+        r5g=r5g,
         status=BtwAangifteStatus(d["status"]),
     )
 
@@ -593,13 +658,31 @@ def _parse_balans_regel(d: dict) -> BalansRegel:
 
 def parse_balans(d: dict) -> BalansReport:
     d = _require_object(d, response_name="Balans")
+    _require_keys(
+        d,
+        response_name="Balans",
+        keys=(
+            "boekjaar_naam",
+            "activa",
+            "passiva",
+            "totaal_activa",
+            "totaal_passiva",
+            "in_balans",
+        ),
+    )
+    activa = _require_list(d["activa"], field_name="Balans response field 'activa'")
+    passiva = _require_list(d["passiva"], field_name="Balans response field 'passiva'")
     return BalansReport(
-        boekjaar_naam=d["boekjaar_naam"],
-        activa=[_parse_balans_regel(r) for r in d["activa"]],
-        passiva=[_parse_balans_regel(r) for r in d["passiva"]],
+        boekjaar_naam=_require_string(
+            d["boekjaar_naam"], field_name="Balans response field 'boekjaar_naam'"
+        ),
+        activa=[_parse_balans_regel(r) for r in activa],
+        passiva=[_parse_balans_regel(r) for r in passiva],
         totaal_activa=Decimal(str(d["totaal_activa"])),
         totaal_passiva=Decimal(str(d["totaal_passiva"])),
-        in_balans=d["in_balans"],
+        in_balans=_require_bool(
+            d["in_balans"], field_name="Balans response field 'in_balans'"
+        ),
     )
 
 
@@ -788,14 +871,51 @@ def parse_jaarrekening_pdf(payload: object) -> JaarrekeningPdfReport:
 
 
 def parse_import_result(d: dict) -> ImportResult:
+    d = _require_object(d, response_name="Bank import")
+    _require_keys(
+        d,
+        response_name="Bank import",
+        keys=(
+            "imported",
+            "duplicates_skipped",
+            "zero_bedrag_skipped",
+            "boekjaar_niet_gevonden_skipped",
+            "auto_geboekt",
+            "unmatched_ibans",
+        ),
+    )
+    parse_warnings_payload = d.get("parse_warnings")
     return ImportResult(
-        imported=d["imported"],
-        duplicates_skipped=d["duplicates_skipped"],
-        zero_bedrag_skipped=d["zero_bedrag_skipped"],
-        boekjaar_niet_gevonden_skipped=d["boekjaar_niet_gevonden_skipped"],
-        auto_geboekt=d["auto_geboekt"],
-        unmatched_ibans=d["unmatched_ibans"],
-        parse_warnings=d.get("parse_warnings"),
+        imported=_require_int(
+            d["imported"], field_name="Bank import response field 'imported'"
+        ),
+        duplicates_skipped=_require_int(
+            d["duplicates_skipped"],
+            field_name="Bank import response field 'duplicates_skipped'",
+        ),
+        zero_bedrag_skipped=_require_int(
+            d["zero_bedrag_skipped"],
+            field_name="Bank import response field 'zero_bedrag_skipped'",
+        ),
+        boekjaar_niet_gevonden_skipped=_require_int(
+            d["boekjaar_niet_gevonden_skipped"],
+            field_name="Bank import response field 'boekjaar_niet_gevonden_skipped'",
+        ),
+        auto_geboekt=_require_int(
+            d["auto_geboekt"], field_name="Bank import response field 'auto_geboekt'"
+        ),
+        unmatched_ibans=_require_string_list(
+            d["unmatched_ibans"],
+            field_name="Bank import response field 'unmatched_ibans'",
+        ),
+        parse_warnings=(
+            None
+            if parse_warnings_payload is None
+            else _require_string_list(
+                parse_warnings_payload,
+                field_name="Bank import response field 'parse_warnings'",
+            )
+        ),
     )
 
 

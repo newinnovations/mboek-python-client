@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
 import responses
 
 from tests.conftest import BASE_URL, BOEKJAAR
@@ -75,3 +76,17 @@ def test_winst_verlies(mocked_responses, client):
     assert report.netto_resultaat == Decimal("4000.00")
     assert len(report.opbrengsten) == 1
     assert report.opbrengsten[0].bedrag == Decimal("10000.00")
+
+
+def test_balans_requires_boolean_in_balans(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/rapporten/balans",
+        json={**BALANS_RESPONSE, "in_balans": "false"},
+    )
+
+    with pytest.raises(ValueError, match="in_balans"):
+        client.administratie(1).boekjaar(10).reports.balans()

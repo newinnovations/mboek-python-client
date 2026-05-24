@@ -519,6 +519,101 @@ def test_grootboekrekening_lazy_saldo_is_shared_across_siblings(
     assert len(saldo_calls) == 1
 
 
+def test_grootboekrekening_lazy_saldo_refreshes_after_resource_cache_clear(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=[{"rekening": GROOTBOEKREKENING, "aantal_transacties": 2, "saldo": 50000}],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=[{"rekening": GROOTBOEKREKENING, "aantal_transacties": 3, "saldo": 75000}],
+    )
+
+    resource = client.administratie(1).grootboekrekeningen
+    scoped = resource.get(30).with_boekjaar(id=10)
+
+    assert scoped.saldo == Decimal("500.00")
+
+    resource.clear_cache()
+
+    assert scoped.saldo == Decimal("750.00")
+    assert scoped.aantal_transacties == 3
+
+
+def test_grootboekrekening_with_boekjaar_does_not_reuse_stale_snapshot_after_client_clear(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=[{"rekening": GROOTBOEKREKENING, "aantal_transacties": 2, "saldo": 50000}],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=[{"rekening": GROOTBOEKREKENING, "aantal_transacties": 4, "saldo": 62500}],
+    )
+
+    gbr = client.administratie(1).grootboekrekeningen.get(30)
+    scoped = gbr.with_boekjaar(id=10)
+
+    assert scoped.saldo == Decimal("500.00")
+
+    client._clear_client_caches()
+
+    refreshed = gbr.with_boekjaar(id=10)
+    assert refreshed.saldo == Decimal("625.00")
+    assert scoped.saldo == Decimal("625.00")
+
+
+def test_grootboekrekening_lazy_saldo_refreshes_after_successful_write(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=[{"rekening": GROOTBOEKREKENING, "aantal_transacties": 2, "saldo": 50000}],
+    )
+    mocked_responses.add(
+        responses.PATCH,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/30",
+        json=GROOTBOEKREKENING,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=[{"rekening": GROOTBOEKREKENING, "aantal_transacties": 5, "saldo": 88000}],
+    )
+
+    scoped = client.administratie(1).grootboekrekeningen.get(30).with_boekjaar(id=10)
+
+    assert scoped.saldo == Decimal("500.00")
+
+    client.administratie(1).grootboekrekeningen.update(30, naam="Bank")
+
+    assert scoped.saldo == Decimal("880.00")
+    assert scoped.aantal_transacties == 5
+
+
 def test_grootboekrekening_lazy_saldo_missing_match_raises(mocked_responses, client):
     other = {**GROOTBOEKREKENING, "id": 31, "code": 4000, "naam": "Kosten"}
     data = [{"rekening": other, "aantal_transacties": 2, "saldo": 50000}]

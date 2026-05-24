@@ -142,6 +142,22 @@ def test_vastleggen_parses_definitief_status(mocked_responses, client):
     assert item.status == BtwAangifteStatus.DEFINITIEF
 
 
+def test_list_rejects_mismatched_r5g(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften",
+        json=[{**BTW_AANGIFTE, "r5g": "20"}],
+    )
+
+    with pytest.raises(ValueError, match="berekening.r5g"):
+        client.administratie(1).boekjaar(10).btw_aangifte.list()
+
+
 def test_vastleggen_conflict(mocked_responses, client):
     mocked_responses.add(
         responses.GET,

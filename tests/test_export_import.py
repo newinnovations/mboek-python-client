@@ -139,6 +139,22 @@ def test_import_administratie_xaf_from_string_path(tmp_path, mocked_responses, c
     assert _request_body(call) == XAF_XML
 
 
+def test_import_administratie_xaf_normalizes_literal_xml_strings(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/import/xaf",
+        json=ADMIN_IMPORT_RESULT,
+    )
+
+    result = client.export_import.import_administratie_xaf(f"\ufeff\n  {XAF_XML}")
+
+    call = mocked_responses.calls[-1]
+    assert isinstance(result, AdministratieImportResult)
+    assert _request_body(call) == XAF_XML
+
+
 def test_import_administratie_xaf_normalizes_non_utf8_path(
     tmp_path, mocked_responses, client
 ):
@@ -254,6 +270,36 @@ def test_bank_import_upload_file_object_omits_allow_duplicates_by_default(
     body = _request_body(mocked_responses.calls[-1])
     assert result.parse_warnings is None
     assert 'name="allow_duplicates"' not in body
+
+
+def test_bank_import_upload_rejects_non_object_success_payload(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/import",
+        json="not an object",
+    )
+
+    with pytest.raises(ValueError, match="JSON object"):
+        client.administratie(1).import_.upload(
+            BytesIO(b":20:START"), filename="statement.940"
+        )
+
+
+def test_bank_import_upload_requires_all_success_fields(mocked_responses, client):
+    payload = dict(BANK_IMPORT_RESULT)
+    payload.pop("duplicates_skipped")
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/import",
+        json=payload,
+    )
+
+    with pytest.raises(ValueError, match="duplicates_skipped"):
+        client.administratie(1).import_.upload(
+            BytesIO(b":20:START"), filename="statement.940"
+        )
 
 
 def test_bank_import_upload_unnamed_file_object_requires_filename(client):
@@ -401,6 +447,13 @@ def test_export_boeking(mocked_responses, client):
     assert isinstance(result, BoekingExport)
     assert result.id == 100
     assert result.to_dict() == BOEKING_EXPORT_PAYLOAD
+
+
+def test_boeking_export_rejects_bool_id():
+    payload = BoekingExport.from_dict({"type": "boeking", "id": True, "regels": []})
+
+    with pytest.raises(ValueError, match="integer"):
+        _ = payload.id
 
 
 def test_import_boekjaar_xaf_validation_error(mocked_responses, client):
