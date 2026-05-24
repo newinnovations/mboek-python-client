@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
 import pytest
@@ -103,6 +104,79 @@ def test_list_parses_period_dates(mocked_responses, client):
     assert item.periode_eind == date(2024, 3, 31)
     assert item.administratie_id == 1
     assert item.boekjaar_id == 10
+
+
+def test_berekenen_posts_payload_and_parses_response(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften/berekenen",
+        json=BTW_AANGIFTE,
+    )
+
+    item = client.administratie(1).boekjaar(10).btw_aangifte.berekenen(kwartaal=1)
+
+    assert item.status == BtwAangifteStatus.CONCEPT
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body == {"boekjaar_id": 10, "kwartaal": 1}
+
+
+def test_vastleggen_parses_definitief_status(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften/80/vastleggen",
+        json={**BTW_AANGIFTE, "status": "definitief"},
+    )
+
+    item = client.administratie(1).boekjaar(10).btw_aangifte.vastleggen(80)
+
+    assert item.status == BtwAangifteStatus.DEFINITIEF
+
+
+def test_vastleggen_conflict(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften/80/vastleggen",
+        json={"error": "Boekjaar must be gesloten"},
+        status=409,
+    )
+
+    with pytest.raises(MboekError) as exc_info:
+        client.administratie(1).boekjaar(10).btw_aangifte.vastleggen(80)
+    assert exc_info.value.status_code == 409
+
+
+def test_delete_calls_endpoint(mocked_responses, client):
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/boekjaren/10",
+        json=BOEKJAAR,
+    )
+    mocked_responses.add(
+        responses.DELETE,
+        f"{BASE_URL}/api/administraties/1/btw-aangiften/80",
+        status=204,
+    )
+
+    client.administratie(1).boekjaar(10).btw_aangifte.delete(80)
+
+    assert mocked_responses.calls[-1].request.url == (
+        f"{BASE_URL}/api/administraties/1/btw-aangiften/80"
+    )
 
 
 def test_list_empty(mocked_responses, client):

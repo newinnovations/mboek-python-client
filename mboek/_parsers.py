@@ -83,6 +83,12 @@ def _require_bool(value: object, *, field_name: str) -> bool:
     return value
 
 
+def _require_int(value: object, *, field_name: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an integer")
+    return value
+
+
 def _require_list(value: object, *, field_name: str) -> list[Any]:
     if not isinstance(value, list):
         raise ValueError(f"{field_name} must be a list")
@@ -303,6 +309,11 @@ def parse_grootboekrekening_met_saldo(
             "updated_at",
         ),
     )
+    _require_keys(
+        d,
+        response_name="Grootboekrekening met saldo",
+        keys=("saldo", "aantal_transacties"),
+    )
     return Grootboekrekening(
         id=rekening_data["id"],
         administratie_id=rekening_data["administratie_id"],
@@ -322,7 +333,10 @@ def parse_grootboekrekening_met_saldo(
         client=client,
         boekjaar_id=boekjaar_id,
         saldo=_require_cents(d["saldo"]),
-        aantal_transacties=d["aantal_transacties"],
+        aantal_transacties=_require_int(
+            d["aantal_transacties"],
+            field_name="Grootboekrekening met saldo response field 'aantal_transacties'",
+        ),
     )
 
 

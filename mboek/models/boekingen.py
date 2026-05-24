@@ -127,6 +127,28 @@ class Boeking:
             )
         return self._client
 
+    def _refresh_from(self, other: "Boeking") -> None:
+        self.id = other.id
+        self.dagboek_id = other.dagboek_id
+        self.boekjaar_id = other.boekjaar_id
+        self.datum = other.datum
+        self.omschrijving = other.omschrijving
+        self.stuknummer = other.stuknummer
+        self.status = other.status
+        self.tegenpartij_naam = other.tegenpartij_naam
+        self.tegenpartij_iban = other.tegenpartij_iban
+        self.referentie_import = other.referentie_import
+        self.import_hash = other.import_hash
+        self.auto_geboekt = other.auto_geboekt
+        self.gecontroleerd = other.gecontroleerd
+        self.created_at = other.created_at
+        self.regels = other.regels
+        self.updated_at = other.updated_at
+        if other._client is not None:
+            self._client = other._client
+        if other._administratie_id is not None:
+            self._administratie_id = other._administratie_id
+
     # ── Instance-level operations ─────────────────────────────────────────────
 
     def delete(self) -> None:
@@ -175,7 +197,7 @@ class Boeking:
             regels: Full replacement set of lines (must balance).
 
         Returns:
-            The updated boeking (a fresh instance).
+            This boeking instance, refreshed with the updated server state.
 
         Raises:
             :py:class:`~mboek._exceptions.ScopeError`: No client reference.
@@ -185,7 +207,7 @@ class Boeking:
         client = self._require_client("update()")
         from mboek.resources.boekingen import BoekingenResource
 
-        return BoekingenResource(client)._update(
+        updated = BoekingenResource(client)._update(
             self.id,
             admin_id=self._administratie_id,
             datum=datum,
@@ -198,6 +220,8 @@ class Boeking:
             auto_geboekt=auto_geboekt,
             regels=regels,
         )
+        self._refresh_from(updated)
+        return self
 
     def regels_as_new(self) -> list[NewBoekingsregel]:
         """Return the regels of this boeking as a list of :py:class:`NewBoekingsregel`.

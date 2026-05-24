@@ -29,7 +29,7 @@ def test_login_success(mocked_responses):
     assert client.token == "my-jwt-token"
 
 
-def test_login_uses_shared_session_without_authorization_header(monkeypatch):
+def test_login_uses_shared_session_and_suppresses_authorization_header(monkeypatch):
     import json as _json
 
     client = MboekClient(BASE_URL, token="seed-token")
@@ -41,7 +41,8 @@ def test_login_uses_shared_session_without_authorization_header(monkeypatch):
         assert method == "POST"
         assert url == f"{BASE_URL}/api/auth/login"
         assert kwargs["json"] == {"gebruikersnaam": "admin", "wachtwoord": "secret"}
-        assert "Authorization" not in client._session.headers
+        assert client._session.headers["Authorization"] == "Bearer seed-token"
+        assert kwargs["headers"] == {"Authorization": None}
 
         resp = requests.Response()
         resp.status_code = 200
@@ -57,6 +58,7 @@ def test_login_uses_shared_session_without_authorization_header(monkeypatch):
 
     assert result.token == "my-jwt-token"
     assert client.token == "my-jwt-token"
+    assert client._session.headers["Authorization"] == "Bearer my-jwt-token"
 
 
 def test_login_in_constructor(mocked_responses):

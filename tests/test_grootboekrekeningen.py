@@ -84,6 +84,20 @@ def test_met_saldo(mocked_responses, client):
     assert "offset=0" in saldo_calls[-1].request.url
 
 
+@pytest.mark.parametrize("missing_key", ["saldo", "aantal_transacties"])
+def test_met_saldo_requires_top_level_fields(mocked_responses, client, missing_key):
+    payload = {"rekening": GROOTBOEKREKENING, "aantal_transacties": 5, "saldo": 100000}
+    payload.pop(missing_key)
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=[payload],
+    )
+
+    with pytest.raises(ValueError, match=missing_key):
+        client.administratie(1).grootboekrekeningen.met_saldo(10)
+
+
 def test_mutaties(mocked_responses, client):
     mutatie = {
         "regel_id": 1,

@@ -390,6 +390,41 @@ def test_update_regels_with_admin_id_skips_owner_lookup(mocked_responses, client
     assert new_calls[1].request.url == f"{BASE_URL}/api/boekingen/100"
 
 
+def test_update_regels_with_ids_preserves_admin_scope(mocked_responses, client):
+    mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties",
+        json=[ADMINISTRATIE],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken/20",
+        json=DAGBOEK,
+    )
+    mocked_responses.add(responses.PATCH, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
+
+    regels = [
+        NewBoekingsregel(
+            grootboekrekening_id=30,
+            omschrijving="Bank",
+            bedrag=Decimal("-100.00"),
+        ),
+        NewBoekingsregel(
+            grootboekrekening_id=31,
+            omschrijving="Kosten",
+            bedrag=Decimal("100.00"),
+        ),
+    ]
+
+    item = client.boekingen.update(100, regels=regels)
+
+    assert item._administratie_id == 1
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body["regels"][0]["grootboekrekening_id"] == 30
+    assert body["regels"][1]["grootboekrekening_id"] == 31
+
+
 # ── Unified boekingen via with_boekjaar ───────────────────────────────────────
 
 
@@ -451,13 +486,15 @@ def test_boeking_delete_via_instance(mocked_responses, client):
 
 
 def test_boeking_update_via_instance(mocked_responses, client):
-    """boeking.update() calls PATCH /api/boekingen/{id} and returns updated Boeking."""
+    """boeking.update() refreshes the current instance after PATCH."""
     updated = {**BOEKING, "omschrijving": "Updated"}
     mocked_responses.add(responses.GET, f"{BASE_URL}/api/boekingen/100", json=BOEKING)
     mocked_responses.add(responses.PATCH, f"{BASE_URL}/api/boekingen/100", json=updated)
     boeking = client.boekingen.get(100)
     result = boeking.update(omschrijving="Updated")
+    assert result is boeking
     assert result.omschrijving == "Updated"
+    assert boeking.omschrijving == "Updated"
     assert result._client is client
 
 

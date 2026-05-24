@@ -74,7 +74,8 @@ class BoekingenResource(BaseResource):
         Args:
             id: Boeking ID.
             admin_id: Owning administratie ID. Provide this when replacing
-                ``regels`` by rekening name/code to skip the ownership lookup.
+                ``regels`` to skip the ownership lookup and keep the returned
+                boeking scoped to the owning administratie.
             datum: New booking date.
             omschrijving: New description.
             stuknummer: New document reference.
@@ -131,12 +132,15 @@ class BoekingenResource(BaseResource):
             if regels is None:
                 data["regels"] = None
             else:
-                if any(regel.grootboekrekening_id is None for regel in regels):
-                    resolved_admin_id = self._resolve_admin_id_for_boeking(
+                admin_id_for_regels = resolved_admin_id
+                if admin_id_for_regels is None:
+                    admin_id_for_regels = self._resolve_admin_id_for_boeking(
                         boeking_id=id, admin_id=admin_id
                     )
+                    resolved_admin_id = admin_id_for_regels
+                if any(regel.grootboekrekening_id is None for regel in regels):
                     data["regels"] = self._serialize_boekingsregels(
-                        resolved_admin_id, regels
+                        admin_id_for_regels, regels
                     )
                 else:
                     data["regels"] = [r.to_dict() for r in regels]

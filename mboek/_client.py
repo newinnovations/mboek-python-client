@@ -349,20 +349,17 @@ class MboekClient:
     ) -> Any:
         """Send an unauthenticated request (used for the login endpoint)."""
         url = self._base_url + path
-        authorization = self._session.headers.pop("Authorization", None)
         try:
             resp = self._session.request(
                 method,
                 url,
                 json=json,
                 params=params,
+                headers={"Authorization": None},
                 timeout=self._timeout,
             )
         except requests.RequestException as exc:
             raise MboekError(f"Request failed: {exc}", detail=exc) from exc
-        finally:
-            if authorization is not None:
-                self._session.headers["Authorization"] = authorization
         return self._handle_response(resp)
 
     @staticmethod

@@ -320,12 +320,12 @@ call `update()` and `delete()` directly on the object — no need to go through
 # Retrieve a single entry by ID
 boeking = client.boekingen.get(100)
 
-# Update header fields (pass only the fields you want to change)
-updated = boeking.update(
+# Update header fields in place (pass only the fields you want to change)
+boeking.update(
     omschrijving="Corrected description",
     gecontroleerd=True,
 )
-print(updated.omschrijving)   # "Corrected description"
+print(boeking.omschrijving)   # "Corrected description"
 
 # Entries returned from list() are also scoped
 entries = (
@@ -339,13 +339,14 @@ for entry in entries:
         entry.delete()
 ```
 
-`update()` accepts the same keyword arguments as `BoekingenResource.update()`
-(all optional): `admin_id`, `datum`, `omschrijving`, `stuknummer`, `status`,
-`tegenpartij_naam`, `tegenpartij_iban`, `gecontroleerd`, `auto_geboekt`, and
-`regels` (full replacement set of boekingsregels). Use `admin_id` to skip an
-ownership lookup when replacing `regels` by rekening name/code. It returns a
-fresh `Boeking` with the updated data. Pass `None` explicitly to clear a
-nullable field; omit a keyword to leave it unchanged.
+`Boeking.update()` accepts the same optional field arguments as
+`BoekingenResource.update()` except `admin_id`: `datum`, `omschrijving`,
+`stuknummer`, `status`, `tegenpartij_naam`, `tegenpartij_iban`,
+`gecontroleerd`, `auto_geboekt`, and `regels` (full replacement set of
+boekingsregels). It updates the current `Boeking` in place and also returns the
+same object. When using the resource-level `client.boekingen.update(...)`, pass
+`admin_id` to skip an ownership lookup when replacing `regels`. Pass `None`
+explicitly to clear a nullable field; omit a keyword to leave it unchanged.
 
 `delete()` permanently removes the boeking and all its boekingsregels.
 
