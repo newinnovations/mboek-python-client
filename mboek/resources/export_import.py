@@ -87,7 +87,12 @@ def _normalize_xml_text(payload: str) -> str:
 def _read_xml_payload(source: Path | IO[str] | IO[bytes] | str | bytes) -> bytes:
     if isinstance(source, Path):
         payload: str | bytes = source.read_bytes()
-    elif isinstance(source, (str, bytes)):
+    elif isinstance(source, str):
+        if source.lstrip().startswith("<"):
+            payload = source
+        else:
+            payload = Path(source).expanduser().read_bytes()
+    elif isinstance(source, bytes):
         payload = source
     else:
         payload = source.read()
@@ -140,15 +145,19 @@ class ExportImportResource(BaseResource):
         *,
         overwrite: bool | None = None,
         create_missing: bool | None = None,
+        include_btw_codes: bool | None = None,
     ) -> AdministratieImportResult:
         """Create a new administratie from an Auditfile Financieel (XAF) export.
 
         Args:
-            source: Path, file object, XML string, or XML bytes to upload.
-                Non-UTF-8 XML is re-encoded to UTF-8 before sending.
+            source: Path, path string, file object, XML string, or XML bytes to
+                upload. String values that do not start with ``"<"`` are treated
+                as filesystem paths. Non-UTF-8 XML is re-encoded to UTF-8 before
+                sending.
             overwrite: Replace an existing administratie with the same name.
             create_missing: Synthesize missing grootboekrekeningen and BTW codes
                 referenced by the XAF file.
+            include_btw_codes: Import BTW codes from the XAF file when present.
 
         Returns:
             :py:class:`~mboek.models.export_import.AdministratieImportResult`.
@@ -159,6 +168,7 @@ class ExportImportResource(BaseResource):
                 params={
                     "overwrite": _bool_query(overwrite),
                     "create_missing": _bool_query(create_missing),
+                    "include_btw_codes": _bool_query(include_btw_codes),
                 },
                 data=_read_xml_payload(source),
                 headers={
@@ -267,14 +277,18 @@ class AdminExportImportResource(BaseResource):
         source: Path | IO[str] | IO[bytes] | str | bytes,
         *,
         create_missing: bool | None = None,
+        include_btw_codes: bool | None = None,
     ) -> BoekjaarImportResult:
         """Import a boekjaar XAF file into the administratie.
 
         Args:
-            source: Path, file object, XML string, or XML bytes to upload.
-                Non-UTF-8 XML is re-encoded to UTF-8 before sending.
+            source: Path, path string, file object, XML string, or XML bytes to
+                upload. String values that do not start with ``"<"`` are treated
+                as filesystem paths. Non-UTF-8 XML is re-encoded to UTF-8 before
+                sending.
             create_missing: Create missing dagboeken, grootboekrekeningen, and
                 BTW codes before importing the boekjaar.
+            include_btw_codes: Import BTW codes from the XAF file when present.
 
         Returns:
             :py:class:`~mboek.models.export_import.BoekjaarImportResult`.
@@ -282,7 +296,10 @@ class AdminExportImportResource(BaseResource):
         result = parse_boekjaar_import_result(
             self._post(
                 f"/api/administraties/{self._admin_id}/boekjaren/import/xaf",
-                params={"create_missing": _bool_query(create_missing)},
+                params={
+                    "create_missing": _bool_query(create_missing),
+                    "include_btw_codes": _bool_query(include_btw_codes),
+                },
                 data=_read_xml_payload(source),
                 headers={
                     "Content-Type": "application/xml",

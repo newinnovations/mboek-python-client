@@ -28,7 +28,3 @@ class CurrentUser:
 
     gebruikersnaam: str
     sub: str
-
-
-# Backward-compatible alias.
-LoginResponse = AuthToken

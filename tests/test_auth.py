@@ -29,6 +29,36 @@ def test_login_success(mocked_responses):
     assert client.token == "my-jwt-token"
 
 
+def test_login_uses_shared_session_without_authorization_header(monkeypatch):
+    import json as _json
+
+    client = MboekClient(BASE_URL, token="seed-token")
+
+    def fail_if_module_request_used(*args, **kwargs):
+        raise AssertionError("login should use the client session")
+
+    def fake_session_request(method, url, **kwargs):
+        assert method == "POST"
+        assert url == f"{BASE_URL}/api/auth/login"
+        assert kwargs["json"] == {"gebruikersnaam": "admin", "wachtwoord": "secret"}
+        assert "Authorization" not in client._session.headers
+
+        resp = requests.Response()
+        resp.status_code = 200
+        resp._content = _json.dumps(LOGIN_PAYLOAD).encode()
+        resp.headers["Content-Type"] = "application/json"
+        resp.url = url
+        return resp
+
+    monkeypatch.setattr(requests, "request", fail_if_module_request_used)
+    monkeypatch.setattr(client._session, "request", fake_session_request)
+
+    result = client.login("admin", "secret")
+
+    assert result.token == "my-jwt-token"
+    assert client.token == "my-jwt-token"
+
+
 def test_login_in_constructor(mocked_responses):
     mocked_responses.add(
         responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
@@ -91,6 +121,34 @@ def test_logout(mocked_responses, client):
     assert client.token is None
 
 
+def test_login_clears_client_caches(mocked_responses, client):
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
+    client._gbr_cache[1] = []
+    client._gbr_saldo_cache[(1, 10)] = {}
+    client._dagboek_admin_cache[20] = 1
+
+    client.login("admin", "secret")
+
+    assert client._gbr_cache == {}
+    assert client._gbr_saldo_cache == {}
+    assert client._dagboek_admin_cache == {}
+
+
+def test_logout_clears_client_caches(mocked_responses, client):
+    mocked_responses.add(responses.POST, f"{BASE_URL}/api/auth/logout", status=204)
+    client._gbr_cache[1] = []
+    client._gbr_saldo_cache[(1, 10)] = {}
+    client._dagboek_admin_cache[20] = 1
+
+    client.logout()
+
+    assert client._gbr_cache == {}
+    assert client._gbr_saldo_cache == {}
+    assert client._dagboek_admin_cache == {}
+
+
 def test_context_manager_auto_logout(mocked_responses):
     mocked_responses.add(
         responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
@@ -99,6 +157,27 @@ def test_context_manager_auto_logout(mocked_responses):
 
     with MboekClient(BASE_URL, "admin", "secret") as c:
         assert c.token == "my-jwt-token"
+    assert c.token is None
+
+
+def test_context_manager_auto_logout_after_manual_login_with_initial_token(
+    mocked_responses,
+):
+    mocked_responses.add(
+        responses.POST, f"{BASE_URL}/api/auth/login", json=LOGIN_PAYLOAD
+    )
+    mocked_responses.add(responses.POST, f"{BASE_URL}/api/auth/logout", status=204)
+
+    with MboekClient(BASE_URL, token="seed-token") as c:
+        c.login("admin", "secret")
+        assert c.token == "my-jwt-token"
+
+    logout_calls = [
+        call
+        for call in mocked_responses.calls
+        if call.request.url.endswith("/api/auth/logout")
+    ]
+    assert len(logout_calls) == 1
     assert c.token is None
 
 

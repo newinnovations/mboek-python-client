@@ -286,3 +286,6 @@ class GrootboekrekeningenResource(BaseResource):
         The next call to :py:meth:`list` will fetch fresh data from the API.
         """
         self._client._gbr_cache.pop(self._admin_id, None)
+        for cache_key in list(self._client._gbr_saldo_cache):
+            if cache_key[0] == self._admin_id:
+                self._client._gbr_saldo_cache.pop(cache_key, None)

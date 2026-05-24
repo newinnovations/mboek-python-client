@@ -41,7 +41,7 @@ with MboekClient("http://localhost:3000", "admin", "geheim") as client:
     # List journal entries for the bank dagboek in this boekjaar
     entries = bank.boekingen.list()
     for entry in entries[:5]:
-        print(f"  {entry.boeking.datum}  {entry.boeking.omschrijving}")
+        print(f"  {entry.datum}  {entry.omschrijving}")
 
     # Generate a balance sheet
     balans = bj.reports.balans()
@@ -297,7 +297,7 @@ entry = bj_dagboek.boekingen.create(
     omschrijving="Hosting invoice March",
     # boekjaar_id is injected automatically from the scope
 )
-print(f"Created boeking {entry.boeking.id}")
+print(f"Created boeking {entry.id}")
 ```
 
 Alternatively, you can reference accounts by **name or code** instead of a
@@ -417,6 +417,9 @@ if result.parse_warnings:
     print("Warnings:", result.parse_warnings)
 ```
 
+When uploading a `BytesIO` or another unnamed file object, pass `filename=` so
+the backend can detect whether the payload is MT940 or CAMT.053.
+
 ## Export and import
 
 ```python
@@ -451,8 +454,9 @@ Path("boekjaar-2024.xaf").write_text(xaf_xml, encoding="utf-8")
 
 # Import a XAF file into an existing administration
 result = a.export_import.import_boekjaar_xaf(
-    Path("boekjaar-2024.xaf"),
+    "boekjaar-2024.xaf",  # plain string paths are read from disk
     create_missing=True,
+    include_btw_codes=True,
 )
 print(result.boekjaar_id, result.boekingen_imported)
 
@@ -465,11 +469,13 @@ print(result.boekjaar_id, result.boekingen_imported)
 
 # Or create a brand-new administration directly from a XAF file
 client.export_import.import_administratie_xaf(
-    Path("boekjaar-2024.xaf"),
+    "boekjaar-2024.xaf",
     overwrite=True,
     create_missing=True,
+    include_btw_codes=True,
 )
 
+# String sources that start with "<" are treated as literal XML.
 # Non-UTF-8 XAF files are normalized to UTF-8 automatically before upload.
 ```
 

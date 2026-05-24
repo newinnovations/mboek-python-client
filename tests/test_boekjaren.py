@@ -331,6 +331,29 @@ def test_boekjaar_jaarrekening_html_derives_bedrijf_and_jaar(mocked_responses, c
     }
 
 
+def test_boekjaar_jaarrekening_html_derives_bedrijf_from_bv_with_periods(
+    mocked_responses, client
+):
+    mocked_responses.add(
+        responses.GET, f"{BASE_URL}/api/administraties/1/boekjaren/10", json=BOEKJAAR
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1",
+        json={**ADMINISTRATIE, "naam": "Atlas Holding B.V."},
+    )
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/jaarrekening/html",
+        json=JAARREKENING_HTML_RESPONSE,
+    )
+
+    client.administratie(1).boekjaar(10).jaarrekening_html()
+
+    body = json.loads(mocked_responses.calls[-1].request.body)
+    assert body["bedrijf"] == "atlasholding"
+
+
 def test_boekjaar_jaarrekening_pdf_uses_partial_shorthand_override(
     mocked_responses, client
 ):

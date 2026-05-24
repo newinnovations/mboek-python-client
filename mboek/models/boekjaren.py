@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 def _derive_bedrijf_from_administratie_naam(naam: str) -> str:
-    without_bv = re.sub(r"\bbv\b", "", naam, flags=re.IGNORECASE)
+    without_bv = re.sub(r"\bb\.?\s*v\.?(?=\W|$)", "", naam, flags=re.IGNORECASE)
     bedrijf = "".join(without_bv.lower().split())
     if not bedrijf:
         raise ValueError(

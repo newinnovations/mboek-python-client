@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -98,7 +99,7 @@ class MboekClient:
         self._timeout = timeout
         self._session = requests.Session()
         self._token: str | None = None
-        self._token_provided: bool = resolved_token is not None
+        self._owns_token = False
         self._login_response: AuthToken | None = None
 
         # Lazily-initialised resource managers
@@ -111,9 +112,12 @@ class MboekClient:
         # Per-admin cache of the full grootboekrekening collection.
         # Populated by GrootboekrekeningenResource.list() and cleared via clear_cache().
         self._gbr_cache: dict[int, list[Grootboekrekening]] = {}
+        self._gbr_saldo_cache: dict[tuple[int, int], dict[int, tuple[Decimal, int]]] = (
+            {}
+        )
         self._dagboek_admin_cache: dict[int, int] = {}
 
-        if self._token_provided:
+        if resolved_token is not None:
             self._token = resolved_token
             self._session.headers.update({"Authorization": f"Bearer {self._token}"})
         elif resolved_username is not None and resolved_password is not None:
@@ -126,7 +130,7 @@ class MboekClient:
 
     def __exit__(self, *_: object) -> None:
         try:
-            if self._token is not None and not self._token_provided:
+            if self._token is not None and self._owns_token:
                 try:
                     self.logout()
                 except MboekError:
@@ -151,7 +155,9 @@ class MboekClient:
             :py:class:`~mboek._exceptions.RateLimitError`: Too many attempts.
         """
         response = self._login_response = self.auth.login(username, password)
+        self._clear_client_caches()
         self._token = response.token
+        self._owns_token = True
         self._session.headers.update({"Authorization": f"Bearer {self._token}"})
         return response
 
@@ -164,7 +170,10 @@ class MboekClient:
         try:
             self.auth.logout()
         finally:
+            self._clear_client_caches()
+            self._login_response = None
             self._token = None
+            self._owns_token = False
             self._session.headers.pop("Authorization", None)
 
     @property
@@ -290,6 +299,11 @@ class MboekClient:
 
     # ── Internal HTTP helpers ─────────────────────────────────────────────────
 
+    def _clear_client_caches(self) -> None:
+        self._gbr_cache.clear()
+        self._gbr_saldo_cache.clear()
+        self._dagboek_admin_cache.clear()
+
     def _request(
         self,
         method: str,
@@ -320,7 +334,10 @@ class MboekClient:
             )
         except requests.RequestException as exc:
             raise MboekError(f"Request failed: {exc}", detail=exc) from exc
-        return self._handle_response(resp)
+        result = self._handle_response(resp)
+        if method.upper() != "GET":
+            self._clear_client_caches()
+        return result
 
     def _request_no_auth(
         self,
@@ -332,8 +349,9 @@ class MboekClient:
     ) -> Any:
         """Send an unauthenticated request (used for the login endpoint)."""
         url = self._base_url + path
+        authorization = self._session.headers.pop("Authorization", None)
         try:
-            resp = requests.request(
+            resp = self._session.request(
                 method,
                 url,
                 json=json,
@@ -342,6 +360,9 @@ class MboekClient:
             )
         except requests.RequestException as exc:
             raise MboekError(f"Request failed: {exc}", detail=exc) from exc
+        finally:
+            if authorization is not None:
+                self._session.headers["Authorization"] = authorization
         return self._handle_response(resp)
 
     @staticmethod

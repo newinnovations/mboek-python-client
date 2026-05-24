@@ -46,7 +46,9 @@ class ImportResource(BaseResource):
                 object.
             filename: Override the filename sent to the server (used for
                 format detection when ``file`` is a file object without a
-                ``.name`` attribute).
+                usable ``.name`` attribute). Required for unnamed in-memory
+                uploads because the backend uses the filename to detect the
+                statement format.
             allow_duplicates: Set ``True`` to re-import transactions already
                 present, ``False`` to send an explicit ``false`` value, or
                 ``None`` to omit the form field and use the backend default.
@@ -71,8 +73,15 @@ class ImportResource(BaseResource):
                         data=form_data,
                     )
                 )
-        raw_name = getattr(file, "name", "statement.940")
-        fname = filename or Path(raw_name).name
+        fname = filename
+        if fname is None:
+            raw_name = getattr(file, "name", None)
+            if isinstance(raw_name, str):
+                fname = Path(raw_name).name or None
+        if fname is None:
+            raise ValueError(
+                "filename is required when uploading a file object without a usable .name"
+            )
         return parse_import_result(
             self._post_multipart(
                 f"/api/administraties/{self._admin_id}/import",

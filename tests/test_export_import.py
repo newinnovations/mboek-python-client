@@ -119,6 +119,26 @@ def test_import_administratie_xaf_from_path(tmp_path, mocked_responses, client):
     assert _request_body(call) == XAF_XML
 
 
+def test_import_administratie_xaf_from_string_path(tmp_path, mocked_responses, client):
+    source = tmp_path / "administratie.xaf"
+    source.write_text(XAF_XML, encoding="utf-8")
+    mocked_responses.add(
+        responses.POST,
+        f"{BASE_URL}/api/administraties/import/xaf",
+        json=ADMIN_IMPORT_RESULT,
+    )
+
+    result = client.export_import.import_administratie_xaf(
+        str(source), include_btw_codes=False
+    )
+
+    call = mocked_responses.calls[-1]
+    assert isinstance(result, AdministratieImportResult)
+    assert result.administratie_id == 7
+    assert "include_btw_codes=false" in call.request.url
+    assert _request_body(call) == XAF_XML
+
+
 def test_import_administratie_xaf_normalizes_non_utf8_path(
     tmp_path, mocked_responses, client
 ):
@@ -158,7 +178,7 @@ def test_import_boekjaar_xaf_from_text_stream(mocked_responses, client):
     )
 
     result = client.administratie(1).export_import.import_boekjaar_xaf(
-        StringIO(XAF_XML), create_missing=True
+        StringIO(XAF_XML), create_missing=True, include_btw_codes=True
     )
 
     call = mocked_responses.calls[-1]
@@ -167,6 +187,7 @@ def test_import_boekjaar_xaf_from_text_stream(mocked_responses, client):
     assert result.naam == "2024"
     assert result.boekingen_imported == 12
     assert "create_missing=true" in call.request.url
+    assert "include_btw_codes=true" in call.request.url
     assert call.request.headers["Content-Type"] == "application/xml"
     assert _request_body(call) == XAF_XML
 
@@ -233,6 +254,11 @@ def test_bank_import_upload_file_object_omits_allow_duplicates_by_default(
     body = _request_body(mocked_responses.calls[-1])
     assert result.parse_warnings is None
     assert 'name="allow_duplicates"' not in body
+
+
+def test_bank_import_upload_unnamed_file_object_requires_filename(client):
+    with pytest.raises(ValueError, match="filename"):
+        client.administratie(1).import_.upload(BytesIO(b":20:START"))
 
 
 def test_export_boekjaar_xaf(mocked_responses, client):

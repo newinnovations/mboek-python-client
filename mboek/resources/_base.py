@@ -145,13 +145,15 @@ class BaseResource:
             if not isinstance(page, list):
                 raise TypeError("Expected paginated endpoint to return a list")
 
-            items.extend(page)
             received = len(page)
+            if remaining is not None and received >= remaining:
+                items.extend(page[:remaining])
+                break
+
+            items.extend(page)
 
             if remaining is not None:
                 remaining -= received
-                if remaining <= 0:
-                    break
 
             if received < chunk_limit:
                 break

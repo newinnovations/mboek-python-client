@@ -42,8 +42,14 @@ jobs:
         with:
           python-version: 3.12
 
-      - name: Install ruff
-        run: uv venv && uv pip install ruff
+      - name: Install the project
+        run: uv sync --frozen --all-extras --dev
 
       - name: Run ruff
-        run: uv run ruff check mboek/
+        run: uv run ruff check .
+
+      - name: Run ty
+        run: uv run ty check
+
+      - name: Build package
+        run: uv build

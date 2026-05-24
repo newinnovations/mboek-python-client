@@ -28,6 +28,22 @@ def test_list(mocked_responses, client):
     assert "offset=0" in dagboek_calls[-1].request.url
 
 
+def test_list_limit_is_authoritative_when_backend_over_returns(
+    mocked_responses, client
+):
+    other = {**DAGBOEK, "id": 21, "code": "KAS", "naam": "Kasboek"}
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/dagboeken",
+        json=[DAGBOEK, other],
+    )
+
+    items = client.administratie(1).dagboeken.list(limit=1)
+
+    assert len(items) == 1
+    assert items[0].id == 20
+
+
 def test_get(mocked_responses, client):
     mocked_responses.add(
         responses.GET, f"{BASE_URL}/api/administraties/1/dagboeken/20", json=DAGBOEK

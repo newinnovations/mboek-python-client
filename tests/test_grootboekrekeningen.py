@@ -476,6 +476,35 @@ def test_grootboekrekening_lazy_saldo(mocked_responses, client):
     assert len(saldo_calls) == 1
 
 
+def test_grootboekrekening_lazy_saldo_is_shared_across_siblings(
+    mocked_responses, client
+):
+    other = {**GROOTBOEKREKENING, "id": 31, "code": 4000, "naam": "Kosten"}
+    data = [
+        {"rekening": GROOTBOEKREKENING, "aantal_transacties": 2, "saldo": 50000},
+        {"rekening": other, "aantal_transacties": 3, "saldo": 12500},
+    ]
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen",
+        json=[GROOTBOEKREKENING, other],
+    )
+    mocked_responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/administraties/1/grootboekrekeningen/met-saldo/10",
+        json=data,
+    )
+
+    rekeningen = client.administratie(1).grootboekrekeningen.list()
+    bank = rekeningen[0].with_boekjaar(id=10)
+    kosten = rekeningen[1].with_boekjaar(id=10)
+
+    assert bank.saldo == Decimal("500.00")
+    assert kosten.saldo == Decimal("125.00")
+    saldo_calls = [c for c in mocked_responses.calls if "met-saldo" in c.request.url]
+    assert len(saldo_calls) == 1
+
+
 def test_grootboekrekening_lazy_saldo_missing_match_raises(mocked_responses, client):
     other = {**GROOTBOEKREKENING, "id": 31, "code": 4000, "naam": "Kosten"}
     data = [{"rekening": other, "aantal_transacties": 2, "saldo": 50000}]

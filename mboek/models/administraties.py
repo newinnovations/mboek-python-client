@@ -35,7 +35,3 @@ class Administratie:
     bankimport_rekening_id: int | None
     created_at: datetime
     updated_at: datetime
-
-
-# Backward-compatible alias.
-AdministratieResponse = Administratie

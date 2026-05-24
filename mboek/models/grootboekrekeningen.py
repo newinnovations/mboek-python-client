@@ -69,6 +69,9 @@ class Grootboekrekening:
         boekjaar_id: int | None = None,
         saldo: Decimal | None = None,
         aantal_transacties: int | None = None,
+        boekjaar_snapshot_cache: (
+            dict[int, dict[int, tuple[Decimal, int]]] | None
+        ) = None,
     ) -> None:
         self.id = id
         self.administratie_id = administratie_id
@@ -86,6 +89,18 @@ class Grootboekrekening:
         self._boekjaar_id = boekjaar_id
         self._saldo = saldo
         self._aantal_transacties = aantal_transacties
+        if boekjaar_snapshot_cache is None:
+            boekjaar_snapshot_cache = {}
+        self._boekjaar_snapshot_cache = boekjaar_snapshot_cache
+        if (
+            boekjaar_id is not None
+            and saldo is not None
+            and aantal_transacties is not None
+        ):
+            self._boekjaar_snapshot_cache.setdefault(boekjaar_id, {})[id] = (
+                saldo,
+                aantal_transacties,
+            )
 
     # ── Scope helpers ─────────────────────────────────────────────────────────
 
@@ -149,6 +164,7 @@ class Grootboekrekening:
             updated_at=self.updated_at,
             client=self._client,
             boekjaar_id=id,
+            boekjaar_snapshot_cache=self._boekjaar_snapshot_cache,
             # saldo not carried over — will be lazy-fetched for the new boekjaar
         )
 
@@ -169,10 +185,11 @@ class Grootboekrekening:
             updated_at=self.updated_at,
             client=self._client,
             boekjaar_id=None,
+            boekjaar_snapshot_cache=self._boekjaar_snapshot_cache,
         )
 
     def copy(self) -> "Grootboekrekening":
-        """Return an independent copy of this rekening instance."""
+        """Return a copy of this rekening instance."""
         return Grootboekrekening(
             id=self.id,
             administratie_id=self.administratie_id,
@@ -190,6 +207,7 @@ class Grootboekrekening:
             boekjaar_id=self._boekjaar_id,
             saldo=self._saldo,
             aantal_transacties=self._aantal_transacties,
+            boekjaar_snapshot_cache=self._boekjaar_snapshot_cache,
         )
 
     # ── Scoped properties ─────────────────────────────────────────────────────
@@ -246,13 +264,35 @@ class Grootboekrekening:
             )
         if self._client is None:
             raise ScopeError("saldo requires a client reference.")
+        client_snapshot = self._client._gbr_saldo_cache.get(
+            (self.administratie_id, self._boekjaar_id)
+        )
+        if client_snapshot is not None:
+            self._boekjaar_snapshot_cache[self._boekjaar_id] = client_snapshot
+        snapshot = self._boekjaar_snapshot_cache.get(self._boekjaar_id)
+        if snapshot is not None:
+            cached = snapshot.get(self.id)
+            if cached is not None:
+                self._saldo, self._aantal_transacties = cached
+                return
         from mboek.resources.grootboekrekeningen import GrootboekrekeningenResource
 
         rekeningen = GrootboekrekeningenResource(
             self._client, self.administratie_id
         ).met_saldo(self._boekjaar_id)
-        match = next((r for r in rekeningen if r.id == self.id), None)
-        if match is None:
+        snapshot = {}
+        for rekening in rekeningen:
+            if rekening._saldo is None or rekening._aantal_transacties is None:
+                raise AssertionError(
+                    "met_saldo() returned a grootboekrekening without saldo data"
+                )
+            snapshot[rekening.id] = (rekening._saldo, rekening._aantal_transacties)
+        self._boekjaar_snapshot_cache[self._boekjaar_id] = snapshot
+        self._client._gbr_saldo_cache[(self.administratie_id, self._boekjaar_id)] = (
+            snapshot
+        )
+        cached = snapshot.get(self.id)
+        if cached is None:
             raise MboekError(
                 f"met_saldo() did not return grootboekrekening {self.id} "
                 f"for boekjaar {self._boekjaar_id}",
@@ -260,13 +300,10 @@ class Grootboekrekening:
                     "administratie_id": self.administratie_id,
                     "boekjaar_id": self._boekjaar_id,
                     "grootboekrekening_id": self.id,
-                    "returned_grootboekrekening_ids": [
-                        rekening.id for rekening in rekeningen
-                    ],
+                    "returned_grootboekrekening_ids": list(snapshot),
                 },
             )
-        self._saldo = match._saldo
-        self._aantal_transacties = match._aantal_transacties
+        self._saldo, self._aantal_transacties = cached
 
     # ── Scoped methods ────────────────────────────────────────────────────────
 
