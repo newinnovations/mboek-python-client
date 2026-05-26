@@ -1,5 +1,7 @@
 """mboek-client: high-level Python client for the mBoek bookkeeping API."""
 
+from typing import TYPE_CHECKING
+
 from mboek._client import MboekClient
 from mboek._exceptions import (
     AuthError,
@@ -66,6 +68,9 @@ from mboek.models import (
     WinstVerliesReport,
 )
 
+if TYPE_CHECKING:
+    from mboek.resources._admin_scope import AdministratieScope
+
 __all__ = [
     "MboekClient",
     # exceptions
@@ -131,4 +136,6 @@ __all__ = [
     "VacuumResult",
     "WinstVerliesRegel",
     "WinstVerliesReport",
+    # typing-only exports
+    "AdministratieScope",
 ]

@@ -36,6 +36,7 @@ class AdministratieScope:
         self.admin_id = admin_id
 
         # Lazily-initialised child resources
+        self._admin_naam = None
         self._boekjaren = None
         self._dagboeken = None
         self._grootboekrekeningen = None
@@ -45,6 +46,16 @@ class AdministratieScope:
         self._export_import = None
 
     # ── Child resources ───────────────────────────────────────────────────────
+
+    @property
+    def admin_naam(self) -> str:
+        """Administratie name. Makes one HTTP call on first access."""
+        if self._admin_naam is None:
+            from mboek.resources.administraties import AdministratiesResource
+
+            admin = AdministratiesResource(self._client).get(self.admin_id)
+            self._admin_naam = admin.naam
+        return self._admin_naam
 
     @property
     def boekjaren(self) -> "BoekjarenResource":
